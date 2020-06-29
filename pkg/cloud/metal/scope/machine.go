@@ -135,9 +135,9 @@ func (m *MachineScope) GetProviderID() string {
 	return ""
 }
 
-// SetProviderID sets the DOMachine providerID in spec from device id.
-func (m *MachineScope) SetProviderID(deviceID string) {
-	pid := fmt.Sprintf("metal://%s", deviceID)
+// SetProviderID sets the DOMachine providerID in spec from machine id.
+func (m *MachineScope) SetProviderID(machineID string) {
+	pid := fmt.Sprintf("metal://%s", machineID)
 	m.MetalMachine.Spec.ProviderID = pointer.StringPtr(pid)
 }
 
@@ -150,12 +150,12 @@ func (m *MachineScope) GetInstanceID() string {
 	return parsed.ID()
 }
 
-// GetInstanceStatus returns the MetalMachine device instance status from the status.
+// GetInstanceStatus returns the MetalMachine machine instance status from the status.
 func (m *MachineScope) GetInstanceStatus() *infrav1.MetalResourceStatus {
 	return m.MetalMachine.Status.InstanceStatus
 }
 
-// SetInstanceStatus sets the MetalMachine device id.
+// SetInstanceStatus sets the MetalMachine machine id.
 func (m *MachineScope) SetInstanceStatus(v infrav1.MetalResourceStatus) {
 	m.MetalMachine.Status.InstanceStatus = &v
 }

@@ -59,11 +59,11 @@ clusterctl init --infrastructure=metal
 To generate your cluster yaml:
 
 1. Set the required environment variables:
-   * `PACKET_PROJECT_ID` - Metal project ID
-   * `PACKET_FACILITY` - The Metal facility where you wantto deploy the cluster. If not set, it will default to `ewr1`.
+   * `METAL_PROJECT_ID` - Metal project ID
+   * `METAL_PARTITION` - The Metal partition where you want to deploy the cluster.
 1. (Optional) Set the optional environment variables:
    * `CLUSTER_NAME` - The created cluster will have this name. If not set, it will generate one for you, see defaults below.
-   * `NODE_OS` - The operating system to use for the node. If not set, see defaults below.
+   * `NODE_IMAGE` - The operating system to use for the node. If not set, see defaults below.
    * `SSH_KEY` - The path to an ssh public key to place on all of the machines. If not set, it will use whichever ssh keys are defined for your project.
    * `POD_CIDR` - The CIDR to use for your pods; if not set, see defaults below
    * `SERVICE_CIDR` - The CIDR to use for your services; if not set, see defaults below

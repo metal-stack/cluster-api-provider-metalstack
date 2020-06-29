@@ -63,6 +63,14 @@ func main() {
 		BurstSize: 100,
 	})
 
+	// get a metal client
+	client, err := metal.GetClient()
+	if err != nil {
+		setupLog.Error(err, "unable to get Metal client")
+		os.Exit(1)
+	}
+	setupLog.Info("metal client connected")
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:             scheme,
 		MetricsBindAddress: metricsAddr,
@@ -73,13 +81,6 @@ func main() {
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
-		os.Exit(1)
-	}
-
-	// get a metal client
-	client, err := metal.GetClient()
-	if err != nil {
-		setupLog.Error(err, "unable to get Metal client")
 		os.Exit(1)
 	}
 

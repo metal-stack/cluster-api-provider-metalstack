@@ -196,7 +196,7 @@ func (r *MetalMachineReconciler) reconcile(ctx context.Context, machineScope *sc
 	)
 	// if we have no provider ID, then we are creating
 	if providerID != "" {
-		machine, err = r.MetalClient.GetDevice(providerID)
+		machine, err = r.MetalClient.GetMachine(providerID)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -230,9 +230,9 @@ func (r *MetalMachineReconciler) reconcile(ctx context.Context, machineScope *sc
 	machineScope.SetProviderID(*machine.Machine.ID)
 	machineScope.SetInstanceStatus(infrastructurev1alpha3.MetalResourceStatus(*machine.Machine.Liveliness))
 
-	addrs, err := r.MetalClient.GetDeviceAddresses(machine)
+	addrs, err := r.MetalClient.GetMachineAddresses(machine)
 	if err != nil {
-		machineScope.SetErrorMessage(errors.New("failed to getting device addresses"))
+		machineScope.SetErrorMessage(errors.New("failed to getting machine addresses"))
 		return ctrl.Result{}, err
 	}
 	machineScope.SetAddresses(addrs)
@@ -267,7 +267,7 @@ func (r *MetalMachineReconciler) reconcileDelete(ctx context.Context, machineSco
 		return ctrl.Result{}, nil
 	}
 
-	machine, err := r.MetalClient.GetDevice(providerID)
+	machine, err := r.MetalClient.GetMachine(providerID)
 	if err != nil {
 		// FIXME check not found
 		// if err  {

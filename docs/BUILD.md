@@ -115,10 +115,9 @@ Metal release path at https://github.com/metal-stack/cluster-api-provider-metal/
 
 You can override it by running:
 
-```
+```bash
 make cluster CLUSTER_URL=./out/managerless/infrastructure-metal/<version>/clusterctl-<version>.yaml
 ```
-
 
 ## Iterate
 

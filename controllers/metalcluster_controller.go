@@ -109,10 +109,10 @@ func (r *MetalClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, ret
 	_, isNoIP := err.(*MachineNoIP)
 	switch {
 	case err != nil && isNoMachine:
-		logger.Info("Control plane device not found. Requeueing...")
+		logger.Info("Control plane machine not found. Requeueing...")
 		return ctrl.Result{Requeue: true, RequeueAfter: 30 * time.Second}, nil
 	case err != nil && isNoIP:
-		logger.Info("Control plane device not found. Requeueing...")
+		logger.Info("Control plane machine not found. Requeueing...")
 		return ctrl.Result{Requeue: true, RequeueAfter: 30 * time.Second}, nil
 	case err != nil:
 		logger.Error(err, "error getting a control plane ip")
@@ -147,7 +147,7 @@ func (r *MetalClusterReconciler) getIP(cluster *infrastructurev1alpha3.MetalClus
 		metal.GenerateClusterTag(string(cluster.Name)),
 		infrastructurev1alpha3.MasterTag,
 	}
-	mgr, err := r.MetalClient.GetDeviceByTags(cluster.Spec.ProjectID, tags)
+	mgr, err := r.MetalClient.GetMachineByTags(cluster.Spec.ProjectID, tags)
 	if err != nil {
 		return "", fmt.Errorf("error retrieving machine: %v", err)
 	}
@@ -165,7 +165,7 @@ func (r *MetalClusterReconciler) getIP(cluster *infrastructurev1alpha3.MetalClus
 	return machine.Allocation.Networks[0].Ips[0], nil
 }
 
-// MachineNotFound error representing that the requested device was not yet found
+// MachineNotFound error representing that the requested machine was not yet found
 type MachineNotFound struct {
 	err string
 }
@@ -174,7 +174,7 @@ func (e *MachineNotFound) Error() string {
 	return e.err
 }
 
-// MachineNoIP error representing that the requested device does not have an IP yet assigned
+// MachineNoIP error representing that the requested machine does not have an IP yet assigned
 type MachineNoIP struct {
 	err string
 }

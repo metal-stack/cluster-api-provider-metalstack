@@ -1,5 +1,6 @@
-MetalMachine is the name of the resource that identifies a
-[Device](metalDeviceAPI) on Metal.
+# MetalMachine
+
+is the name of the resource that identifies a [Machine](metal-go) on Metal.
 
 This is an example of it:
 
@@ -40,20 +41,18 @@ always available.
 
 You can specify the reservation ID using the field `hardwareReservationID`:
 
-```
+```yaml
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
 kind: MetalMachine
 metadata:
   name: "qa-master-0"
 spec:
-  OS: "ubuntu_18_04"
-  facility:
+  image: "ubuntu-19.10"
+  partition:
   - "dfw2"
-  billingCycle: hourly
-  machineType: "t2.small"
+  machineType: "c1-xlarge-x86"
   sshKeys:
   - "your-sshkey-name"
-  hardwareReservationID: "d3cb029a-c5e4-4e2b-bafc-56266639685f"
   tags: []
 ```
 
@@ -69,7 +68,7 @@ where the pool of MetalMachine is dynamically managed by the cluster-api
 controllers. You can track progress on this scenario subscribing to the issue
 ["Add support for reservation IDs with MachineDeployment #136"](github-issue-resid-dynamic) on GitHub.
 
-[metalDeviceAPI]: https://www.metal.com/developers/api/devices/#devices-createDevice
+[metal-go]: https://github.com/metal-stack/metal-go
 [crd-docs]: https://github.com/metal-stack/cluster-api-provider-metal/blob/master/config/resources/crd/bases/infrastructure.cluster.x-k8s.io_metalmachines.yaml
 [openapi-types]: https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/
 [metal-docs-reserved-hardware]: https://www.metal.com/developers/docs/getting-started/deployment-options/reserved-hardware/

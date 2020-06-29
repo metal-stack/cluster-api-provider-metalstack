@@ -74,9 +74,9 @@ kind: MetalMachine
 metadata:
   name: "${CLUSTER_NAME}-master-0"
 spec:
-  OS: "${NODE_OS}"
-  facility:
-  - "${FACILITY}"
+  image: "${NODE_IMAGE}"
+  partition:
+  - "${PARTITION}"
   billingCycle: hourly
   machineType: "${MASTER_NODE_TYPE}"
   sshKeys:
@@ -122,10 +122,9 @@ metadata:
 spec:
   template:
     spec:
-      OS: "${NODE_OS}"
-      facility:
-      - "${FACILITY}"
-      billingCycle: hourly
+      image: "${NODE_IMAGE}"
+      partition:
+      - "${PARTITION}"
       machineType: "${WORKER_NODE_TYPE}"
       sshKeys:
       - "${SSH_KEY}"

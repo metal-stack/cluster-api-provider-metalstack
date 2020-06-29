@@ -41,7 +41,7 @@ type MetalMachineSpec struct {
 	MachineType string   `json:"machineType"`
 	SSHKeys     []string `json:"sshKeys,omitempty"`
 
-	// HardwareReservationID is the unique device hardware reservation ID or `next-available` to
+	// HardwareReservationID is the unique machine hardware reservation ID or `next-available` to
 	// automatically let the Metal api determine one.
 	// +optional
 	HardwareReservationID string `json:"hardwareReservationID,omitempty"`
@@ -64,10 +64,10 @@ type MetalMachineStatus struct {
 	// +optional
 	Ready bool `json:"ready"`
 
-	// Addresses contains the Metal device associated addresses.
+	// Addresses contains the Metal machine associated addresses.
 	Addresses []corev1.NodeAddress `json:"addresses,omitempty"`
 
-	// InstanceStatus is the status of the Metal device instance for this machine.
+	// InstanceStatus is the status of the Metal machine instance for this machine.
 	// +optional
 	InstanceStatus *MetalResourceStatus `json:"instanceStatus,omitempty"`
 

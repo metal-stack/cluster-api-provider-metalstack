@@ -24,7 +24,7 @@ var (
 	// The Metal infrastucture uses a queue to avoid any abuse. So a resource
 	// does not get created straigh away but it can wait for a bit in a queue.
 	MetalResourceStatusNew = MetalResourceStatus("new")
-	// MetalResourceStatusQueued represents a device waiting for his turn to be provisioned.
+	// MetalResourceStatusQueued represents a machine waiting for his turn to be provisioned.
 	// Time in queue depends on how many creation requests you already issued, or
 	// from how many resources waiting to be deleted we have for you.
 	MetalResourceStatusQueued = MetalResourceStatus("queued")

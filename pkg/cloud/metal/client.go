@@ -27,7 +27,10 @@ import (
 	metalgo "github.com/metal-stack/metal-go"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
+
+var clientLog = ctrl.Log.WithName("client")
 
 const (
 	apiTokenVarName = "METAL_API_TOKEN"
@@ -40,40 +43,31 @@ type MetalClient struct {
 	*metalgo.Driver
 }
 
-// NewClient creates a new Client for the given Metal credentials
-func NewClient(metalAPIURL, metalAPIToken, metalAPIKey string) *MetalClient {
-	token := strings.TrimSpace(metalAPIKey)
-
-	if token != "" {
-		driver, err := metalgo.NewDriver(metalAPIURL, metalAPIToken, metalAPIKey)
-		if err != nil {
-			return nil
-		}
-		return &MetalClient{driver}
-	}
-
-	return nil
+// newClient creates a new Client for the given Metal credentials
+func newClient(metalAPIURL, metalAPIToken, metalAPIKey string) (*MetalClient, error) {
+	driver, err := metalgo.NewDriver(metalAPIURL, metalAPIToken, metalAPIKey)
+	return &MetalClient{driver}, err
 }
 
 func GetClient() (*MetalClient, error) {
-	url := os.Getenv(apiURLVarName)
-	token := os.Getenv(apiTokenVarName)
-	key := os.Getenv(apiKeyVarName)
-	if token == "" {
-		return nil, fmt.Errorf("env var %s is required", apiTokenVarName)
+	url := strings.TrimSpace(os.Getenv(apiURLVarName))
+	token := strings.TrimSpace(os.Getenv(apiTokenVarName))
+	key := strings.TrimSpace(os.Getenv(apiKeyVarName))
+	if token == "" && key == "" {
+		return nil, fmt.Errorf("env var %s or %s is required", apiTokenVarName, apiKeyVarName)
 	}
 	if url == "" {
 		return nil, fmt.Errorf("env var %s is required", apiURLVarName)
 	}
-	return NewClient(url, token, key), nil
+	return newClient(url, token, key)
 }
 
-func (c *MetalClient) GetDevice(deviceID string) (*metalgo.MachineGetResponse, error) {
-	dev, err := c.MachineGet(deviceID)
+func (c *MetalClient) GetMachine(machineID string) (*metalgo.MachineGetResponse, error) {
+	dev, err := c.MachineGet(machineID)
 	return dev, err
 }
 
-func (c *MetalClient) NewDevice(hostname, project string, machineScope *scope.MachineScope, extraTags []string) (*metalgo.MachineCreateResponse, error) {
+func (c *MetalClient) NewMachine(hostname, project string, machineScope *scope.MachineScope, extraTags []string) (*metalgo.MachineCreateResponse, error) {
 	userDataRaw, err := machineScope.GetRawBootstrapData()
 	if err != nil {
 		return nil, errors.Wrap(err, "impossible to retrieve bootstrap data from secret")
@@ -112,7 +106,7 @@ func (c *MetalClient) NewDevice(hostname, project string, machineScope *scope.Ma
 	return dev, err
 }
 
-func (c *MetalClient) GetDeviceAddresses(machine *metalgo.MachineGetResponse) ([]corev1.NodeAddress, error) {
+func (c *MetalClient) GetMachineAddresses(machine *metalgo.MachineGetResponse) ([]corev1.NodeAddress, error) {
 	addrs := make([]corev1.NodeAddress, 0)
 	for _, network := range machine.Machine.Allocation.Networks {
 		addrType := corev1.NodeInternalIP
@@ -128,11 +122,14 @@ func (c *MetalClient) GetDeviceAddresses(machine *metalgo.MachineGetResponse) ([
 	return addrs, nil
 }
 
-func (c *MetalClient) GetDeviceByTags(project string, tags []string) (*metalgo.MachineListResponse, error) {
+func (c *MetalClient) GetMachineByTags(project string, tags []string) (*metalgo.MachineListResponse, error) {
 	mfr := metalgo.MachineFindRequest{AllocationProject: &project, Tags: tags}
+	if c == nil {
+		return nil, fmt.Errorf("metal-go client is nil")
+	}
 	machines, err := c.MachineFind(&mfr)
 	if err != nil {
-		return nil, fmt.Errorf("Error retrieving devices: %v", err)
+		return nil, fmt.Errorf("Error retrieving machines: %v", err)
 	}
 
 	return machines, nil
