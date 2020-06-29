@@ -96,7 +96,18 @@ func (c *MetalClient) NewMachine(hostname, project string, machineScope *scope.M
 	} else {
 		tags = append(tags, infrastructurev1alpha3.WorkerTag)
 	}
-	serverCreateOpts := &metalgo.MachineCreateRequest{
+	networks := []metalgo.MachineAllocationNetwork{
+		{NetworkID: privateNetwork, Autoacquire: true},
+	}
+	for _, additionalNetwork := range machineScope.MetalCluster.Spec.AdditionalNetworks {
+		anw := metalgo.MachineAllocationNetwork{
+			NetworkID:   additionalNetwork,
+			Autoacquire: true,
+		}
+		networks = append(networks, anw)
+	}
+
+	machineCreateRequest := &metalgo.MachineCreateRequest{
 		Name:     hostname,
 		Hostname: hostname,
 
@@ -104,22 +115,12 @@ func (c *MetalClient) NewMachine(hostname, project string, machineScope *scope.M
 		Partition: machineScope.MetalMachine.Spec.Partition,
 		Image:     machineScope.MetalMachine.Spec.Image,
 		Size:      machineScope.MetalMachine.Spec.MachineType,
-		Networks: []metalgo.MachineAllocationNetwork{
-			{
-				NetworkID:   privateNetwork,
-				Autoacquire: true,
-			},
-			{
-				// FIXME remove hardcoded value
-				NetworkID:   "internet",
-				Autoacquire: true,
-			},
-		},
-		Tags:     tags,
-		UserData: userData,
+		Networks:  networks,
+		Tags:      tags,
+		UserData:  userData,
 	}
 
-	return c.MachineCreate(serverCreateOpts)
+	return c.MachineCreate(machineCreateRequest)
 }
 
 func (c *MetalClient) GetMachineAddresses(machine *models.V1MachineResponse) ([]corev1.NodeAddress, error) {

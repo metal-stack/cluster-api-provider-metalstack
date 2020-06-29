@@ -10,11 +10,9 @@ kind: MetalMachine
 metadata:
   name: "qa-master-0"
 spec:
-  OS: "ubuntu_18_04"
-  facility:
-  - "dfw2"
-  billingCycle: hourly
-  machineType: "t2.small"
+  image: "ubuntu-19.10"
+  partition: "fra-equ01"
+  machineType: "t1-small-x86"
   sshKeys:
   - "your-sshkey-name"
   tags: []

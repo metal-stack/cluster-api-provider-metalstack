@@ -32,6 +32,9 @@ type MetalClusterSpec struct {
 	// Foo is an example field of MetalCluster. Edit MetalCluster_types.go to remove/update
 	ProjectID string `json:"projectID"`
 
+	// AdditionalNetworks this cluster should be part of
+	AdditionalNetworks []string `json:"additionalNetworks"`
+
 	// PrivateNetworkID is the id if the network which connects the machine together
 	PrivateNetworkID string `json:"privateNetworkID"`
 

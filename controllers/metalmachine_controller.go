@@ -213,7 +213,7 @@ func (r *MetalMachineReconciler) reconcile(ctx context.Context, machineScope *sc
 		privateNetwork = nwID
 	}
 
-	if machine == nil {
+	if machine == nil || machine.ID == nil {
 		// generate a unique UID that will survive pivot, i.e. is not tied to the cluster itself
 		mUID := uuid.New().String()
 		tags := []string{
@@ -222,26 +222,33 @@ func (r *MetalMachineReconciler) reconcile(ctx context.Context, machineScope *sc
 		}
 
 		name := machineScope.Name()
-		//name, clusterScope.MetalCluster.Spec.ProjectID, machineScope, tags
+
+		networks := []metalgo.MachineAllocationNetwork{
+			{NetworkID: privateNetwork, Autoacquire: true},
+		}
+		for _, additionalNetwork := range machineScope.MetalCluster.Spec.AdditionalNetworks {
+			anw := metalgo.MachineAllocationNetwork{
+				NetworkID:   additionalNetwork,
+				Autoacquire: true,
+			}
+			networks = append(networks, anw)
+		}
+		userDataRaw, err := machineScope.GetRawBootstrapData()
+		if err != nil {
+			return ctrl.Result{}, errors.Wrap(err, "impossible to retrieve bootstrap data from secret")
+		}
+		userData := string(userDataRaw)
+
 		mcr := metalgo.MachineCreateRequest{
 			Name:      name,
 			Hostname:  name,
 			Project:   clusterScope.MetalCluster.Spec.ProjectID,
 			Partition: machineScope.MetalMachine.Spec.Partition,
 			Image:     machineScope.MetalMachine.Spec.Image,
-			Networks: []metalgo.MachineAllocationNetwork{
-				{
-					NetworkID:   privateNetwork,
-					Autoacquire: true,
-				},
-				{
-					// FIXME remove hardcoded value
-					NetworkID:   "internet",
-					Autoacquire: true,
-				},
-			},
-			Size: machineScope.MetalMachine.Spec.MachineType,
-			Tags: tags,
+			Networks:  networks,
+			Size:      machineScope.MetalMachine.Spec.MachineType,
+			Tags:      tags,
+			UserData:  userData,
 		}
 		response, err := r.MetalClient.MachineCreate(&mcr)
 		if err != nil {
@@ -255,6 +262,7 @@ func (r *MetalMachineReconciler) reconcile(ctx context.Context, machineScope *sc
 			machineScope.SetErrorMessage(errs)
 			return ctrl.Result{}, errs
 		}
+		machine = response.Machine
 	}
 
 	// we do not need to set this as metal://<id> because SetProviderID() does the formatting for us
