@@ -73,7 +73,7 @@ func (r *MetalClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, ret
 	}
 
 	if cluster == nil {
-		logger.Info("OwenerCluster is not set yet. Requeuing...")
+		logger.Info("OwnerCluster is not set yet. Requeuing...")
 		return ctrl.Result{
 			Requeue:      true,
 			RequeueAfter: 2 * time.Second,

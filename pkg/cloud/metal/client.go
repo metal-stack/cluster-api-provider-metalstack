@@ -63,8 +63,7 @@ func GetClient() (*MetalClient, error) {
 }
 
 func (c *MetalClient) GetMachine(machineID string) (*metalgo.MachineGetResponse, error) {
-	dev, err := c.MachineGet(machineID)
-	return dev, err
+	return c.MachineGet(machineID)
 }
 
 func (c *MetalClient) NewMachine(hostname, project string, machineScope *scope.MachineScope, extraTags []string) (*metalgo.MachineCreateResponse, error) {
@@ -93,17 +92,18 @@ func (c *MetalClient) NewMachine(hostname, project string, machineScope *scope.M
 		tags = append(tags, infrastructurev1alpha3.WorkerTag)
 	}
 	serverCreateOpts := &metalgo.MachineCreateRequest{
+		Name:     hostname,
 		Hostname: hostname,
 
 		Project:   project,
 		Partition: machineScope.MetalMachine.Spec.Partition,
 		Image:     machineScope.MetalMachine.Spec.Image,
+		Size:      machineScope.MetalMachine.Spec.MachineType,
 		Tags:      tags,
 		UserData:  userData,
 	}
 
-	dev, err := c.MachineCreate(serverCreateOpts)
-	return dev, err
+	return c.MachineCreate(serverCreateOpts)
 }
 
 func (c *MetalClient) GetMachineAddresses(machine *metalgo.MachineGetResponse) ([]corev1.NodeAddress, error) {

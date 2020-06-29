@@ -212,14 +212,21 @@ func (r *MetalMachineReconciler) reconcile(ctx context.Context, machineScope *sc
 		name := machineScope.Name()
 		//name, clusterScope.MetalCluster.Spec.ProjectID, machineScope, tags
 		mcr := metalgo.MachineCreateRequest{
-			Name:     name,
-			Hostname: name,
-			Project:  clusterScope.MetalCluster.Spec.ProjectID,
-			Tags:     tags,
+			Name:      name,
+			Hostname:  name,
+			Project:   clusterScope.MetalCluster.Spec.ProjectID,
+			Partition: machineScope.MetalMachine.Spec.Partition,
+			Image:     machineScope.MetalMachine.Spec.Image,
+			Size:      machineScope.MetalMachine.Spec.MachineType,
+			Tags:      tags,
 		}
 		machine, err := r.MetalClient.MachineCreate(&mcr)
 		if err != nil {
-			errs := fmt.Errorf("failed to create machine %s %s: %v", *machine.Machine.ID, name, err)
+			machineID := ""
+			if machine.Machine != nil && machine.Machine.ID != nil {
+				machineID = *machine.Machine.ID
+			}
+			errs := fmt.Errorf("failed to create machine %s %s: %v", machineID, name, err)
 			machineScope.SetErrorReason(capierrors.CreateMachineError)
 			machineScope.SetErrorMessage(errs)
 			return ctrl.Result{}, errs
