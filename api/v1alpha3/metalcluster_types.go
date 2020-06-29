@@ -24,12 +24,12 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// PacketClusterSpec defines the desired state of PacketCluster
-type PacketClusterSpec struct {
+// MetalClusterSpec defines the desired state of MetalCluster
+type MetalClusterSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of PacketCluster. Edit PacketCluster_types.go to remove/update
+	// Foo is an example field of MetalCluster. Edit MetalCluster_types.go to remove/update
 	ProjectID string `json:"projectID"`
 
 	// ControlPlaneEndpoint represents the endpoint used to communicate with the control plane.
@@ -37,8 +37,8 @@ type PacketClusterSpec struct {
 	ControlPlaneEndpoint clusterv1.APIEndpoint `json:"controlPlaneEndpoint"`
 }
 
-// PacketClusterStatus defines the observed state of PacketCluster
-type PacketClusterStatus struct {
+// MetalClusterStatus defines the observed state of MetalCluster
+type MetalClusterStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
@@ -50,24 +50,24 @@ type PacketClusterStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:object:root=true
 
-// PacketCluster is the Schema for the packetclusters API
-type PacketCluster struct {
+// MetalCluster is the Schema for the Metalclusters API
+type MetalCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   PacketClusterSpec   `json:"spec,omitempty"`
-	Status PacketClusterStatus `json:"status,omitempty"`
+	Spec   MetalClusterSpec   `json:"spec,omitempty"`
+	Status MetalClusterStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// PacketClusterList contains a list of PacketCluster
-type PacketClusterList struct {
+// MetalClusterList contains a list of MetalCluster
+type MetalClusterList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []PacketCluster `json:"items"`
+	Items           []MetalCluster `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&PacketCluster{}, &PacketClusterList{})
+	SchemeBuilder.Register(&MetalCluster{}, &MetalClusterList{})
 }

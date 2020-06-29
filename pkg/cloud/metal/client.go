@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package packet
+package metal
 
 import (
 	"fmt"
@@ -22,53 +22,64 @@ import (
 	"strings"
 	"text/template"
 
-	infrastructurev1alpha3 "github.com/packethost/cluster-api-provider-packet/api/v1alpha3"
-	"github.com/packethost/cluster-api-provider-packet/pkg/cloud/packet/scope"
-	"github.com/packethost/packngo"
+	infrastructurev1alpha3 "github.com/metal-stack/cluster-api-provider-metal/api/v1alpha3"
+	"github.com/metal-stack/cluster-api-provider-metal/pkg/cloud/metal/scope"
+	metalgo "github.com/metal-stack/metal-go"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 )
 
 const (
-	apiTokenVarName = "PACKET_API_KEY"
+	apiTokenVarName = "METAL_API_TOKEN"
+	apiKeyVarName   = "METAL_API_KEY"
+	apiURLVarName   = "METAL_API_URL"
 	clientName      = "CAPP-v1alpha3"
 )
 
-type PacketClient struct {
-	*packngo.Client
+type MetalClient struct {
+	*metalgo.Driver
 }
 
-// NewClient creates a new Client for the given Packet credentials
-func NewClient(packetAPIKey string) *PacketClient {
-	token := strings.TrimSpace(packetAPIKey)
+// NewClient creates a new Client for the given Metal credentials
+func NewClient(metalAPIURL, metalAPIToken, metalAPIKey string) *MetalClient {
+	token := strings.TrimSpace(metalAPIKey)
 
 	if token != "" {
-		return &PacketClient{packngo.NewClientWithAuth(clientName, token, nil)}
+		driver, err := metalgo.NewDriver(metalAPIURL, metalAPIToken, metalAPIKey)
+		if err != nil {
+			return nil
+		}
+		return &MetalClient{driver}
 	}
 
 	return nil
 }
 
-func GetClient() (*PacketClient, error) {
+func GetClient() (*MetalClient, error) {
+	url := os.Getenv(apiURLVarName)
 	token := os.Getenv(apiTokenVarName)
+	key := os.Getenv(apiKeyVarName)
 	if token == "" {
 		return nil, fmt.Errorf("env var %s is required", apiTokenVarName)
 	}
-	return NewClient(token), nil
+	if url == "" {
+		return nil, fmt.Errorf("env var %s is required", apiURLVarName)
+	}
+	return NewClient(url, token, key), nil
 }
 
-func (p *PacketClient) GetDevice(deviceID string) (*packngo.Device, error) {
-	dev, _, err := p.Client.Devices.Get(deviceID, nil)
+func (c *MetalClient) GetDevice(deviceID string) (*metalgo.MachineGetResponse, error) {
+	dev, err := c.MachineGet(deviceID)
 	return dev, err
 }
 
-func (p *PacketClient) NewDevice(hostname, project string, machineScope *scope.MachineScope, extraTags []string) (*packngo.Device, error) {
+func (c *MetalClient) NewDevice(hostname, project string, machineScope *scope.MachineScope, extraTags []string) (*metalgo.MachineCreateResponse, error) {
 	userDataRaw, err := machineScope.GetRawBootstrapData()
 	if err != nil {
 		return nil, errors.Wrap(err, "impossible to retrieve bootstrap data from secret")
 	}
 	userData := string(userDataRaw)
-	tags := append(machineScope.PacketMachine.Spec.Tags, extraTags...)
+	tags := append(machineScope.MetalMachine.Spec.Tags, extraTags...)
 	if machineScope.IsControlPlane() {
 		// control plane machines should get the API key injected
 		tmpl, err := template.New("control-plane-user-data").Parse(userData)
@@ -77,7 +88,7 @@ func (p *PacketClient) NewDevice(hostname, project string, machineScope *scope.M
 		}
 		stringWriter := &strings.Builder{}
 		apiKeyStruct := map[string]interface{}{
-			"apiKey": p.Client.APIKey,
+			"apiKey": os.Getenv(apiKeyVarName),
 		}
 		if err := tmpl.Execute(stringWriter, apiKeyStruct); err != nil {
 			return nil, fmt.Errorf("error executing control-plane userdata template: %v", err)
@@ -87,48 +98,42 @@ func (p *PacketClient) NewDevice(hostname, project string, machineScope *scope.M
 	} else {
 		tags = append(tags, infrastructurev1alpha3.WorkerTag)
 	}
-	serverCreateOpts := &packngo.DeviceCreateRequest{
-		Hostname:              hostname,
-		ProjectID:             project,
-		Facility:              machineScope.PacketMachine.Spec.Facility,
-		BillingCycle:          machineScope.PacketMachine.Spec.BillingCycle,
-		HardwareReservationID: machineScope.PacketMachine.Spec.HardwareReservationID,
-		Plan:                  machineScope.PacketMachine.Spec.MachineType,
-		OS:                    machineScope.PacketMachine.Spec.OS,
-		Tags:                  tags,
-		UserData:              userData,
+	serverCreateOpts := &metalgo.MachineCreateRequest{
+		Hostname: hostname,
+
+		Project:   project,
+		Partition: machineScope.MetalMachine.Spec.Partition,
+		Image:     machineScope.MetalMachine.Spec.Image,
+		Tags:      tags,
+		UserData:  userData,
 	}
 
-	dev, _, err := p.Client.Devices.Create(serverCreateOpts)
+	dev, err := c.MachineCreate(serverCreateOpts)
 	return dev, err
 }
 
-func (p *PacketClient) GetDeviceAddresses(device *packngo.Device) ([]corev1.NodeAddress, error) {
+func (c *MetalClient) GetDeviceAddresses(machine *metalgo.MachineGetResponse) ([]corev1.NodeAddress, error) {
 	addrs := make([]corev1.NodeAddress, 0)
-	for _, addr := range device.Network {
+	for _, network := range machine.Machine.Allocation.Networks {
 		addrType := corev1.NodeInternalIP
-		if addr.IpAddressCommon.Public {
+		if !*network.Private {
 			addrType = corev1.NodeExternalIP
 		}
 		a := corev1.NodeAddress{
 			Type:    addrType,
-			Address: addr.String(),
+			Address: network.Ips[0],
 		}
 		addrs = append(addrs, a)
 	}
 	return addrs, nil
 }
 
-func (p *PacketClient) GetDeviceByTags(project string, tags []string) (*packngo.Device, error) {
-	devices, _, err := p.Devices.List(project, nil)
+func (c *MetalClient) GetDeviceByTags(project string, tags []string) (*metalgo.MachineListResponse, error) {
+	mfr := metalgo.MachineFindRequest{AllocationProject: &project, Tags: tags}
+	machines, err := c.MachineFind(&mfr)
 	if err != nil {
 		return nil, fmt.Errorf("Error retrieving devices: %v", err)
 	}
-	// returns the first one that matches all of the tags
-	for _, device := range devices {
-		if ItemsInList(device.Tags, tags) {
-			return &device, nil
-		}
-	}
-	return nil, nil
+
+	return machines, nil
 }

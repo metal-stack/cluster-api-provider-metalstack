@@ -5,7 +5,7 @@
 # - control-plane kubeadm
 
 images:
-- name: "packethost/cluster-api-packet-controller"
+- name: "metalstack/cluster-api-metal-controller"
   loadBehavior: mustLoad
 
 providers:
@@ -46,7 +46,7 @@ providers:
     - old: "--enable-leader-election"
       new: "--enable-leader-election=false"
 
-- name: packet
+- name: metal
   type: InfrastructureProvider
   versions:
   - name: v0.3.0

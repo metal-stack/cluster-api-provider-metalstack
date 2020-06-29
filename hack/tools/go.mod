@@ -1,4 +1,4 @@
-module github.com/packethost/cluster-api-provider-packet/hack/tools
+module github.com/metal-stack/cluster-api-provider-metal/hack/tools
 
 go 1.14
 

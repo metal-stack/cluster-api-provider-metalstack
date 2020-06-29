@@ -1,6 +1,6 @@
 # Release
 
-This document describes how to release the Packet infrastructure provider.
+This document describes how to release the Metal infrastructure provider.
 
 This is _not_ intended for regular users.
 
@@ -44,7 +44,7 @@ In the next stage, we will eliminate the need for a git tag, and use CI to apply
 When the VERSION file changes:
 
 * CI creates the release in `out/`, the equivalent of `make release-manifests`
-* CI copies the artifacts in `out/release/infrastructure-packet/<version>/*yaml` to the github releases
+* CI copies the artifacts in `out/release/infrastructure-metal/<version>/*yaml` to the github releases
 * CI builds docker images for each supported architecture as well as a multi-arch manifest, and tags it with:
   * the git hash of the commit
   * `master`

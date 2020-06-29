@@ -1,20 +1,24 @@
-# permissions for end users to view packetclusters.
+# permissions for end users to edit metalclusters.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: packetcluster-viewer-role
+  name: metalcluster-editor-role
 rules:
 - apiGroups:
   - infrastructure.cluster.x-k8s.io
   resources:
-  - packetclusters
+  - metalclusters
   verbs:
+  - create
+  - delete
   - get
   - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - infrastructure.cluster.x-k8s.io
   resources:
-  - packetclusters/status
+  - metalclusters/status
   verbs:
   - get

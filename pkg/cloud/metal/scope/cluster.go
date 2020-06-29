@@ -22,7 +22,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 
-	infrav1 "github.com/packethost/cluster-api-provider-packet/api/v1alpha3"
+	infrav1 "github.com/metal-stack/cluster-api-provider-metal/api/v1alpha3"
 
 	"k8s.io/klog/klogr"
 
@@ -33,36 +33,36 @@ import (
 
 // ClusterScopeParams defines the input parameters used to create a new Scope.
 type ClusterScopeParams struct {
-	Client        client.Client
-	Logger        logr.Logger
-	Cluster       *clusterv1.Cluster
-	PacketCluster *infrav1.PacketCluster
+	Client       client.Client
+	Logger       logr.Logger
+	Cluster      *clusterv1.Cluster
+	MetalCluster *infrav1.MetalCluster
 }
 
 // NewClusterScope creates a new ClusterScope from the supplied parameters.
-// This is meant to be called for each reconcile iteration only on PacketClusterReconciler.
+// This is meant to be called for each reconcile iteration only on MetalClusterReconciler.
 func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 	if params.Cluster == nil {
 		return nil, errors.New("Cluster is required when creating a ClusterScope")
 	}
-	if params.PacketCluster == nil {
-		return nil, errors.New("PacketCluster is required when creating a ClusterScope")
+	if params.MetalCluster == nil {
+		return nil, errors.New("MetalCluster is required when creating a ClusterScope")
 	}
 	if params.Logger == nil {
 		params.Logger = klogr.New()
 	}
 
-	helper, err := patch.NewHelper(params.PacketCluster, params.Client)
+	helper, err := patch.NewHelper(params.MetalCluster, params.Client)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to init patch helper")
 	}
 
 	return &ClusterScope{
-		Logger:        params.Logger,
-		client:        params.Client,
-		Cluster:       params.Cluster,
-		PacketCluster: params.PacketCluster,
-		patchHelper:   helper,
+		Logger:       params.Logger,
+		client:       params.Client,
+		Cluster:      params.Cluster,
+		MetalCluster: params.MetalCluster,
+		patchHelper:  helper,
 	}, nil
 }
 
@@ -72,13 +72,13 @@ type ClusterScope struct {
 	client      client.Client
 	patchHelper *patch.Helper
 
-	Cluster       *clusterv1.Cluster
-	PacketCluster *infrav1.PacketCluster
+	Cluster      *clusterv1.Cluster
+	MetalCluster *infrav1.MetalCluster
 }
 
 // Close closes the current scope persisting the cluster configuration and status.
 func (s *ClusterScope) Close() error {
-	return s.patchHelper.Patch(context.TODO(), s.PacketCluster)
+	return s.patchHelper.Patch(context.TODO(), s.MetalCluster)
 }
 
 // Name returns the cluster name.
@@ -91,7 +91,7 @@ func (s *ClusterScope) Namespace() string {
 	return s.Cluster.GetNamespace()
 }
 
-// SetReady sets the PacketCluster Ready Status
+// SetReady sets the MetalCluster Ready Status
 func (s *ClusterScope) SetReady() {
-	s.PacketCluster.Status.Ready = true
+	s.MetalCluster.Status.Ready = true
 }

@@ -16,7 +16,7 @@ jobs:
       id: get_version
       run: | 
         echo ::set-env name=VERSION::${GITHUB_REF/refs\/tags\//}
-        echo ::set-env name=IMAGENAME::packethost/cluster-api-provider-packet
+        echo ::set-env name=IMAGENAME::metalstack/cluster-api-provider-metal
         echo ::set-env name=COMMIT::${GITHUB_SHA}
     - name: information
       run: echo "checking for existence of image ${IMAGENAME}:${COMMIT}. If it does not exist, this will fail; wait for an earlier PR merge action to complete and re-run this job."
@@ -67,7 +67,7 @@ jobs:
          # more info:
          # https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: out/release/infrastructure-packet/${{ env.VERSION }}/cluster-template.yaml
+          asset_path: out/release/infrastructure-metal/${{ env.VERSION }}/cluster-template.yaml
           asset_name: cluster-template.yaml
           asset_content_type: application/yaml
       - name: Upload clusterctl
@@ -76,7 +76,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: out/release/infrastructure-packet/${{ env.VERSION }}/clusterctl.yaml
+          asset_path: out/release/infrastructure-metal/${{ env.VERSION }}/clusterctl.yaml
           asset_name: clusterctl.yaml
           asset_content_type: application/yaml
       - name: Upload infrastructure-components
@@ -85,7 +85,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: out/release/infrastructure-packet/${{ env.VERSION }}/infrastructure-components.yaml
+          asset_path: out/release/infrastructure-metal/${{ env.VERSION }}/infrastructure-components.yaml
           asset_name: infrastructure-components.yaml
           asset_content_type: application/yaml
       - name: Upload infrastructure-components
@@ -94,7 +94,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: out/release/infrastructure-packet/${{ env.VERSION }}/metadata.yaml
+          asset_path: out/release/infrastructure-metal/${{ env.VERSION }}/metadata.yaml
           asset_name: metadata.yaml
           asset_content_type: application/yaml
 
@@ -109,7 +109,7 @@ jobs:
       id: get_version
       run: | 
         echo ::set-env name=VERSION::${GITHUB_REF/refs\/tags\//}
-        echo ::set-env name=IMAGENAME::packethost/cluster-api-provider-packet
+        echo ::set-env name=IMAGENAME::metalstack/cluster-api-provider-metal
         echo ::set-env name=COMMIT::${GITHUB_SHA}
     - name: get-image
       run: docker image pull ${IMAGENAME}:${COMMIT}

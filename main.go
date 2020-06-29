@@ -26,10 +26,10 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	packet "github.com/packethost/cluster-api-provider-packet/pkg/cloud/packet"
+	metal "github.com/metal-stack/cluster-api-provider-metal/pkg/cloud/metal"
 
-	infrastructurev1alpha3 "github.com/packethost/cluster-api-provider-packet/api/v1alpha3"
-	"github.com/packethost/cluster-api-provider-packet/controllers"
+	infrastructurev1alpha3 "github.com/metal-stack/cluster-api-provider-metal/api/v1alpha3"
+	"github.com/metal-stack/cluster-api-provider-metal/controllers"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	// +kubebuilder:scaffold:imports
 )
@@ -76,31 +76,31 @@ func main() {
 		os.Exit(1)
 	}
 
-	// get a packet client
-	client, err := packet.GetClient()
+	// get a metal client
+	client, err := metal.GetClient()
 	if err != nil {
-		setupLog.Error(err, "unable to get Packet client")
+		setupLog.Error(err, "unable to get Metal client")
 		os.Exit(1)
 	}
 
-	if err = (&controllers.PacketClusterReconciler{
-		Client:       mgr.GetClient(),
-		Log:          ctrl.Log.WithName("controllers").WithName("PacketCluster"),
-		Recorder:     mgr.GetEventRecorderFor("packetcluster-controller"),
-		PacketClient: client,
-		Scheme:       mgr.GetScheme(),
+	if err = (&controllers.MetalClusterReconciler{
+		Client:      mgr.GetClient(),
+		Log:         ctrl.Log.WithName("controllers").WithName("MetalCluster"),
+		Recorder:    mgr.GetEventRecorderFor("metalcluster-controller"),
+		MetalClient: client,
+		Scheme:      mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "PacketCluster")
+		setupLog.Error(err, "unable to create controller", "controller", "MetalCluster")
 		os.Exit(1)
 	}
-	if err = (&controllers.PacketMachineReconciler{
-		Client:       mgr.GetClient(),
-		Log:          ctrl.Log.WithName("controllers").WithName("PacketMachine"),
-		Scheme:       mgr.GetScheme(),
-		Recorder:     mgr.GetEventRecorderFor("packetmachine-controller"),
-		PacketClient: client,
+	if err = (&controllers.MetalMachineReconciler{
+		Client:      mgr.GetClient(),
+		Log:         ctrl.Log.WithName("controllers").WithName("MetalMachine"),
+		Scheme:      mgr.GetScheme(),
+		Recorder:    mgr.GetEventRecorderFor("metalmachine-controller"),
+		MetalClient: client,
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "PacketMachine")
+		setupLog.Error(err, "unable to create controller", "controller", "MetalMachine")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder

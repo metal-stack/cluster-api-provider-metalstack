@@ -16,34 +16,34 @@ limitations under the License.
 
 package v1alpha3
 
-// PacketResourceStatus describes the status of a Packet resource.
-type PacketResourceStatus string
+// MetalResourceStatus describes the status of a Metal resource.
+type MetalResourceStatus string
 
 var (
-	// PacketResourceStatusNew represents a Packet resource requested.
-	// The Packet infrastucture uses a queue to avoid any abuse. So a resource
+	// MetalResourceStatusNew represents a Metal resource requested.
+	// The Metal infrastucture uses a queue to avoid any abuse. So a resource
 	// does not get created straigh away but it can wait for a bit in a queue.
-	PacketResourceStatusNew = PacketResourceStatus("new")
-	// PacketResourceStatusQueued represents a device waiting for his turn to be provisioned.
+	MetalResourceStatusNew = MetalResourceStatus("new")
+	// MetalResourceStatusQueued represents a device waiting for his turn to be provisioned.
 	// Time in queue depends on how many creation requests you already issued, or
 	// from how many resources waiting to be deleted we have for you.
-	PacketResourceStatusQueued = PacketResourceStatus("queued")
-	// PacketResourceStatusProvisioning represents a resource that got dequeued
+	MetalResourceStatusQueued = MetalResourceStatus("queued")
+	// MetalResourceStatusProvisioning represents a resource that got dequeued
 	// and it is activelly processed by a worker.
-	PacketResourceStatusProvisioning = PacketResourceStatus("provisioning")
-	// PacketResourceStatusRunning represents a Packet resource already provisioned and in a active state.
-	PacketResourceStatusRunning = PacketResourceStatus("active")
-	// PacketResourceStatusErrored represents a Packet resource in a errored state.
-	PacketResourceStatusErrored = PacketResourceStatus("errored")
-	// PacketResourceStatusOff represents a Packet resource in off state.
-	PacketResourceStatusOff = PacketResourceStatus("off")
+	MetalResourceStatusProvisioning = MetalResourceStatus("provisioning")
+	// MetalResourceStatusRunning represents a Metal resource already provisioned and in a active state.
+	MetalResourceStatusRunning = MetalResourceStatus("active")
+	// MetalResourceStatusErrored represents a Metal resource in a errored state.
+	MetalResourceStatusErrored = MetalResourceStatus("errored")
+	// MetalResourceStatusOff represents a Metal resource in off state.
+	MetalResourceStatusOff = MetalResourceStatus("off")
 )
 
 // Tags defines a slice of tags.
 type Tags []string
 
-// PacketMachineTemplateResource describes the data needed to create am PacketMachine from a template
-type PacketMachineTemplateResource struct {
+// MetalMachineTemplateResource describes the data needed to create am MetalMachine from a template
+type MetalMachineTemplateResource struct {
 	// Spec is the specification of the desired behavior of the machine.
-	Spec PacketMachineSpec `json:"spec"`
+	Spec MetalMachineSpec `json:"spec"`
 }

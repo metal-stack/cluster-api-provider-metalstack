@@ -15,7 +15,7 @@ aliases:
     - detiber
     - ncdc
     - vincepri
-  cluster-api-packet-maintainers:
+  cluster-api-metal-maintainers:
     - deitch
     - gianarb
     - jacobsmith928

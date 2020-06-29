@@ -4,10 +4,10 @@ approvers:
   - sig-cluster-lifecycle-leads
   - cluster-api-admins
   - cluster-api-maintainers
-  - cluster-api-packet-maintainers
+  - cluster-api-metal-maintainers
 
 reviewers:
-  - cluster-api-packet-maintainers
+  - cluster-api-metal-maintainers
 
 labels:
   - sig/cluster-lifecycle

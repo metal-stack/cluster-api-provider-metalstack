@@ -20,7 +20,7 @@ spec:
         - /manager
         args:
         - --enable-leader-election
-        image: packet-controller
+        image: metal-controller
         imagePullPolicy: IfNotPresent
         name: manager
         resources:

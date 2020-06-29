@@ -20,32 +20,32 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// PacketMachineTemplateSpec defines the desired state of PacketMachineTemplate
-type PacketMachineTemplateSpec struct {
-	Template PacketMachineTemplateResource `json:"template"`
+// MetalMachineTemplateSpec defines the desired state of MetalMachineTemplate
+type MetalMachineTemplateSpec struct {
+	Template MetalMachineTemplateResource `json:"template"`
 }
 
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:path=packetmachinetemplates,scope=Namespaced,categories=cluster-api
+// +kubebuilder:resource:path=metalmachinetemplates,scope=Namespaced,categories=cluster-api
 // +kubebuilder:storageversion
 
-// PacketMachineTemplate is the Schema for the packetmachinetemplates API
-type PacketMachineTemplate struct {
+// MetalMachineTemplate is the Schema for the metalmachinetemplates API
+type MetalMachineTemplate struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec PacketMachineTemplateSpec `json:"spec,omitempty"`
+	Spec MetalMachineTemplateSpec `json:"spec,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// PacketMachineTemplateList contains a list of PacketMachineTemplate
-type PacketMachineTemplateList struct {
+// MetalMachineTemplateList contains a list of metalMachineTemplate
+type MetalMachineTemplateList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []PacketMachineTemplate `json:"items"`
+	Items           []MetalMachineTemplate `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&PacketMachineTemplate{}, &PacketMachineTemplateList{})
+	SchemeBuilder.Register(&MetalMachineTemplate{}, &MetalMachineTemplateList{})
 }
