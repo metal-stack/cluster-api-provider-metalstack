@@ -25,6 +25,7 @@ import (
 	infrastructurev1alpha3 "github.com/metal-stack/cluster-api-provider-metal/api/v1alpha3"
 	"github.com/metal-stack/cluster-api-provider-metal/pkg/cloud/metal/scope"
 	metalgo "github.com/metal-stack/metal-go"
+	"github.com/metal-stack/metal-go/api/models"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -67,6 +68,10 @@ func (c *MetalClient) GetMachine(machineID string) (*metalgo.MachineGetResponse,
 }
 
 func (c *MetalClient) NewMachine(hostname, project string, machineScope *scope.MachineScope, extraTags []string) (*metalgo.MachineCreateResponse, error) {
+	privateNetwork := machineScope.MetalCluster.Spec.PrivateNetworkID
+	if privateNetwork == "" {
+		return nil, fmt.Errorf("no privatenetwork allocated yet")
+	}
 	userDataRaw, err := machineScope.GetRawBootstrapData()
 	if err != nil {
 		return nil, errors.Wrap(err, "impossible to retrieve bootstrap data from secret")
@@ -99,16 +104,27 @@ func (c *MetalClient) NewMachine(hostname, project string, machineScope *scope.M
 		Partition: machineScope.MetalMachine.Spec.Partition,
 		Image:     machineScope.MetalMachine.Spec.Image,
 		Size:      machineScope.MetalMachine.Spec.MachineType,
-		Tags:      tags,
-		UserData:  userData,
+		Networks: []metalgo.MachineAllocationNetwork{
+			{
+				NetworkID:   privateNetwork,
+				Autoacquire: true,
+			},
+			{
+				// FIXME remove hardcoded value
+				NetworkID:   "internet",
+				Autoacquire: true,
+			},
+		},
+		Tags:     tags,
+		UserData: userData,
 	}
 
 	return c.MachineCreate(serverCreateOpts)
 }
 
-func (c *MetalClient) GetMachineAddresses(machine *metalgo.MachineGetResponse) ([]corev1.NodeAddress, error) {
+func (c *MetalClient) GetMachineAddresses(machine *models.V1MachineResponse) ([]corev1.NodeAddress, error) {
 	addrs := make([]corev1.NodeAddress, 0)
-	for _, network := range machine.Machine.Allocation.Networks {
+	for _, network := range machine.Allocation.Networks {
 		addrType := corev1.NodeInternalIP
 		if !*network.Private {
 			addrType = corev1.NodeExternalIP
@@ -133,4 +149,25 @@ func (c *MetalClient) GetMachineByTags(project string, tags []string) (*metalgo.
 	}
 
 	return machines, nil
+}
+
+func (c *MetalClient) AllocatePrivateNetwork(name, project, partition string) (string, error) {
+	ncr := metalgo.NetworkAllocateRequest{
+		Name:        name,
+		PartitionID: partition,
+		ProjectID:   project,
+	}
+	nw, err := c.NetworkAllocate(&ncr)
+	if err != nil {
+		return "", err
+	}
+	if nw == nil {
+		return "", fmt.Errorf("network allocation returned nil network")
+	}
+	return *nw.Network.ID, nil
+}
+
+func (c *MetalClient) FreePrivateNetwork(privateNetworkID string) error {
+	// FIXME implement and use
+	return fmt.Errorf("not implemented yet")
 }

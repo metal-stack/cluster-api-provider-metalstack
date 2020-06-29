@@ -141,6 +141,11 @@ func (m *MachineScope) SetProviderID(machineID string) {
 	m.MetalMachine.Spec.ProviderID = pointer.StringPtr(pid)
 }
 
+// SetPrivateNetworkID sets private NetworkID in spec from machine id.
+func (m *MachineScope) SetPrivateNetworkID(privateNetworkID string) {
+	m.MetalCluster.Spec.PrivateNetworkID = privateNetworkID
+}
+
 // GetInstanceID returns the DOMachine droplet instance id by parsing Spec.ProviderID.
 func (m *MachineScope) GetInstanceID() string {
 	parsed, err := noderefutil.NewProviderID(m.GetProviderID())

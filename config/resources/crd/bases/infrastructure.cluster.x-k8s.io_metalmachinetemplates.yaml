@@ -46,7 +46,7 @@ spec:
                     the machine.
                   properties:
                     hardwareReservationID:
-                      description: HardwareReservationID is the unique device hardware
+                      description: HardwareReservationID is the unique machine hardware
                         reservation ID or `next-available` to automatically let the
                         Metal api determine one.
                       type: string

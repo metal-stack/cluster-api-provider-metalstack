@@ -24,6 +24,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	metalgo "github.com/metal-stack/metal-go"
+	"github.com/metal-stack/metal-go/api/models"
 	"github.com/pkg/errors"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -42,10 +43,6 @@ import (
 	"github.com/metal-stack/cluster-api-provider-metal/pkg/cloud/metal/scope"
 
 	infrastructurev1alpha3 "github.com/metal-stack/cluster-api-provider-metal/api/v1alpha3"
-)
-
-const (
-	providerName = "metal"
 )
 
 // MetalMachineReconciler reconciles a MetalMachine object
@@ -191,16 +188,31 @@ func (r *MetalMachineReconciler) reconcile(ctx context.Context, machineScope *sc
 
 	providerID := machineScope.GetInstanceID()
 	var (
-		machine *metalgo.MachineGetResponse
+		machine *models.V1MachineResponse
 		err     error
 	)
 	// if we have no provider ID, then we are creating
 	if providerID != "" {
-		machine, err = r.MetalClient.GetMachine(providerID)
+		mr, err := r.MetalClient.GetMachine(providerID)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
+		machine = mr.Machine
 	}
+
+	privateNetwork := clusterScope.MetalCluster.Spec.PrivateNetworkID
+	if privateNetwork == "" {
+		nwID, err := r.MetalClient.AllocatePrivateNetwork(
+			clusterScope.Cluster.ClusterName,
+			clusterScope.MetalCluster.Spec.ProjectID,
+			machineScope.MetalMachine.Spec.Partition)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		machineScope.SetPrivateNetworkID(nwID)
+		privateNetwork = nwID
+	}
+
 	if machine == nil {
 		// generate a unique UID that will survive pivot, i.e. is not tied to the cluster itself
 		mUID := uuid.New().String()
@@ -217,14 +229,26 @@ func (r *MetalMachineReconciler) reconcile(ctx context.Context, machineScope *sc
 			Project:   clusterScope.MetalCluster.Spec.ProjectID,
 			Partition: machineScope.MetalMachine.Spec.Partition,
 			Image:     machineScope.MetalMachine.Spec.Image,
-			Size:      machineScope.MetalMachine.Spec.MachineType,
-			Tags:      tags,
+			Networks: []metalgo.MachineAllocationNetwork{
+				{
+					NetworkID:   privateNetwork,
+					Autoacquire: true,
+				},
+				{
+					// FIXME remove hardcoded value
+					NetworkID:   "internet",
+					Autoacquire: true,
+				},
+			},
+			Size: machineScope.MetalMachine.Spec.MachineType,
+			Tags: tags,
 		}
-		machine, err := r.MetalClient.MachineCreate(&mcr)
+		response, err := r.MetalClient.MachineCreate(&mcr)
 		if err != nil {
+			machine = response.Machine
 			machineID := ""
-			if machine.Machine != nil && machine.Machine.ID != nil {
-				machineID = *machine.Machine.ID
+			if machine.ID != nil {
+				machineID = *machine.ID
 			}
 			errs := fmt.Errorf("failed to create machine %s %s: %v", machineID, name, err)
 			machineScope.SetErrorReason(capierrors.CreateMachineError)
@@ -234,8 +258,8 @@ func (r *MetalMachineReconciler) reconcile(ctx context.Context, machineScope *sc
 	}
 
 	// we do not need to set this as metal://<id> because SetProviderID() does the formatting for us
-	machineScope.SetProviderID(*machine.Machine.ID)
-	machineScope.SetInstanceStatus(infrastructurev1alpha3.MetalResourceStatus(*machine.Machine.Liveliness))
+	machineScope.SetProviderID(*machine.ID)
+	machineScope.SetInstanceStatus(infrastructurev1alpha3.MetalResourceStatus(*machine.Liveliness))
 
 	addrs, err := r.MetalClient.GetMachineAddresses(machine)
 	if err != nil {
@@ -245,9 +269,9 @@ func (r *MetalMachineReconciler) reconcile(ctx context.Context, machineScope *sc
 	machineScope.SetAddresses(addrs)
 
 	// Proceed to reconcile the MetalMachine state.
-	var result = ctrl.Result{}
+	var result ctrl.Result
 
-	switch infrastructurev1alpha3.MetalResourceStatus(*machine.Machine.Liveliness) {
+	switch infrastructurev1alpha3.MetalResourceStatus(*machine.Liveliness) {
 	case infrastructurev1alpha3.MetalResourceStatusNew, infrastructurev1alpha3.MetalResourceStatusQueued, infrastructurev1alpha3.MetalResourceStatusProvisioning:
 		machineScope.Info("Machine instance is pending", "instance-id", machineScope.GetInstanceID())
 		result = ctrl.Result{RequeueAfter: 10 * time.Second}
@@ -257,7 +281,7 @@ func (r *MetalMachineReconciler) reconcile(ctx context.Context, machineScope *sc
 		result = ctrl.Result{}
 	default:
 		machineScope.SetErrorReason(capierrors.UpdateMachineError)
-		machineScope.SetErrorMessage(errors.Errorf("Instance status %q is unexpected", *machine.Machine.Liveliness))
+		machineScope.SetErrorMessage(errors.Errorf("Instance status %q is unexpected", *machine.Liveliness))
 		result = ctrl.Result{}
 	}
 

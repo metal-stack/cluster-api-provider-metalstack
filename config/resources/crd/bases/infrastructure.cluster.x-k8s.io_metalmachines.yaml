@@ -60,7 +60,7 @@ spec:
           description: MetalMachineSpec defines the desired state of MetalMachine
           properties:
             hardwareReservationID:
-              description: HardwareReservationID is the unique device hardware reservation
+              description: HardwareReservationID is the unique machine hardware reservation
                 ID or `next-available` to automatically let the Metal api determine
                 one.
               type: string
@@ -92,7 +92,7 @@ spec:
           description: MetalMachineStatus defines the observed state of MetalMachine
           properties:
             addresses:
-              description: Addresses contains the Metal device associated addresses.
+              description: Addresses contains the Metal machine associated addresses.
               items:
                 description: NodeAddress contains information for the node's address.
                 properties:
@@ -129,7 +129,7 @@ spec:
                 in the controller's output.
               type: string
             instanceStatus:
-              description: InstanceStatus is the status of the Metal device instance
+              description: InstanceStatus is the status of the Metal machine instance
                 for this machine.
               type: string
             ready:

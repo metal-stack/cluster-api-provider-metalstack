@@ -32,6 +32,9 @@ type MetalClusterSpec struct {
 	// Foo is an example field of MetalCluster. Edit MetalCluster_types.go to remove/update
 	ProjectID string `json:"projectID"`
 
+	// PrivateNetworkID is the id if the network which connects the machine together
+	PrivateNetworkID string `json:"privateNetworkID"`
+
 	// ControlPlaneEndpoint represents the endpoint used to communicate with the control plane.
 	// +optional
 	ControlPlaneEndpoint clusterv1.APIEndpoint `json:"controlPlaneEndpoint"`

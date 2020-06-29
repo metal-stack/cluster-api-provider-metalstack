@@ -152,10 +152,10 @@ func (r *MetalClusterReconciler) getIP(cluster *infrastructurev1alpha3.MetalClus
 		return "", fmt.Errorf("error retrieving machine: %v", err)
 	}
 	if mgr == nil {
-		return "", &MachineNotFound{err: fmt.Sprintf("machine does not exist")}
+		return "", &MachineNotFound{err: fmt.Sprintf("machine does in project:%s with tags:%v not exist", cluster.Spec.ProjectID, tags)}
 	}
 	if len(mgr.Machines) != 1 {
-		return "", &MachineNotFound{err: fmt.Sprintf("more or less than one machine found")}
+		return "", &MachineNotFound{err: "more or less than one machine found"}
 	}
 	machine := mgr.Machines[0]
 
