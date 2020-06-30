@@ -36,7 +36,6 @@ type MetalMachineSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Partition   string   `json:"partition,omitempty"`
 	Image       string   `json:"image"`
 	MachineType string   `json:"machineType"`
 	SSHKeys     []string `json:"sshKeys,omitempty"`

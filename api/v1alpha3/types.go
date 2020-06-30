@@ -21,15 +21,15 @@ type MetalResourceStatus string
 
 var (
 	// MetalResourceStatusNew represents a Metal resource requested.
-	// The Metal infrastucture uses a queue to avoid any abuse. So a resource
-	// does not get created straigh away but it can wait for a bit in a queue.
+	// The Metal infrastructure uses a queue to avoid any abuse. So a resource
+	// does not get created straight away but it can wait for a bit in a queue.
 	MetalResourceStatusNew = MetalResourceStatus("new")
 	// MetalResourceStatusQueued represents a machine waiting for his turn to be provisioned.
 	// Time in queue depends on how many creation requests you already issued, or
 	// from how many resources waiting to be deleted we have for you.
 	MetalResourceStatusQueued = MetalResourceStatus("queued")
 	// MetalResourceStatusProvisioning represents a resource that got dequeued
-	// and it is activelly processed by a worker.
+	// and it is actively processed by a worker.
 	MetalResourceStatusProvisioning = MetalResourceStatus("provisioning")
 	// MetalResourceStatusRunning represents a Metal resource already provisioned and in a active state.
 	MetalResourceStatusRunning = MetalResourceStatus("active")

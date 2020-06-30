@@ -29,7 +29,10 @@ type MetalClusterSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of MetalCluster. Edit MetalCluster_types.go to remove/update
+	// Partition is the physical location where the cluster will be created
+	Partition string `json:"partition,omitempty"`
+
+	// ProjectID is th projectID of MetalCluster. Edit MetalCluster_types.go to remove/update
 	ProjectID string `json:"projectID"`
 
 	// AdditionalNetworks this cluster should be part of

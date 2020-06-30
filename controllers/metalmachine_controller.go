@@ -205,7 +205,7 @@ func (r *MetalMachineReconciler) reconcile(ctx context.Context, machineScope *sc
 		nwID, err := r.MetalClient.AllocatePrivateNetwork(
 			clusterScope.Cluster.ClusterName,
 			clusterScope.MetalCluster.Spec.ProjectID,
-			machineScope.MetalMachine.Spec.Partition)
+			machineScope.MetalCluster.Spec.Partition)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -243,7 +243,7 @@ func (r *MetalMachineReconciler) reconcile(ctx context.Context, machineScope *sc
 			Name:      name,
 			Hostname:  name,
 			Project:   clusterScope.MetalCluster.Spec.ProjectID,
-			Partition: machineScope.MetalMachine.Spec.Partition,
+			Partition: machineScope.MetalCluster.Spec.Partition,
 			Image:     machineScope.MetalMachine.Spec.Image,
 			Networks:  networks,
 			Size:      machineScope.MetalMachine.Spec.MachineType,
@@ -279,6 +279,7 @@ func (r *MetalMachineReconciler) reconcile(ctx context.Context, machineScope *sc
 	// Proceed to reconcile the MetalMachine state.
 	var result ctrl.Result
 
+	// FIXME match Liveleness with MetalResourceStatus
 	switch infrastructurev1alpha3.MetalResourceStatus(*machine.Liveliness) {
 	case infrastructurev1alpha3.MetalResourceStatusNew, infrastructurev1alpha3.MetalResourceStatusQueued, infrastructurev1alpha3.MetalResourceStatusProvisioning:
 		machineScope.Info("Machine instance is pending", "instance-id", machineScope.GetInstanceID())

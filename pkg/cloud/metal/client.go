@@ -112,7 +112,7 @@ func (c *MetalClient) NewMachine(hostname, project string, machineScope *scope.M
 		Hostname: hostname,
 
 		Project:   project,
-		Partition: machineScope.MetalMachine.Spec.Partition,
+		Partition: machineScope.MetalCluster.Spec.Partition,
 		Image:     machineScope.MetalMachine.Spec.Image,
 		Size:      machineScope.MetalMachine.Spec.MachineType,
 		Networks:  networks,

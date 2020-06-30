@@ -49,6 +49,7 @@ metadata:
   name: "${CLUSTER_NAME}"
 spec:
   projectID: "${PROJECT_ID}"
+  partition: "${PARTITION}"
   additionalNetworks:
     - internet
 ---
@@ -124,8 +125,6 @@ spec:
   template:
     spec:
       image: "${NODE_IMAGE}"
-      partition:
-      - "${PARTITION}"
       machineType: "${WORKER_NODE_TYPE}"
       sshKeys:
       - "${SSH_KEY}"
