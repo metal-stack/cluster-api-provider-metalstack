@@ -45,6 +45,8 @@ const (
 	clusterIDTag = "cluster-api-provider-metalstack:cluster-id"
 )
 
+var firewallReady bool
+
 // MetalStackClusterReconciler reconciles a MetalStackCluster object
 type MetalStackClusterReconciler struct {
 	client.Client
@@ -110,13 +112,17 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 			logger.Error(err, "no response to network allocation")
 			return ctrl.Result{Requeue: true, RequeueAfter: 2 * time.Second}, err
 		}
-		*mstCluster.Spec.PrivateNetworkID = *networkID
+		mstCluster.Spec.PrivateNetworkID = networkID
 	}
 
-	if !mstCluster.Status.FirewallReady {
-		if err = r.createFirewall(mstCluster); err != nil {
+	if !mstCluster.Status.FirewallReady { //&& !firewallReady {
+		err = r.createFirewall(mstCluster)
+		if err != nil {
 			return ctrl.Result{Requeue: true, RequeueAfter: 2 * time.Second}, err
 		}
+		logger.Info("A firewall was created.")
+		mstCluster.Status.FirewallReady = true
+		// firewallReady = true
 	}
 
 	ip, err := r.getControlPlaneIP(mstCluster)
@@ -176,7 +182,7 @@ func (r *MetalStackClusterReconciler) createFirewall(mstCluster *v1alpha3.MetalS
 			Size:          "v1-small-x86",
 			Project:       *mstCluster.Spec.ProjectID,
 			Partition:     *mstCluster.Spec.Partition,
-			Image:         "ubuntu-20.04",
+			Image:         "firewall-ubuntu-2.0",
 			SSHPublicKeys: []string{},
 			Networks:      toMStNetworks("internet-vagrant-lab", *mstCluster.Spec.PrivateNetworkID),
 			UserData:      "",
