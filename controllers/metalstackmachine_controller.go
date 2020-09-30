@@ -201,7 +201,7 @@ func (r *MetalStackMachineReconciler) reconcile(ctx context.Context, machineScop
 		machine = mr.Machine
 	}
 
-	privateNetwork := clusterScope.MetalStackCluster.Spec.PrivateNetworkID
+	privateNetwork := *clusterScope.MetalStackCluster.Spec.PrivateNetworkID
 	if privateNetwork == "" {
 		nwID, err := r.MetalStackClient.AllocatePrivateNetwork(
 			clusterScope.Cluster.ClusterName,

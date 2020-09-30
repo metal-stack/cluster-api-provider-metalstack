@@ -22,6 +22,7 @@ import (
 	"time"
 
 	metalgo "github.com/metal-stack/metal-go"
+	"github.com/metal-stack/metal-lib/pkg/tag"
 	"github.com/pkg/errors"
 
 	"github.com/go-logr/logr"
@@ -94,33 +95,40 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		return ctrl.Result{}, errors.Wrap(err, "failed to initialize patch.Helper")
 	}
 	defer func(h *patch.Helper) {
-		if e := h.Patch(context.TODO(), mstCluster); err == nil && e != nil {
+		if e := h.Patch(context.TODO(), mstCluster); e != nil {
+			if err != nil {
+				err = errors.Wrap(e, err.Error())
+			}
 			err = e
 		}
 	}(h)
 
-	mstCluster.Status.Ready = true
+	networkID, err := r.allocateNetwork(mstCluster)
+	if err != nil {
+		logger.Error(err, "no reponse to network allocation")
+		return ctrl.Result{Requeue: true, RequeueAfter: 30 * time.Second}, err
+	}
+	*mstCluster.Spec.PrivateNetworkID = *networkID
 
-	// todo: clear up the error handling
-	address, err := r.getIP(mstCluster)
-	_, isNoMachine := err.(*MachineNotFound)
-	_, isNoIP := err.(*MachineNoIP)
-	switch {
-	case err != nil && isNoMachine:
-		logger.Info(err.Error() + "Control plane machine not found. Requeueing...")
-		return ctrl.Result{Requeue: true, RequeueAfter: 30 * time.Second}, nil
-	case err != nil && isNoIP:
-		logger.Info(err.Error(), "Control plane machine not found. Requeueing...")
-		return ctrl.Result{Requeue: true, RequeueAfter: 30 * time.Second}, nil
-	case err != nil:
-		logger.Info(err.Error(), "error getting a control plane ip")
-		return ctrl.Result{}, err
-	case err == nil:
-		mstCluster.Spec.ControlPlaneEndpoint = clusterv1.APIEndpoint{
-			Host: address,
-			Port: 6443,
+	r.createFirewall(mstCluster)
+
+	ip, err := r.getControlPlaneIP(mstCluster)
+	if err != nil {
+		switch err.(type) {
+		case *MachineNotFound, *MachineNoIP: // todo: Do we really need these two types?
+			logger.Info(err.Error(), "Control plane machine not found. Requeueing...")
+			return ctrl.Result{Requeue: true, RequeueAfter: 30 * time.Second}, nil
+		default:
+			logger.Info(err.Error(), "error getting a control plane ip")
+			return ctrl.Result{}, err
 		}
 	}
+	mstCluster.Spec.ControlPlaneEndpoint = clusterv1.APIEndpoint{
+		Host: ip,
+		Port: 6443,
+	}
+
+	mstCluster.Status.Ready = true
 
 	return ctrl.Result{}, nil
 }
@@ -137,7 +145,42 @@ func (r *MetalStackClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *MetalStackClusterReconciler) getIP(mstCluster *v1alpha3.MetalStackCluster) (string, error) {
+func (r *MetalStackClusterReconciler) allocateNetwork(mstCluster *v1alpha3.MetalStackCluster) (*string, error) {
+	resp, err := r.MStClient.NetworkAllocate(&metalgo.NetworkAllocateRequest{
+		ProjectID:   *mstCluster.Spec.ProjectID,
+		PartitionID: *mstCluster.Spec.Partition,
+		Name:        *mstCluster.Spec.Partition,
+		Description: mstCluster.Name,
+		Labels:      map[string]string{tag.ClusterID: mstCluster.Name},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Network.ID, nil
+}
+
+func (r *MetalStackClusterReconciler) createFirewall(mstCluster *v1alpha3.MetalStackCluster) error {
+	req := &metalgo.FirewallCreateRequest{
+		MachineCreateRequest: metalgo.MachineCreateRequest{
+			Description:   mstCluster.Name + " created by Cluster API provider MetalStack",
+			Name:          mstCluster.Name,
+			Hostname:      mstCluster.Name,
+			Size:          "v1-small-x86",
+			Project:       *mstCluster.Spec.ProjectID,
+			Partition:     *mstCluster.Spec.Partition,
+			Image:         "ubuntu-20.04",
+			SSHPublicKeys: []string{},
+			Networks:      toMStNetworks("internet-vagrant-lab", *mstCluster.Spec.PrivateNetworkID),
+			UserData:      "",
+			Tags:          []string{""},
+		},
+	}
+
+	_, err := r.MStClient.FirewallCreate(req)
+	return err
+}
+
+func (r *MetalStackClusterReconciler) getControlPlaneIP(mstCluster *v1alpha3.MetalStackCluster) (string, error) {
 	if mstCluster == nil {
 		return "", fmt.Errorf("cannot get IP of machine in nil cluster")
 	}
@@ -187,4 +230,14 @@ type MachineNoIP struct {
 
 func (e *MachineNoIP) Error() string {
 	return e.s
+}
+
+func toMStNetworks(ss ...string) (networks []metalgo.MachineAllocationNetwork) {
+	for _, s := range ss {
+		networks = append(networks, metalgo.MachineAllocationNetwork{
+			NetworkID:   s,
+			Autoacquire: true,
+		})
+	}
+	return
 }

@@ -50,7 +50,7 @@ type MetalStackClusterSpec struct {
 	AdditionalNetworks []string `json:"additionalNetworks"`
 
 	// PrivateNetworkID is the id if the network which connects the machine together
-	PrivateNetworkID string `json:"privateNetworkID"`
+	PrivateNetworkID *string `json:"privateNetworkID"`
 }
 
 // MetalStackClusterStatus defines the observed state of MetalStackCluster

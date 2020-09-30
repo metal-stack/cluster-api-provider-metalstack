@@ -68,7 +68,7 @@ func (c *MetalStackClient) GetMachine(machineID string) (*metalgo.MachineGetResp
 }
 
 func (c *MetalStackClient) NewMachine(hostname, project string, machineScope *scope.MachineScope, extraTags []string) (*metalgo.MachineCreateResponse, error) {
-	privateNetwork := machineScope.MetalStackCluster.Spec.PrivateNetworkID
+	privateNetwork := *machineScope.MetalStackCluster.Spec.PrivateNetworkID
 	if privateNetwork == "" {
 		return nil, fmt.Errorf("no privatenetwork allocated yet")
 	}
