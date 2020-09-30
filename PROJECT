@@ -1,10 +1,10 @@
 domain: cluster.x-k8s.io
-repo: github.com/packethost/cluster-api-provider-packet
+repo: github.com/metal-stack/cluster-api-provider-metal
 resources:
 - group: infrastructure
-  kind: PacketCluster
+  kind: MetalCluster
   version: v1alpha3
 - group: infrastructure
-  kind: PacketMachine
+  kind: MetalMachine
   version: v1alpha3
 version: "2"

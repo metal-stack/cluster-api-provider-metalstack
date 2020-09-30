@@ -6,15 +6,15 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.3.0
   creationTimestamp: null
-  name: packetmachines.infrastructure.cluster.x-k8s.io
+  name: metalmachines.infrastructure.cluster.x-k8s.io
 spec:
   additionalPrinterColumns:
   - JSONPath: .metadata.labels.cluster\.x-k8s\.io/cluster-name
-    description: Cluster to which this PacketMachine belongs
+    description: Cluster to which this MetalMachine belongs
     name: Cluster
     type: string
   - JSONPath: .status.instanceState
-    description: Packet instance state
+    description: Metal instance state
     name: State
     type: string
   - JSONPath: .status.ready
@@ -22,27 +22,27 @@ spec:
     name: Ready
     type: string
   - JSONPath: .spec.providerID
-    description: Packet instance ID
+    description: Metal instance ID
     name: InstanceID
     type: string
   - JSONPath: .metadata.ownerReferences[?(@.kind=="Machine")].name
-    description: Machine object which owns with this PacketMachine
+    description: Machine object which owns with this MetalMachine
     name: Machine
     type: string
   group: infrastructure.cluster.x-k8s.io
   names:
     categories:
     - cluster-api
-    kind: PacketMachine
-    listKind: PacketMachineList
-    plural: packetmachines
-    singular: packetmachine
+    kind: MetalMachine
+    listKind: MetalMachineList
+    plural: metalmachines
+    singular: metalmachine
   scope: Namespaced
   subresources:
     status: {}
   validation:
     openAPIV3Schema:
-      description: PacketMachine is the Schema for the packetmachines API
+      description: MetalMachine is the Schema for the metalmachines API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -57,22 +57,18 @@ spec:
         metadata:
           type: object
         spec:
-          description: PacketMachineSpec defines the desired state of PacketMachine
+          description: MetalMachineSpec defines the desired state of MetalMachine
           properties:
-            OS:
-              type: string
-            billingCycle:
-              type: string
-            facility:
-              items:
-                type: string
-              type: array
             hardwareReservationID:
-              description: HardwareReservationID is the unique device hardware reservation
-                ID or `next-available` to automatically let the Packet api determine
+              description: HardwareReservationID is the unique machine hardware reservation
+                ID or `next-available` to automatically let the Metal api determine
                 one.
               type: string
+            image:
+              type: string
             machineType:
+              type: string
+            partition:
               type: string
             providerID:
               description: ProviderID is the unique identifier as specified by the
@@ -83,21 +79,20 @@ spec:
                 type: string
               type: array
             tags:
-              description: Tags is an optional set of tags to add to Packet resources
-                managed by the Packet provider.
+              description: Tags is an optional set of tags to add to Metal resources
+                managed by the Metal provider.
               items:
                 type: string
               type: array
           required:
-          - OS
-          - billingCycle
+          - image
           - machineType
           type: object
         status:
-          description: PacketMachineStatus defines the observed state of PacketMachine
+          description: MetalMachineStatus defines the observed state of MetalMachine
           properties:
             addresses:
-              description: Addresses contains the Packet device associated addresses.
+              description: Addresses contains the Metal machine associated addresses.
               items:
                 description: NodeAddress contains information for the node's address.
                 properties:
@@ -134,7 +129,7 @@ spec:
                 in the controller's output.
               type: string
             instanceStatus:
-              description: InstanceStatus is the status of the Packet device instance
+              description: InstanceStatus is the status of the Metal machine instance
                 for this machine.
               type: string
             ready:

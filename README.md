@@ -1,10 +1,10 @@
-# Packet cluster-api Provider
+# Metal cluster-api Provider
 
-This is the official [cluster-api](https://github.com/kubernetes-sigs/cluster-api) provider for [Packet](https://packet.com). It implements cluster-api provider version v1alpha3.
+This is the official [cluster-api](https://github.com/kubernetes-sigs/cluster-api) provider for [Metal](https://metal.com). It implements cluster-api provider version v1alpha3.
 
 ## Using
 
-The following section describes how to use the cluster-api provider for packet (CAPP) as a regular user.
+The following section describes how to use the cluster-api provider for metal (CAPP) as a regular user.
 You do _not_ need to clone this repository, or install any special tools, other than the standard
 `kubectl` and `clusterctl`; see below.
 
@@ -13,12 +13,12 @@ You do _not_ need to clone this repository, or install any special tools, other 
 
 ### Requirements
 
-To use the cluster-api to deploy a Kubernetes cluster to Packet, you need the following:
+To use the cluster-api to deploy a Kubernetes cluster to Metal, you need the following:
 
-* A Packet API key
-* A Packet project ID
+* A Metal API key
+* A Metal project ID
 * The `clusterctl` binary from the [official cluster-api provider releases page](https://github.com/kubernetes-sigs/cluster-api/releases)
-* A Kubernetes cluster - the "bootstrap cluster" - that will deploy and manage the cluster on Packet.
+* A Kubernetes cluster - the "bootstrap cluster" - that will deploy and manage the cluster on Metal.
 * `kubectl` - not absolutely required, but it is hard to interact with a cluster without it!
 
 For the bootstrap cluster, any compliant cluster will work, including
@@ -29,14 +29,14 @@ Once you have your cluster, ensure your `KUBECONFIG` environment variable is set
 
 You have two choices for the bootstrap cluster:
 
-* An existing cluster, which can be on your desktop, another Packet instance, or anywhere else that Kubernetes runs, as long as it has access to the Packet API.
+* An existing cluster, which can be on your desktop, another Metal instance, or anywhere else that Kubernetes runs, as long as it has access to the Metal API.
 * Rely on `clusterctl` to create a temporary one up for you using [kind](https://github.com/kubernetes-sigs/kind) on your local docker.
 
 ### Steps
 
 To deploy a cluster via the cluster-api:
 
-1. Create a project in Packet, using one of: the [API](https://www.packet.com/developers/api/), one of the many [SDKs](https://www.packet.com/developers/libraries/), the [CLI](https://github.com/packethost/packet-cli) or the [Web UI](https://app.packet.net).
+1. Create a project in Metal, using one of: the [API](https://github.com/metal-stack/metal-go), one of the many [SDKs](https://www.metal.com/developers/libraries/), the [CLI](https://github.com/metalstack/metal-cli) or the [Web UI](https://app.metal.net).
 1. Create an API key for the project save it
 1. Deploy your bootstrap cluster and set the environment variable `KUBECONFIG` (optional)
 1. Initialize the cluster (see below)
@@ -51,7 +51,7 @@ To initialize the cluster, you need to provider it with the path to the config f
 1. Use the config file.
 
 ```
-clusterctl init --infrastructure=packet
+clusterctl init --infrastructure=metal
 ```
 
 #### Generate Cluster yaml
@@ -59,17 +59,17 @@ clusterctl init --infrastructure=packet
 To generate your cluster yaml:
 
 1. Set the required environment variables:
-   * `PACKET_PROJECT_ID` - Packet project ID
-   * `PACKET_FACILITY` - The Packet facility where you wantto deploy the cluster. If not set, it will default to `ewr1`.
+   * `METAL_PROJECT_ID` - Metal project ID
+   * `METAL_PARTITION` - The Metal partition where you want to deploy the cluster.
 1. (Optional) Set the optional environment variables:
    * `CLUSTER_NAME` - The created cluster will have this name. If not set, it will generate one for you, see defaults below.
-   * `NODE_OS` - The operating system to use for the node. If not set, see defaults below.
+   * `NODE_IMAGE` - The operating system to use for the node. If not set, see defaults below.
    * `SSH_KEY` - The path to an ssh public key to place on all of the machines. If not set, it will use whichever ssh keys are defined for your project.
    * `POD_CIDR` - The CIDR to use for your pods; if not set, see defaults below
    * `SERVICE_CIDR` - The CIDR to use for your services; if not set, see defaults below
-   * `MASTER_NODE_TYPE` - The Packet node type to use for control plane nodes; if not set, see defaults below
-   * `WORKER_NODE_TYPE` - The Packet node type to use for worker nodes; if not set, see defaults below
-   * `WORKER_MACHINE_COUNT` - The number of worker machines to deploy; if not set, cluster-api itself (not the Packet implementation) defaults to 0 workers.
+   * `MASTER_NODE_TYPE` - The Metal node type to use for control plane nodes; if not set, see defaults below
+   * `WORKER_NODE_TYPE` - The Metal node type to use for worker nodes; if not set, see defaults below
+   * `WORKER_MACHINE_COUNT` - The number of worker machines to deploy; if not set, cluster-api itself (not the Metal implementation) defaults to 0 workers.
 1. Run the cluster generation command:
 
 ```
@@ -119,9 +119,9 @@ kubectl get machine
 
 ## How It Works
 
-The Packet cluster-api provider follows the standard design for cluster-api. It consists of two components:
+The Metal cluster-api provider follows the standard design for cluster-api. It consists of two components:
 
-* `manager` - the controller that runs in your bootstrap cluster, and watches for creation, update or deletion of the standard resources: `Cluster`, `Machine`, `MachineDeployment`. It then updates the actual resources in Packet.
+* `manager` - the controller that runs in your bootstrap cluster, and watches for creation, update or deletion of the standard resources: `Cluster`, `Machine`, `MachineDeployment`. It then updates the actual resources in Metal.
 * `clusterctl` - a convenient utility run from your local desktop or server and controls the new deployed cluster via the bootstrap cluster.
 
 The actual machines are deployed using `kubeadm`. The deployment process uses the following process.
@@ -130,18 +130,18 @@ The actual machines are deployed using `kubeadm`. The deployment process uses th
    * if the appropriate `Secret` does not include a CA key/certificate pair, create one and save it in that `Secret`
 2. When a new master `Machine` is created:
    * retrieve the CA certificate and key from the appropriate Kubernetes `Secret`
-   * launch a new server instance on Packet
+   * launch a new server instance on Metal
    * set the `cloud-init` on the instance to run `kubeadm init`, passing it the CA certificate and key
 3. When a new worker `Machine` is created:
    * check if the cluster is ready, i.e. has a valid endpoint; if not, retry every 15 seconds
    * generate a new kubeadm bootstrap token and save it to the workload cluster
-   * launch a new server instance on Packet
+   * launch a new server instance on Metal
    * set the `cloud-init` on the instance to run `kubeadm join`, passing it the newly generated kubeadm token
 4. When a user requests the kubeconfig via `clusterctl`, generate a new one using the CA key/certificate pair
 
 ## Supported node OS and Versions
 
-CAPP (Cluster API Provider for Packet) supports Ubuntu 18.04 and Kubernetes 1.14.3. To extend it to work with different combinations, you only need to edit the file [config/default/machine_configs.yaml](./config/default/machine_configs.yaml).
+CAPP (Cluster API Provider for Metal) supports Ubuntu 18.04 and Kubernetes 1.14.3. To extend it to work with different combinations, you only need to edit the file [config/default/machine_configs.yaml](./config/default/machine_configs.yaml).
 
 In this file, each list entry represents a combination of OS and Kubernetes version supported. Each entry is composed of the following parts:
 

@@ -1,13 +1,13 @@
-# permissions for end users to view packetmachines.
+# permissions for end users to view metalmachines.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: packetmachine-viewer-role
+  name: metalmachine-viewer-role
 rules:
 - apiGroups:
   - infrastructure.cluster.x-k8s.io
   resources:
-  - packetmachines
+  - metalmachines
   verbs:
   - get
   - list
@@ -15,6 +15,6 @@ rules:
 - apiGroups:
   - infrastructure.cluster.x-k8s.io
   resources:
-  - packetmachines/status
+  - metalmachines/status
   verbs:
   - get

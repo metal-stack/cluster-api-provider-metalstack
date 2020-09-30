@@ -23,27 +23,25 @@ import (
 )
 
 const (
-	// MachineFinalizer allows ReconcilePacketMachine to clean up Packet resources before
+	// MachineFinalizer allows ReconcileMetalMachine to clean up Metal resources before
 	// removing it from the apiserver.
-	MachineFinalizer = "packetmachine.infrastructure.cluster.x-k8s.io"
+	MachineFinalizer = "metalmachine.infrastructure.cluster.x-k8s.io"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// PacketMachineSpec defines the desired state of PacketMachine
-type PacketMachineSpec struct {
+// MetalMachineSpec defines the desired state of MetalMachine
+type MetalMachineSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Facility     []string `json:"facility,omitempty"`
-	OS           string   `json:"OS"`
-	BillingCycle string   `json:"billingCycle"`
-	MachineType  string   `json:"machineType"`
-	SshKeys      []string `json:"sshKeys,omitempty"`
+	Image       string   `json:"image"`
+	MachineType string   `json:"machineType"`
+	SSHKeys     []string `json:"sshKeys,omitempty"`
 
-	// HardwareReservationID is the unique device hardware reservation ID or `next-available` to
-	// automatically let the Packet api determine one.
+	// HardwareReservationID is the unique machine hardware reservation ID or `next-available` to
+	// automatically let the Metal api determine one.
 	// +optional
 	HardwareReservationID string `json:"hardwareReservationID,omitempty"`
 
@@ -51,13 +49,13 @@ type PacketMachineSpec struct {
 	// +optional
 	ProviderID *string `json:"providerID,omitempty"`
 
-	// Tags is an optional set of tags to add to Packet resources managed by the Packet provider.
+	// Tags is an optional set of tags to add to Metal resources managed by the Metal provider.
 	// +optional
 	Tags Tags `json:"tags,omitempty"`
 }
 
-// PacketMachineStatus defines the observed state of PacketMachine
-type PacketMachineStatus struct {
+// MetalMachineStatus defines the observed state of MetalMachine
+type MetalMachineStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
@@ -65,12 +63,12 @@ type PacketMachineStatus struct {
 	// +optional
 	Ready bool `json:"ready"`
 
-	// Addresses contains the Packet device associated addresses.
+	// Addresses contains the Metal machine associated addresses.
 	Addresses []corev1.NodeAddress `json:"addresses,omitempty"`
 
-	// InstanceStatus is the status of the Packet device instance for this machine.
+	// InstanceStatus is the status of the Metal machine instance for this machine.
 	// +optional
-	InstanceStatus *PacketResourceStatus `json:"instanceStatus,omitempty"`
+	InstanceStatus *MetalResourceStatus `json:"instanceStatus,omitempty"`
 
 	// Any transient errors that occur during the reconciliation of Machines
 	// can be added as events to the Machine object and/or logged in the
@@ -100,32 +98,32 @@ type PacketMachineStatus struct {
 
 // +kubebuilder:subresource:status
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:path=packetmachines,scope=Namespaced,categories=cluster-api
+// +kubebuilder:resource:path=metalmachines,scope=Namespaced,categories=cluster-api
 // +kubebuilder:storageversion
-// +kubebuilder:printcolumn:name="Cluster",type="string",JSONPath=".metadata.labels.cluster\\.x-k8s\\.io/cluster-name",description="Cluster to which this PacketMachine belongs"
-// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.instanceState",description="Packet instance state"
+// +kubebuilder:printcolumn:name="Cluster",type="string",JSONPath=".metadata.labels.cluster\\.x-k8s\\.io/cluster-name",description="Cluster to which this MetalMachine belongs"
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.instanceState",description="Metal instance state"
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.ready",description="Machine ready status"
-// +kubebuilder:printcolumn:name="InstanceID",type="string",JSONPath=".spec.providerID",description="Packet instance ID"
-// +kubebuilder:printcolumn:name="Machine",type="string",JSONPath=".metadata.ownerReferences[?(@.kind==\"Machine\")].name",description="Machine object which owns with this PacketMachine"
+// +kubebuilder:printcolumn:name="InstanceID",type="string",JSONPath=".spec.providerID",description="Metal instance ID"
+// +kubebuilder:printcolumn:name="Machine",type="string",JSONPath=".metadata.ownerReferences[?(@.kind==\"Machine\")].name",description="Machine object which owns with this MetalMachine"
 
-// PacketMachine is the Schema for the packetmachines API
-type PacketMachine struct {
+// MetalMachine is the Schema for the metalmachines API
+type MetalMachine struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   PacketMachineSpec   `json:"spec,omitempty"`
-	Status PacketMachineStatus `json:"status,omitempty"`
+	Spec   MetalMachineSpec   `json:"spec,omitempty"`
+	Status MetalMachineStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// PacketMachineList contains a list of PacketMachine
-type PacketMachineList struct {
+// MetalMachineList contains a list of MetalMachine
+type MetalMachineList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []PacketMachine `json:"items"`
+	Items           []MetalMachine `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&PacketMachine{}, &PacketMachineList{})
+	SchemeBuilder.Register(&MetalMachine{}, &MetalMachineList{})
 }

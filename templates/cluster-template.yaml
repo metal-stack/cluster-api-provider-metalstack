@@ -19,8 +19,8 @@ spec:
     - systemctl enable docker
     - systemctl start docker
   postKubeadmCommands:
-    - "kubectl --kubeconfig /etc/kubernetes/admin.conf create secret generic -n kube-system packet-cloud-config --from-literal=cloud-sa.json='{\"apiKey\": \"{{ .apiKey }}\",\"projectID\": \"${PROJECT_ID}\"}'"
-    - "kubectl apply --kubeconfig /etc/kubernetes/admin.conf -f https://raw.githubusercontent.com/packethost/packet-ccm/master/deploy/releases/v1.0.0/deployment.yaml"
+    - "kubectl --kubeconfig /etc/kubernetes/admin.conf create secret generic -n kube-system metal-cloud-config --from-literal=cloud-sa.json='{\"apiKey\": \"{{ .apiKey }}\",\"projectID\": \"${PROJECT_ID}\"}'"
+    - "kubectl apply --kubeconfig /etc/kubernetes/admin.conf -f https://raw.githubusercontent.com/metalstack/metal-ccm/master/deploy/releases/v1.0.0/deployment.yaml"
   initConfiguration:
     nodeRegistration:
       kubeletExtraArgs:
@@ -40,15 +40,18 @@ spec:
       cidrBlocks: ["${POD_CIDR}"]
   infrastructureRef:
     apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
-    kind: PacketCluster
+    kind: MetalCluster
     name: "${CLUSTER_NAME}"
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
-kind: PacketCluster
+kind: MetalCluster
 metadata:
   name: "${CLUSTER_NAME}"
 spec:
   projectID: "${PROJECT_ID}"
+  partition: "${PARTITION}"
+  additionalNetworks:
+    - internet
 ---
 apiVersion: cluster.x-k8s.io/v1alpha3
 kind: Machine
@@ -66,18 +69,17 @@ spec:
       name: "${CLUSTER_NAME}-control-plane1-config"
   infrastructureRef:
     apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
-    kind: PacketMachine
+    kind: MetalMachine
     name: "${CLUSTER_NAME}-master-0"
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
-kind: PacketMachine
+kind: MetalMachine
 metadata:
   name: "${CLUSTER_NAME}-master-0"
 spec:
-  OS: "${NODE_OS}"
-  facility:
-  - "${FACILITY}"
-  billingCycle: hourly
+  image: "${NODE_IMAGE}"
+  partition:
+  - "${PARTITION}"
   machineType: "${MASTER_NODE_TYPE}"
   sshKeys:
   - "${SSH_KEY}"
@@ -113,19 +115,16 @@ spec:
       infrastructureRef:
         name: ${CLUSTER_NAME}-worker-a
         apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
-        kind: PacketMachineTemplate
+        kind: MetalMachineTemplate
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
-kind: PacketMachineTemplate
+kind: MetalMachineTemplate
 metadata:
   name: ${CLUSTER_NAME}-worker-a
 spec:
   template:
     spec:
-      OS: "${NODE_OS}"
-      facility:
-      - "${FACILITY}"
-      billingCycle: hourly
+      image: "${NODE_IMAGE}"
       machineType: "${WORKER_NODE_TYPE}"
       sshKeys:
       - "${SSH_KEY}"

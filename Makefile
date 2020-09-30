@@ -48,7 +48,7 @@ CONTROLLER_GEN=$(GOBIN)/controller-gen
 
 CERTMANAGER_URL ?= https://github.com/jetstack/cert-manager/releases/download/v0.14.1/cert-manager.yaml
 
-REPO_URL ?= https://github.com/packethost/cluster-api-provider-packet
+REPO_URL ?= https://github.com/metalstack/cluster-api-provider-metal
 
 # BUILDARCH is the host architecture
 # ARCH is the target architecture
@@ -95,7 +95,7 @@ endif
 OS ?= $(BUILDOS)
 
 # Image URL to use all building/pushing image targets
-BUILD_IMAGE ?= packethost/cluster-api-provider-packet
+BUILD_IMAGE ?= metalstack/cluster-api-provider-metal
 BUILD_IMAGE_TAG ?= $(BUILD_IMAGE):latest
 PUSH_IMAGE_TAG ?= $(BUILD_IMAGE):$(IMAGETAG)
 MANAGER ?= bin/manager-$(OS)-$(ARCH)
@@ -119,7 +119,7 @@ GO ?= GO111MODULE=on CGO_ENABLED=0 go
 
 
 # Image URL to use all building/pushing image targets
-IMG ?= packethost/cluster-api-provider-packet:latest
+IMG ?= metalstack/cluster-api-provider-metal:latest
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 
@@ -142,7 +142,7 @@ CORE_URL ?= https://github.com/kubernetes-sigs/cluster-api/releases/download/$(C
 METADATA_YAML ?= metadata.yaml
 
 # actual releases
-RELEASE_BASE := out/release/infrastructure-packet
+RELEASE_BASE := out/release/infrastructure-metal
 RELEASE_DIR := $(RELEASE_BASE)/$(RELEASE_VERSION)
 FULL_RELEASE_DIR := $(realpath .)/$(RELEASE_DIR)
 RELEASE_MANIFEST := $(RELEASE_DIR)/infrastructure-components.yaml
@@ -155,7 +155,7 @@ RELEASE_CLUSTERCTLYAML := $(RELEASE_BASE)/clusterctl-$(RELEASE_VERSION).yaml
 
 # managerless - for running manager locally for testing
 MANAGERLESS_VERSION ?= $(RELEASE_VERSION)
-MANAGERLESS_BASE := out/managerless/infrastructure-packet
+MANAGERLESS_BASE := out/managerless/infrastructure-metal
 MANAGERLESS_DIR := $(MANAGERLESS_BASE)/$(RELEASE_VERSION)
 FULL_MANAGERLESS_DIR := $(realpath .)/$(MANAGERLESS_DIR)
 MANAGERLESS_MANIFEST := $(MANAGERLESS_DIR)/infrastructure-components.yaml
@@ -219,7 +219,7 @@ test: generate fmt vet crds
 .PHONY: e2e
 e2e:
 	# This is the name used inside the component.yaml for the container that runs the manager
-	# The image gets loaded inside kind from ./test/e2e/config/packet-dev.yaml
+	# The image gets loaded inside kind from ./test/e2e/config/metal-dev.yaml
 	$(E2E_FLAGS) $(MAKE) -C $(TEST_E2E_DIR) run
 
 # Build manager binary
@@ -378,10 +378,10 @@ core: $(COREPATH)
 	@if [ -n "$(YAMLS)" ]; then $(MAKE) $(addprefix $(COREPATH)/,$(YAMLS)); fi
 
 # the standard way to initialize a cluster. If you are using an actually released version,
-# then you can just do "clusterctl init --infrastructure=packet" without any of this
+# then you can just do "clusterctl init --infrastructure=metal" without any of this
 cluster-init: managerless release
 	clusterctl init
-	clusterctl init --config=$(MANAGERLESS_CLUSTERCTLYAML) --infrastructure=packet
+	clusterctl init --config=$(MANAGERLESS_CLUSTERCTLYAML) --infrastructure=metal
 
 # this is just for those who really want to see the manual steps
 cluster-init-manual: core managerless release

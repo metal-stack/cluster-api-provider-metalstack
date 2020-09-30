@@ -6,20 +6,20 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.3.0
   creationTimestamp: null
-  name: packetmachinetemplates.infrastructure.cluster.x-k8s.io
+  name: metalmachinetemplates.infrastructure.cluster.x-k8s.io
 spec:
   group: infrastructure.cluster.x-k8s.io
   names:
     categories:
     - cluster-api
-    kind: PacketMachineTemplate
-    listKind: PacketMachineTemplateList
-    plural: packetmachinetemplates
-    singular: packetmachinetemplate
+    kind: MetalMachineTemplate
+    listKind: MetalMachineTemplateList
+    plural: metalmachinetemplates
+    singular: metalmachinetemplate
   scope: Namespaced
   validation:
     openAPIV3Schema:
-      description: PacketMachineTemplate is the Schema for the packetmachinetemplates
+      description: MetalMachineTemplate is the Schema for the metalmachinetemplates
         API
       properties:
         apiVersion:
@@ -35,30 +35,26 @@ spec:
         metadata:
           type: object
         spec:
-          description: PacketMachineTemplateSpec defines the desired state of PacketMachineTemplate
+          description: MetalMachineTemplateSpec defines the desired state of MetalMachineTemplate
           properties:
             template:
-              description: PacketMachineTemplateResource describes the data needed
-                to create am PacketMachine from a template
+              description: MetalMachineTemplateResource describes the data needed
+                to create am MetalMachine from a template
               properties:
                 spec:
                   description: Spec is the specification of the desired behavior of
                     the machine.
                   properties:
-                    OS:
-                      type: string
-                    billingCycle:
-                      type: string
-                    facility:
-                      items:
-                        type: string
-                      type: array
                     hardwareReservationID:
-                      description: HardwareReservationID is the unique device hardware
+                      description: HardwareReservationID is the unique machine hardware
                         reservation ID or `next-available` to automatically let the
-                        Packet api determine one.
+                        Metal api determine one.
+                      type: string
+                    image:
                       type: string
                     machineType:
+                      type: string
+                    partition:
                       type: string
                     providerID:
                       description: ProviderID is the unique identifier as specified
@@ -69,14 +65,13 @@ spec:
                         type: string
                       type: array
                     tags:
-                      description: Tags is an optional set of tags to add to Packet
-                        resources managed by the Packet provider.
+                      description: Tags is an optional set of tags to add to Metal
+                        resources managed by the Metal provider.
                       items:
                         type: string
                       type: array
                   required:
-                  - OS
-                  - billingCycle
+                  - image
                   - machineType
                   type: object
               required:

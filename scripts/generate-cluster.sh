@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # Copyright 2020 The Kubernetes Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,28 +20,28 @@ CLUSTERCTL=${CLUSTERCTL:-clusterctl}
 
 # might want to use a specific config URL
 CONFIG_URL=${CONFIG_URL:-""}
-CONFIG_OPT=${CONFIG_OPT:-""}
+CONFIG_OPT=${CONFIG_OPT:-"--config=out/managerless/infrastructure-metal/clusterctl-v0.3.0.yaml"}
 if [ -n "$CONFIG_URL" ]; then
 	CONFIG_OPT="--config ${CONFIG_URL}"
 fi
 
 TEMPLATE_OUT=./out/cluster.yaml
 
-DEFAULT_KUBERNETES_VERSION=1.18.2
+DEFAULT_KUBERNETES_VERSION=1.18.5
 DEFAULT_POD_CIDR="172.25.0.0/16"
 DEFAULT_SERVICE_CIDR="172.26.0.0/16"
-DEFAULT_MASTER_NODE_TYPE="t1.small"
-DEFAULT_WORKER_NODE_TYPE="t1.small"
-DEFAULT_NODE_OS="ubuntu_18_04"
+DEFAULT_MASTER_NODE_TYPE="c1-xlarge-x86"
+DEFAULT_WORKER_NODE_TYPE="c1-xlarge-x86"
+DEFAULT_NODE_IMAGE="ubuntu-19.10"
 
 # check required environment variables
 errstring=""
 
-if [ -z "$PACKET_PROJECT_ID" ]; then
-	errstring="${errstring} PACKET_PROJECT_ID"
+if [ -z "$METAL_PROJECT_ID" ]; then
+	errstring="${errstring} METAL_PROJECT_ID"
 fi
-if [ -z "$PACKET_FACILITY" ]; then
-	errstring="${errstring} PACKET_FACILITY"
+if [ -z "$METAL_PARTITION" ]; then
+	errstring="${errstring} METAL_PARTITION"
 fi
 
 if [ -n "$errstring" ]; then
@@ -61,16 +61,21 @@ POD_CIDR=${POD_CIDR:-${DEFAULT_POD_CIDR}}
 SERVICE_CIDR=${SERVICE_CIDR:-${DEFAULT_SERVICE_CIDR}}
 WORKER_NODE_TYPE=${WORKER_NODE_TYPE:-${DEFAULT_WORKER_NODE_TYPE}}
 MASTER_NODE_TYPE=${MASTER_NODE_TYPE:-${DEFAULT_MASTER_NODE_TYPE}}
-NODE_OS=${NODE_OS:-${DEFAULT_NODE_OS}}
+NODE_IMAGE=${DEFAULT_NODE_IMAGE:-${DEFAULT_NODE_IMAGE}}
 KUBERNETES_VERSION=${KUBERNETES_VERSION:-${DEFAULT_KUBERNETES_VERSION}}
 SSH_KEY=${SSH_KEY:-""}
 
-PROJECT_ID=${PACKET_PROJECT_ID}
-FACILITY=${PACKET_FACILITY}
+PROJECT_ID=${METAL_PROJECT_ID}
+PARTITION=${METAL_PARTITION}
+
+# FIXME unused
+NODE_OS=NODE_IMAGE
+FACILITY=PARTITION
 
 # and now export them all so envsubst can use them
-export PROJECT_ID FACILITY NODE_OS WORKER_NODE_TYPE MASTER_NODE_TYPE POD_CIDR SERVICE_CIDR SSH_KEY KUBERNETES_VERSION
-${CLUSTERCTL} ${CONFIG_OPT} config cluster ${CLUSTER_NAME} > $TEMPLATE_OUT
+export PROJECT_ID PARTITION NODE_IMAGE WORKER_NODE_TYPE MASTER_NODE_TYPE POD_CIDR SERVICE_CIDR SSH_KEY KUBERNETES_VERSION NODE_OS FACILITY
+echo "${CLUSTERCTL} -v3 ${CONFIG_OPT} config cluster ${CLUSTER_NAME} > $TEMPLATE_OUT"
+${CLUSTERCTL} -v3 ${CONFIG_OPT} config cluster ${CLUSTER_NAME} > $TEMPLATE_OUT
 
 echo "Done! See output file at ${TEMPLATE_OUT}. Run:"
 echo "   kubectl apply -f ${TEMPLATE_OUT}"

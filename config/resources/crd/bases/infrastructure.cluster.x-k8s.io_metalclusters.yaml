@@ -6,20 +6,20 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.3.0
   creationTimestamp: null
-  name: packetclusters.infrastructure.cluster.x-k8s.io
+  name: metalclusters.infrastructure.cluster.x-k8s.io
 spec:
   group: infrastructure.cluster.x-k8s.io
   names:
-    kind: PacketCluster
-    listKind: PacketClusterList
-    plural: packetclusters
-    singular: packetcluster
+    kind: MetalCluster
+    listKind: MetalClusterList
+    plural: metalclusters
+    singular: metalcluster
   scope: Namespaced
   subresources:
     status: {}
   validation:
     openAPIV3Schema:
-      description: PacketCluster is the Schema for the packetclusters API
+      description: MetalCluster is the Schema for the Metalclusters API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -34,7 +34,7 @@ spec:
         metadata:
           type: object
         spec:
-          description: PacketClusterSpec defines the desired state of PacketCluster
+          description: MetalClusterSpec defines the desired state of MetalCluster
           properties:
             controlPlaneEndpoint:
               description: ControlPlaneEndpoint represents the endpoint used to communicate
@@ -52,14 +52,14 @@ spec:
               - port
               type: object
             projectID:
-              description: Foo is an example field of PacketCluster. Edit PacketCluster_types.go
+              description: Foo is an example field of MetalCluster. Edit MetalCluster_types.go
                 to remove/update
               type: string
           required:
           - projectID
           type: object
         status:
-          description: PacketClusterStatus defines the observed state of PacketCluster
+          description: MetalClusterStatus defines the observed state of MetalCluster
           properties:
             ready:
               description: Ready denotes that the cluster (infrastructure) is ready.

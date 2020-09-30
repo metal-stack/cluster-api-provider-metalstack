@@ -1,13 +1,13 @@
-# permissions for end users to edit packetmachines.
+# permissions for end users to edit metalmachines.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: packetmachine-editor-role
+  name: metalmachine-editor-role
 rules:
 - apiGroups:
   - infrastructure.cluster.x-k8s.io
   resources:
-  - packetmachines
+  - metalmachines
   verbs:
   - create
   - delete
@@ -19,6 +19,6 @@ rules:
 - apiGroups:
   - infrastructure.cluster.x-k8s.io
   resources:
-  - packetmachines/status
+  - metalmachines/status
   verbs:
   - get

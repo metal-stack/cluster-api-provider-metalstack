@@ -14,15 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package packet
+package metal
 
 import (
 	"fmt"
 )
 
 const (
-	MachineUIDTag = "cluster-api-provider-packet:machine-uid"
-	clusterIDTag  = "cluster-api-provider-packet:cluster-id"
+	MachineUIDTag = "cluster-api-provider-metal:machine-uid"
+	clusterIDTag  = "cluster-api-provider-metal:cluster-id"
 	AnnotationUID = "cluster.k8s.io/machine-uid"
 )
 
