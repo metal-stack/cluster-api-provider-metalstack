@@ -124,6 +124,7 @@ spec:
     spec:
       image: "${NODE_IMAGE}"
       machineType: "${WORKER_NODE_TYPE}"
+      partition: "${PARTITION}"
       sshKeys:
       - "${SSH_KEY}"
       tags: []
