@@ -51,7 +51,7 @@ TEST_E2E_DIR := $(REPO_ROOT)/test/e2e
 
 GINKGO_FOCUS  ?=
 GINKGO_NODES  ?= 1
-E2E_CONF_FILE  ?= ${REPO_ROOT}/test/e2e/config/metal-dev.yaml
+E2E_CONF_FILE  ?= ${REPO_ROOT}/test/e2e/config/metalstack-dev.yaml
 ARTIFACTS ?= ${REPO_ROOT}/_artifacts
 SKIP_RESOURCE_CLEANUP ?= false
 USE_EXISTING_CLUSTER ?= false

@@ -1,4 +1,4 @@
-module github.com/metal-stack/cluster-api-provider-metal
+module github.com/metal-stack/cluster-api-provider-metalstack
 
 go 1.14
 

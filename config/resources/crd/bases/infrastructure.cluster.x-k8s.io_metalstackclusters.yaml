@@ -6,20 +6,20 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.3.0
   creationTimestamp: null
-  name: metalclusters.infrastructure.cluster.x-k8s.io
+  name: metalstackclusters.infrastructure.cluster.x-k8s.io
 spec:
   group: infrastructure.cluster.x-k8s.io
   names:
-    kind: MetalCluster
-    listKind: MetalClusterList
-    plural: metalclusters
-    singular: metalcluster
+    kind: MetalStackCluster
+    listKind: MetalStackClusterList
+    plural: metalstackclusters
+    singular: metalstackcluster
   scope: Namespaced
   subresources:
     status: {}
   validation:
     openAPIV3Schema:
-      description: MetalCluster is the Schema for the Metalclusters API
+      description: MetalStackCluster is the Schema for the MetalStackclusters API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -34,8 +34,13 @@ spec:
         metadata:
           type: object
         spec:
-          description: MetalClusterSpec defines the desired state of MetalCluster
+          description: MetalStackClusterSpec defines the desired state of MetalStackCluster
           properties:
+            additionalNetworks:
+              description: AdditionalNetworks this cluster should be part of
+              items:
+                type: string
+              type: array
             controlPlaneEndpoint:
               description: ControlPlaneEndpoint represents the endpoint used to communicate
                 with the control plane.
@@ -51,15 +56,26 @@ spec:
               - host
               - port
               type: object
+            networkID:
+              description: 'todo: This should be required after the implementation.'
+              type: string
+            partition:
+              description: Partition is the physical location where the cluster will
+                be created
+              type: string
+            privateNetworkID:
+              description: PrivateNetworkID is the id if the network which connects
+                the machine together
+              type: string
             projectID:
-              description: Foo is an example field of MetalCluster. Edit MetalCluster_types.go
+              description: ProjectID is th projectID of MetalStackCluster. Edit MetalStackCluster_types.go
                 to remove/update
               type: string
           required:
-          - projectID
+          - privateNetworkID
           type: object
         status:
-          description: MetalClusterStatus defines the observed state of MetalCluster
+          description: MetalStackClusterStatus defines the observed state of MetalStackCluster
           properties:
             ready:
               description: Ready denotes that the cluster (infrastructure) is ready.

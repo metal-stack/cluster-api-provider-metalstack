@@ -1,13 +1,13 @@
-# permissions for end users to edit metalclusters.
+# permissions for end users to edit metalstackclusters.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: metalcluster-editor-role
+  name: metalstackcluster-editor-role
 rules:
 - apiGroups:
   - infrastructure.cluster.x-k8s.io
   resources:
-  - metalclusters
+  - metalstackclusters
   verbs:
   - create
   - delete
@@ -19,6 +19,6 @@ rules:
 - apiGroups:
   - infrastructure.cluster.x-k8s.io
   resources:
-  - metalclusters/status
+  - metalstackclusters/status
   verbs:
   - get

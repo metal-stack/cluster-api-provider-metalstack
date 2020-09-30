@@ -1,6 +1,6 @@
 # Building and Running
 
-This document describes how to build and iterate upon the Metal infrastructure provider.
+This document describes how to build and iterate upon the MetalStack infrastructure provider.
 
 This is _not_ intended for regular users.
 
@@ -17,8 +17,8 @@ Building and deploying initially involves the following steps:
 1. deploy a management cluster
 1. build the CAPP manager binary
 1. deploy the core cluster-api provider to the management cluster
-1. generate Metal infrastructure provider in a managerless mode
-1. deploy the Metal infrastructure provider to the management cluster
+1. generate MetalStack infrastructure provider in a managerless mode
+1. deploy the MetalStack infrastructure provider to the management cluster
 1. run the binary locally against your cluster
 1. create a cluster
 
@@ -41,9 +41,9 @@ To build the binary, you need to:
 
 You now should have a functional manager in [bin/](./bin/) named `manager-<os>-<arch>`.
 
-### Generate the Metal infrastructure provider yaml
+### Generate the MetalStack infrastructure provider yaml
 
-You need to generate the "managerless" version of the Metal cluster-api infrastructure provider.
+You need to generate the "managerless" version of the MetalStack cluster-api infrastructure provider.
 This is _almost_ identical to the yaml that is deployed for a regular user, except that it does _not_
 deploy the pod which contains the manager. This lets you develop and run it locally against your cluster.
 
@@ -53,16 +53,16 @@ We have created a simple way to generate it:
 make managerless
 ```
 
-This will generate the yaml you need in: [out/managerless/infrastructure-metal/0.3.0/infrastructure-components.yaml](./out/managerless/infrastructure-metal/0.3.0/infrastructure-components.yaml).
+This will generate the yaml you need in: [out/managerless/infrastructure-metalstack/0.3.0/infrastructure-components.yaml](./out/managerless/infrastructure-metalstack/0.3.0/infrastructure-components.yaml).
 This odd path is so that it complies with the `clusterctl` requirements.
 
-### Deploy the core and metal cluster-api providers
+### Deploy the core and metalstack cluster-api providers
 
 This is performed via:
 
 ```
 clusterctl init
-clusterctl init --config=out/managerless/infrastructure-metal/clusterctl-<version>.yaml --infrastructure=metal
+clusterctl init --config=out/managerless/infrastructure-metalstack/clusterctl-<version>.yaml --infrastructure=metalstack
 ```
 
 We wrapped this up in a simple make target:
@@ -77,7 +77,7 @@ If you prefer to do the above steps manually, the steps are below. This generall
 2. download the components from the [official cluster-api releases page](https://github.com/kubernetes-sigs/cluster-api/releases) to `out/core/`; you will need all of the `.yaml` files in a release.
 3. apply the core components via  `kubectl apply -f out/core/`. The order _does_ matter, and the CRDs have to exist, so you will need to
 `kubectl apply` multiple times until it all is accepted.
-3. apply the Metal infrastructure provider via `kubectl apply -f out/managerless/infrastructure-metal/<version>/infrastructure-components.yaml`
+3. apply the MetalStack infrastructure provider via `kubectl apply -f out/managerless/infrastructure-metalstack/<version>/infrastructure-components.yaml`
 
 To simplify it, we have a makefile target that does all of the above:
 
@@ -111,12 +111,12 @@ clusterctl --config=<config> config cluster <name>
 
 This requires all of the environment variables as well as the config path. `make cluster` provides the
 defaults for the variables, which you can override, and sets the `--config=` to the official
-Metal release path at https://github.com/metal-stack/cluster-api-provider-metal/releases/latest/infrastructure-components.yaml
+MetalStack release path at https://github.com/metal-stack/cluster-api-provider-metalstack/releases/latest/infrastructure-components.yaml
 
 You can override it by running:
 
 ```bash
-make cluster CLUSTER_URL=./out/managerless/infrastructure-metal/<version>/clusterctl-<version>.yaml
+make cluster CLUSTER_URL=./out/managerless/infrastructure-metalstack/<version>/clusterctl-<version>.yaml
 ```
 
 ## Iterate
@@ -145,8 +145,8 @@ additional CRDs, you need to regenerate some components:
 1. Regenerate with `make generate`
 1. Rebuild the manager with `make manager`
 1. Start your manager again with `./bin/manager-<os>-<arch>`
-1. Delete your infrastructure provider for Metal with `clusterctl --config=... delete --infrastructure=metal`
-1. Reapply your infrastructure provider for Metal with `clusterctl --config=... init --infrastructure=metal`
+1. Delete your infrastructure provider for MetalStack with `clusterctl --config=... delete --infrastructure=metalstack`
+1. Reapply your infrastructure provider for MetalStack with `clusterctl --config=... init --infrastructure=metalstack`
 
 The core components do not need to be reapplied.
 
@@ -169,7 +169,7 @@ make
 This will leave you with:
 
 * the controller binary as `bin/manager-<os>-<arch>` for the OS and architecture on which you are running
-* the infrastructure provider yaml files for Metal in [out/release](./out/release)
+* the infrastructure provider yaml files for MetalStack in [out/release](./out/release)
 
 You can build for a different OS or architecture by setting `OS` and `ARCH`. For example:
 

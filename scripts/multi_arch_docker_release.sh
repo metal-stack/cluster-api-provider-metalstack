@@ -19,17 +19,17 @@ set -e
 docker buildx create --use --name build --node build --driver-opt network=host
 
 docker buildx build --push --platform linux/${ARCH} \
-    -t metalstack/cluster-api-provider-metal:latest-${ARCH} \
-    -t metalstack/cluster-api-provider-metal:${TAG}-${ARCH} \
+    -t metalstack/cluster-api-provider-metalstack:latest-${ARCH} \
+    -t metalstack/cluster-api-provider-metalstack:${TAG}-${ARCH} \
     -f ../../Dockerfile.goreleaser .
 
 # Update the manifest for the new release
 docker buildx imagetools create \
-  -t metalstack/cluster-api-provider-metal:${TAG} \
-  metalstack/cluster-api-provider-metal:${TAG}-${ARCH} \
-  metalstack/cluster-api-provider-metal:${TAG}-${ARCH}
+  -t metalstack/cluster-api-provider-metalstack:${TAG} \
+  metalstack/cluster-api-provider-metalstack:${TAG}-${ARCH} \
+  metalstack/cluster-api-provider-metalstack:${TAG}-${ARCH}
 
 docker buildx imagetools create \
-  -t metalstack/cluster-api-provider-metal:latest \
-  metalstack/cluster-api-provider-metal:latest-${ARCH} \
-  metalstack/cluster-api-provider-metal:latest-${ARCH}
+  -t metalstack/cluster-api-provider-metalstack:latest \
+  metalstack/cluster-api-provider-metalstack:latest-${ARCH} \
+  metalstack/cluster-api-provider-metalstack:latest-${ARCH}

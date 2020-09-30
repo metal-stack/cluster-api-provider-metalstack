@@ -26,12 +26,20 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	metal "github.com/metal-stack/cluster-api-provider-metal/pkg/cloud/metal"
+	metalstack "github.com/metal-stack/cluster-api-provider-metalstack/pkg/cloud/metalstack"
+	metalgo "github.com/metal-stack/metal-go"
 
-	infrastructurev1alpha3 "github.com/metal-stack/cluster-api-provider-metal/api/v1alpha3"
-	"github.com/metal-stack/cluster-api-provider-metal/controllers"
+	infrastructurev1alpha3 "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
+	"github.com/metal-stack/cluster-api-provider-metalstack/controllers"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	// +kubebuilder:scaffold:imports
+)
+
+const (
+	apiTokenVarName = "METAL_API_TOKEN"
+	apiKeyVarName   = "METALCTL_HMAC"
+	apiURLVarName   = "METALCTL_URL"
+	clientName      = "CAPM-v1alpha3"
 )
 
 var (
@@ -49,7 +57,7 @@ func init() {
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
-	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
+	flag.StringVar(&metricsAddr, "metrics-addr", ":8081", "The address the metric endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -63,13 +71,21 @@ func main() {
 		BurstSize: 100,
 	})
 
-	// get a metal client
-	client, err := metal.GetClient()
+	// mstClient, err := metalgo.NewDriver(os.Getenv("METALCTL_URL"), "", os.Getenv("METALCTL_HMAC"))
+	mstClient, err := metalgo.NewDriver("http://api.0.0.0.0.xip.io:8080/metal", "", "metal-admin")
 	if err != nil {
-		setupLog.Error(err, "unable to get Metal client")
+		setupLog.Error(err, "unable to get Metal-Stack client")
 		os.Exit(1)
 	}
-	setupLog.Info("metal client connected")
+
+	// todo: remove the dependency of the package metalstack
+	// get a metalstack client
+	// client, err := metalstack.GetClient()
+	// if err != nil {
+	// 	setupLog.Error(err, "unable to get MetalStack client")
+	// 	os.Exit(1)
+	// }
+	setupLog.Info("metalstack client connected")
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:             scheme,
@@ -84,24 +100,24 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.MetalClusterReconciler{
-		Client:      mgr.GetClient(),
-		Log:         ctrl.Log.WithName("controllers").WithName("MetalCluster"),
-		Recorder:    mgr.GetEventRecorderFor("metalcluster-controller"),
-		MetalClient: client,
-		Scheme:      mgr.GetScheme(),
+	if err = (&controllers.MetalStackClusterReconciler{
+		Client:    mgr.GetClient(),
+		Log:       ctrl.Log.WithName("controllers").WithName("MetalStackCluster"),
+		MStClient: mstClient,
+		Recorder:  mgr.GetEventRecorderFor("metalstackcluster-controller"),
+		Scheme:    mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "MetalCluster")
+		setupLog.Error(err, "unable to create controller", "controller", "MetalStackCluster")
 		os.Exit(1)
 	}
-	if err = (&controllers.MetalMachineReconciler{
-		Client:      mgr.GetClient(),
-		Log:         ctrl.Log.WithName("controllers").WithName("MetalMachine"),
-		Scheme:      mgr.GetScheme(),
-		Recorder:    mgr.GetEventRecorderFor("metalmachine-controller"),
-		MetalClient: client,
+	if err = (&controllers.MetalStackMachineReconciler{
+		Client:           mgr.GetClient(),
+		Log:              ctrl.Log.WithName("controllers").WithName("MetalStackMachine"),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorderFor("metalstackmachine-controller"),
+		MetalStackClient: &metalstack.MetalStackClient{Driver: mstClient},
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "MetalMachine")
+		setupLog.Error(err, "unable to create controller", "controller", "MetalStackMachine")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder

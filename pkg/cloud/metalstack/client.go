@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package metal
+package metalstack
 
 import (
 	"fmt"
@@ -22,8 +22,8 @@ import (
 	"strings"
 	"text/template"
 
-	infrastructurev1alpha3 "github.com/metal-stack/cluster-api-provider-metal/api/v1alpha3"
-	"github.com/metal-stack/cluster-api-provider-metal/pkg/cloud/metal/scope"
+	infrastructurev1alpha3 "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
+	"github.com/metal-stack/cluster-api-provider-metalstack/pkg/cloud/metalstack/scope"
 	metalgo "github.com/metal-stack/metal-go"
 	"github.com/metal-stack/metal-go/api/models"
 	"github.com/pkg/errors"
@@ -35,25 +35,25 @@ var clientLog = ctrl.Log.WithName("client")
 
 const (
 	apiTokenVarName = "METAL_API_TOKEN"
-	apiKeyVarName   = "METAL_API_KEY"
-	apiURLVarName   = "METAL_API_URL"
-	clientName      = "CAPP-v1alpha3"
+	apiKeyVarName   = "METALCTL_HMAC"
+	apiURLVarName   = "METALCTL_URL"
+	clientName      = "CAPM-v1alpha3"
 )
 
-type MetalClient struct {
+type MetalStackClient struct {
 	*metalgo.Driver
 }
 
-// newClient creates a new Client for the given Metal credentials
-func newClient(metalAPIURL, metalAPIToken, metalAPIKey string) (*MetalClient, error) {
-	driver, err := metalgo.NewDriver(metalAPIURL, metalAPIToken, metalAPIKey)
-	return &MetalClient{driver}, err
+// newClient creates a new Client for the given MetalStack credentials
+func newClient(metalstackAPIURL, metalstackAPIToken, metalstackAPIKey string) (*MetalStackClient, error) {
+	driver, err := metalgo.NewDriver(metalstackAPIURL, metalstackAPIToken, metalstackAPIKey)
+	return &MetalStackClient{driver}, err
 }
 
-func GetClient() (*MetalClient, error) {
-	url := strings.TrimSpace(os.Getenv(apiURLVarName))
+func GetClient() (*MetalStackClient, error) {
+	url := "http://api.0.0.0.0.xip.io:8080/metal"
 	token := strings.TrimSpace(os.Getenv(apiTokenVarName))
-	key := strings.TrimSpace(os.Getenv(apiKeyVarName))
+	key := "metal-admin"
 	if token == "" && key == "" {
 		return nil, fmt.Errorf("env var %s or %s is required", apiTokenVarName, apiKeyVarName)
 	}
@@ -63,12 +63,12 @@ func GetClient() (*MetalClient, error) {
 	return newClient(url, token, key)
 }
 
-func (c *MetalClient) GetMachine(machineID string) (*metalgo.MachineGetResponse, error) {
+func (c *MetalStackClient) GetMachine(machineID string) (*metalgo.MachineGetResponse, error) {
 	return c.MachineGet(machineID)
 }
 
-func (c *MetalClient) NewMachine(hostname, project string, machineScope *scope.MachineScope, extraTags []string) (*metalgo.MachineCreateResponse, error) {
-	privateNetwork := machineScope.MetalCluster.Spec.PrivateNetworkID
+func (c *MetalStackClient) NewMachine(hostname, project string, machineScope *scope.MachineScope, extraTags []string) (*metalgo.MachineCreateResponse, error) {
+	privateNetwork := machineScope.MetalStackCluster.Spec.PrivateNetworkID
 	if privateNetwork == "" {
 		return nil, fmt.Errorf("no privatenetwork allocated yet")
 	}
@@ -77,7 +77,7 @@ func (c *MetalClient) NewMachine(hostname, project string, machineScope *scope.M
 		return nil, errors.Wrap(err, "impossible to retrieve bootstrap data from secret")
 	}
 	userData := string(userDataRaw)
-	tags := append(machineScope.MetalMachine.Spec.Tags, extraTags...)
+	tags := append(machineScope.MetalStackMachine.Spec.Tags, extraTags...)
 	if machineScope.IsControlPlane() {
 		// control plane machines should get the API key injected
 		tmpl, err := template.New("control-plane-user-data").Parse(userData)
@@ -99,7 +99,7 @@ func (c *MetalClient) NewMachine(hostname, project string, machineScope *scope.M
 	networks := []metalgo.MachineAllocationNetwork{
 		{NetworkID: privateNetwork, Autoacquire: true},
 	}
-	for _, additionalNetwork := range machineScope.MetalCluster.Spec.AdditionalNetworks {
+	for _, additionalNetwork := range machineScope.MetalStackCluster.Spec.AdditionalNetworks {
 		anw := metalgo.MachineAllocationNetwork{
 			NetworkID:   additionalNetwork,
 			Autoacquire: true,
@@ -112,9 +112,9 @@ func (c *MetalClient) NewMachine(hostname, project string, machineScope *scope.M
 		Hostname: hostname,
 
 		Project:   project,
-		Partition: machineScope.MetalCluster.Spec.Partition,
-		Image:     machineScope.MetalMachine.Spec.Image,
-		Size:      machineScope.MetalMachine.Spec.MachineType,
+		Partition: *machineScope.MetalStackCluster.Spec.Partition,
+		Image:     machineScope.MetalStackMachine.Spec.Image,
+		Size:      machineScope.MetalStackMachine.Spec.MachineType,
 		Networks:  networks,
 		Tags:      tags,
 		UserData:  userData,
@@ -123,7 +123,7 @@ func (c *MetalClient) NewMachine(hostname, project string, machineScope *scope.M
 	return c.MachineCreate(machineCreateRequest)
 }
 
-func (c *MetalClient) GetMachineAddresses(machine *models.V1MachineResponse) ([]corev1.NodeAddress, error) {
+func (c *MetalStackClient) GetMachineAddresses(machine *models.V1MachineResponse) ([]corev1.NodeAddress, error) {
 	addrs := make([]corev1.NodeAddress, 0)
 	for _, network := range machine.Allocation.Networks {
 		addrType := corev1.NodeInternalIP
@@ -139,7 +139,7 @@ func (c *MetalClient) GetMachineAddresses(machine *models.V1MachineResponse) ([]
 	return addrs, nil
 }
 
-func (c *MetalClient) GetMachineByTags(project string, tags []string) (*metalgo.MachineListResponse, error) {
+func (c *MetalStackClient) GetMachineByTags(project string, tags []string) (*metalgo.MachineListResponse, error) {
 	mfr := metalgo.MachineFindRequest{AllocationProject: &project, Tags: tags}
 	if c == nil {
 		return nil, fmt.Errorf("metal-go client is nil")
@@ -152,7 +152,7 @@ func (c *MetalClient) GetMachineByTags(project string, tags []string) (*metalgo.
 	return machines, nil
 }
 
-func (c *MetalClient) AllocatePrivateNetwork(name, project, partition string) (string, error) {
+func (c *MetalStackClient) AllocatePrivateNetwork(name, project, partition string) (string, error) {
 	ncr := metalgo.NetworkAllocateRequest{
 		Name:        name,
 		PartitionID: partition,
@@ -168,7 +168,7 @@ func (c *MetalClient) AllocatePrivateNetwork(name, project, partition string) (s
 	return *nw.Network.ID, nil
 }
 
-func (c *MetalClient) FreePrivateNetwork(privateNetworkID string) error {
+func (c *MetalStackClient) FreePrivateNetwork(privateNetworkID string) error {
 	// FIXME implement and use
 	return fmt.Errorf("not implemented yet")
 }

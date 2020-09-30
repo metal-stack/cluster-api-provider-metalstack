@@ -1,14 +1,14 @@
 # Adds namespace to all resources.
-namespace: cluster-api-provider-metal-system
+namespace: cluster-api-provider-metalstack-system
 # Value of this field is prepended to the
 # names of all resources, e.g. a deployment named
 # "wordpress" becomes "alices-wordpress".
 # Note that it should also match with the prefix (text before '-') of the namespace
 # field above.
-namePrefix: cluster-api-provider-metal-
+namePrefix: cluster-api-provider-metalstack-
 # Labels to add to all resources and selectors.
 commonLabels:
-  cluster.x-k8s.io/provider: infrastructure-metal
+  cluster.x-k8s.io/provider: infrastructure-metalstack
 resources:
 - ../resources/crd
 - ../resources/rbac
@@ -22,9 +22,9 @@ resources:
 # [PROMETHEUS] To enable prometheus monitor, uncomment all sections with 'PROMETHEUS'.
 #- ../prometheus
 images:
-- name: metal-controller # images with this name
-  newTag: v0.3.0 # {"type":"string","x-kustomize":{"setter":{"name":"image-tag","value":"v0.3.0"}}}
-  newName: metalstack/cluster-api-provider-metal # and this name
+- name: metalstack-controller # images with this name
+  newTag: v0.3.0-dirty # {"type":"string","x-kustomize":{"setter":{"name":"image-tag","value":"v0.3.0-dirty"}}}
+  newName: metalstack/cluster-api-provider-metalstack # and this name
 patchesStrategicMerge:
 # Protect the /metrics endpoint by putting it behind auth.
 # If you want your controller-manager to expose the /metrics

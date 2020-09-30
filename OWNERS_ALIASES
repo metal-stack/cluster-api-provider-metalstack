@@ -1,4 +1,4 @@
 # See the OWNERS docs: https://github.com/kubernetes/community/blob/master/contributors/guide/owners.md
 aliases:
-  cluster-api-metal-maintainers:
+  cluster-api-metalstack-maintainers:
     - majst01

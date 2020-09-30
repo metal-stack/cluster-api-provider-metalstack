@@ -23,7 +23,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 
-	infrav1 "github.com/metal-stack/cluster-api-provider-metal/api/v1alpha3"
+	infrav1 "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -40,17 +40,17 @@ import (
 
 // MachineScopeParams defines the input parameters used to create a new MachineScope.
 type MachineScopeParams struct {
-	Client       client.Client
-	Logger       logr.Logger
-	Cluster      *clusterv1.Cluster
-	Machine      *clusterv1.Machine
-	MetalCluster *infrav1.MetalCluster
-	MetalMachine *infrav1.MetalMachine
+	Client            client.Client
+	Logger            logr.Logger
+	Cluster           *clusterv1.Cluster
+	Machine           *clusterv1.Machine
+	MetalStackCluster *infrav1.MetalStackCluster
+	MetalStackMachine *infrav1.MetalStackMachine
 }
 
 // NewMachineScope creates a new MachineScope from the supplied parameters.
 // This is meant to be called for each reconcile iteration
-// both MetalClusterReconciler and MetalMachineReconciler.
+// both MetalStackClusterReconciler and MetalStackMachineReconciler.
 func NewMachineScope(params MachineScopeParams) (*MachineScope, error) {
 	if params.Client == nil {
 		return nil, errors.New("Client is required when creating a MachineScope")
@@ -61,29 +61,29 @@ func NewMachineScope(params MachineScopeParams) (*MachineScope, error) {
 	if params.Cluster == nil {
 		return nil, errors.New("Cluster is required when creating a MachineScope")
 	}
-	if params.MetalCluster == nil {
-		return nil, errors.New("MetalCluster is required when creating a MachineScope")
+	if params.MetalStackCluster == nil {
+		return nil, errors.New("MetalStackCluster is required when creating a MachineScope")
 	}
-	if params.MetalMachine == nil {
-		return nil, errors.New("MetalMachine is required when creating a MachineScope")
+	if params.MetalStackMachine == nil {
+		return nil, errors.New("MetalStackMachine is required when creating a MachineScope")
 	}
 
 	if params.Logger == nil {
 		params.Logger = klogr.New()
 	}
 
-	helper, err := patch.NewHelper(params.MetalMachine, params.Client)
+	helper, err := patch.NewHelper(params.MetalStackMachine, params.Client)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to init patch helper")
 	}
 	return &MachineScope{
-		client:       params.Client,
-		Cluster:      params.Cluster,
-		Machine:      params.Machine,
-		MetalCluster: params.MetalCluster,
-		MetalMachine: params.MetalMachine,
-		Logger:       params.Logger,
-		patchHelper:  helper,
+		client:            params.Client,
+		Cluster:           params.Cluster,
+		Machine:           params.Machine,
+		MetalStackCluster: params.MetalStackCluster,
+		MetalStackMachine: params.MetalStackMachine,
+		Logger:            params.Logger,
+		patchHelper:       helper,
 	}, nil
 }
 
@@ -93,25 +93,25 @@ type MachineScope struct {
 	client      client.Client
 	patchHelper *patch.Helper
 
-	Cluster      *clusterv1.Cluster
-	Machine      *clusterv1.Machine
-	MetalCluster *infrav1.MetalCluster
-	MetalMachine *infrav1.MetalMachine
+	Cluster           *clusterv1.Cluster
+	Machine           *clusterv1.Machine
+	MetalStackCluster *infrav1.MetalStackCluster
+	MetalStackMachine *infrav1.MetalStackMachine
 }
 
 // Close the MachineScope by updating the machine spec, machine status.
 func (m *MachineScope) Close() error {
-	return m.patchHelper.Patch(context.TODO(), m.MetalMachine)
+	return m.patchHelper.Patch(context.TODO(), m.MetalStackMachine)
 }
 
-// Name returns the MetalMachine name
+// Name returns the MetalStackMachine name
 func (m *MachineScope) Name() string {
-	return m.MetalMachine.Name
+	return m.MetalStackMachine.Name
 }
 
-// Namespace returns the MetalMachine namespace
+// Namespace returns the MetalStackMachine namespace
 func (m *MachineScope) Namespace() string {
-	return m.MetalMachine.Namespace
+	return m.MetalStackMachine.Namespace
 }
 
 // IsControlPlane returns true if the machine is a control plane.
@@ -129,21 +129,21 @@ func (m *MachineScope) Role() string {
 
 // GetProviderID returns the DOMachine providerID from the spec.
 func (m *MachineScope) GetProviderID() string {
-	if m.MetalMachine.Spec.ProviderID != nil {
-		return *m.MetalMachine.Spec.ProviderID
+	if m.MetalStackMachine.Spec.ProviderID != nil {
+		return *m.MetalStackMachine.Spec.ProviderID
 	}
 	return ""
 }
 
 // SetProviderID sets the DOMachine providerID in spec from machine id.
 func (m *MachineScope) SetProviderID(machineID string) {
-	pid := fmt.Sprintf("metal://%s", machineID)
-	m.MetalMachine.Spec.ProviderID = pointer.StringPtr(pid)
+	pid := fmt.Sprintf("metalstack://%s", machineID)
+	m.MetalStackMachine.Spec.ProviderID = pointer.StringPtr(pid)
 }
 
 // SetPrivateNetworkID sets private NetworkID in spec from machine id.
 func (m *MachineScope) SetPrivateNetworkID(privateNetworkID string) {
-	m.MetalCluster.Spec.PrivateNetworkID = privateNetworkID
+	m.MetalStackCluster.Spec.PrivateNetworkID = privateNetworkID
 }
 
 // GetInstanceID returns the DOMachine droplet instance id by parsing Spec.ProviderID.
@@ -155,43 +155,43 @@ func (m *MachineScope) GetInstanceID() string {
 	return parsed.ID()
 }
 
-// GetInstanceStatus returns the MetalMachine machine instance status from the status.
-func (m *MachineScope) GetInstanceStatus() *infrav1.MetalResourceStatus {
-	return m.MetalMachine.Status.InstanceStatus
+// GetInstanceStatus returns the MetalStackMachine machine instance status from the status.
+func (m *MachineScope) GetInstanceStatus() *infrav1.MetalStackResourceStatus {
+	return m.MetalStackMachine.Status.InstanceStatus
 }
 
-// SetInstanceStatus sets the MetalMachine machine id.
-func (m *MachineScope) SetInstanceStatus(v infrav1.MetalResourceStatus) {
-	m.MetalMachine.Status.InstanceStatus = &v
+// SetInstanceStatus sets the MetalStackMachine machine id.
+func (m *MachineScope) SetInstanceStatus(v infrav1.MetalStackResourceStatus) {
+	m.MetalStackMachine.Status.InstanceStatus = &v
 }
 
-// SetReady sets the MetalMachine Ready Status
+// SetReady sets the MetalStackMachine Ready Status
 func (m *MachineScope) SetReady() {
-	m.MetalMachine.Status.Ready = true
+	m.MetalStackMachine.Status.Ready = true
 }
 
-// SetErrorMessage sets the MetalMachine status error message.
+// SetErrorMessage sets the MetalStackMachine status error message.
 func (m *MachineScope) SetErrorMessage(v error) {
-	m.MetalMachine.Status.ErrorMessage = pointer.StringPtr(v.Error())
+	m.MetalStackMachine.Status.ErrorMessage = pointer.StringPtr(v.Error())
 }
 
-// SetErrorReason sets the MetalMachine status error reason.
+// SetErrorReason sets the MetalStackMachine status error reason.
 func (m *MachineScope) SetErrorReason(v capierrors.MachineStatusError) {
-	m.MetalMachine.Status.ErrorReason = &v
+	m.MetalStackMachine.Status.ErrorReason = &v
 }
 
 // SetAddresses sets the address status.
 func (m *MachineScope) SetAddresses(addrs []corev1.NodeAddress) {
-	m.MetalMachine.Status.Addresses = addrs
+	m.MetalStackMachine.Status.Addresses = addrs
 }
 
-// AdditionalTags returns Tags from the scope's MetalMachine. The returned value will never be nil.
+// AdditionalTags returns Tags from the scope's MetalStackMachine. The returned value will never be nil.
 func (m *MachineScope) Tags() infrav1.Tags {
-	if m.MetalMachine.Spec.Tags == nil {
-		m.MetalMachine.Spec.Tags = infrav1.Tags{}
+	if m.MetalStackMachine.Spec.Tags == nil {
+		m.MetalStackMachine.Spec.Tags = infrav1.Tags{}
 	}
 
-	return m.MetalMachine.Spec.Tags.DeepCopy()
+	return m.MetalStackMachine.Spec.Tags.DeepCopy()
 }
 
 // GetRawBootstrapData returns the bootstrap data from the secret in the Machine's bootstrap.dataSecretName.
@@ -203,7 +203,7 @@ func (m *MachineScope) GetRawBootstrapData() ([]byte, error) {
 	secret := &corev1.Secret{}
 	key := types.NamespacedName{Namespace: m.Namespace(), Name: *m.Machine.Spec.Bootstrap.DataSecretName}
 	if err := m.client.Get(context.TODO(), key, secret); err != nil {
-		return nil, errors.Wrapf(err, "failed to retrieve bootstrap data secret for MetalMachine %s/%s", m.Namespace(), m.Name())
+		return nil, errors.Wrapf(err, "failed to retrieve bootstrap data secret for MetalStackMachine %s/%s", m.Namespace(), m.Name())
 	}
 
 	value, ok := secret.Data["value"]

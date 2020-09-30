@@ -18,36 +18,43 @@ package v1alpha3
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
+	"sigs.k8s.io/cluster-api/api/v1alpha3"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// MetalClusterSpec defines the desired state of MetalCluster
-type MetalClusterSpec struct {
+// MetalStackClusterSpec defines the desired state of MetalStackCluster
+type MetalStackClusterSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Partition is the physical location where the cluster will be created
-	Partition string `json:"partition,omitempty"`
+	// ControlPlaneEndpoint represents the endpoint used to communicate with the control plane.
+	// +optional
+	ControlPlaneEndpoint v1alpha3.APIEndpoint `json:"controlPlaneEndpoint"`
 
-	// ProjectID is th projectID of MetalCluster. Edit MetalCluster_types.go to remove/update
-	ProjectID string `json:"projectID"`
+	// todo: This should be required after the implementation.
+	// +optional
+	NetworkID *string `json:"networkID,omitempty"`
+
+	// Partition is the physical location where the cluster will be created
+	Partition *string `json:"partition,omitempty"`
+
+	// ProjectID is th projectID of MetalStackCluster. Edit MetalStackCluster_types.go to remove/update
+	ProjectID *string `json:"projectID,omitempty"`
+
+	// TODO: Remove the following members. Complete the logic for the NetworkID above.
 
 	// AdditionalNetworks this cluster should be part of
+	// +optional
 	AdditionalNetworks []string `json:"additionalNetworks"`
 
 	// PrivateNetworkID is the id if the network which connects the machine together
 	PrivateNetworkID string `json:"privateNetworkID"`
-
-	// ControlPlaneEndpoint represents the endpoint used to communicate with the control plane.
-	// +optional
-	ControlPlaneEndpoint clusterv1.APIEndpoint `json:"controlPlaneEndpoint"`
 }
 
-// MetalClusterStatus defines the observed state of MetalCluster
-type MetalClusterStatus struct {
+// MetalStackClusterStatus defines the observed state of MetalStackCluster
+type MetalStackClusterStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
@@ -59,24 +66,24 @@ type MetalClusterStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:object:root=true
 
-// MetalCluster is the Schema for the Metalclusters API
-type MetalCluster struct {
+// MetalStackCluster is the Schema for the MetalStackclusters API
+type MetalStackCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   MetalClusterSpec   `json:"spec,omitempty"`
-	Status MetalClusterStatus `json:"status,omitempty"`
+	Spec   MetalStackClusterSpec   `json:"spec,omitempty"`
+	Status MetalStackClusterStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// MetalClusterList contains a list of MetalCluster
-type MetalClusterList struct {
+// MetalStackClusterList contains a list of MetalStackCluster
+type MetalStackClusterList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []MetalCluster `json:"items"`
+	Items           []MetalStackCluster `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&MetalCluster{}, &MetalClusterList{})
+	SchemeBuilder.Register(&MetalStackCluster{}, &MetalStackClusterList{})
 }

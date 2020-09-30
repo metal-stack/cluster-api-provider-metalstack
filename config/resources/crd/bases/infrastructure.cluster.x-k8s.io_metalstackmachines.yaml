@@ -6,15 +6,15 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.3.0
   creationTimestamp: null
-  name: metalmachines.infrastructure.cluster.x-k8s.io
+  name: metalstackmachines.infrastructure.cluster.x-k8s.io
 spec:
   additionalPrinterColumns:
   - JSONPath: .metadata.labels.cluster\.x-k8s\.io/cluster-name
-    description: Cluster to which this MetalMachine belongs
+    description: Cluster to which this MetalStackMachine belongs
     name: Cluster
     type: string
   - JSONPath: .status.instanceState
-    description: Metal instance state
+    description: MetalStack instance state
     name: State
     type: string
   - JSONPath: .status.ready
@@ -22,27 +22,27 @@ spec:
     name: Ready
     type: string
   - JSONPath: .spec.providerID
-    description: Metal instance ID
+    description: MetalStack instance ID
     name: InstanceID
     type: string
   - JSONPath: .metadata.ownerReferences[?(@.kind=="Machine")].name
-    description: Machine object which owns with this MetalMachine
+    description: Machine object which owns with this MetalStackMachine
     name: Machine
     type: string
   group: infrastructure.cluster.x-k8s.io
   names:
     categories:
     - cluster-api
-    kind: MetalMachine
-    listKind: MetalMachineList
-    plural: metalmachines
-    singular: metalmachine
+    kind: MetalStackMachine
+    listKind: MetalStackMachineList
+    plural: metalstackmachines
+    singular: metalstackmachine
   scope: Namespaced
   subresources:
     status: {}
   validation:
     openAPIV3Schema:
-      description: MetalMachine is the Schema for the metalmachines API
+      description: MetalStackMachine is the Schema for the metalstackmachines API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -57,42 +57,50 @@ spec:
         metadata:
           type: object
         spec:
-          description: MetalMachineSpec defines the desired state of MetalMachine
+          description: MetalStackMachineSpec defines the desired state of MetalStackMachine
           properties:
             hardwareReservationID:
               description: HardwareReservationID is the unique machine hardware reservation
-                ID or `next-available` to automatically let the Metal api determine
+                ID or `next-available` to automatically let the MetalStack api determine
                 one.
               type: string
             image:
               type: string
             machineType:
               type: string
+            networkIDs:
+              items:
+                type: string
+              type: array
             partition:
               type: string
+            projectID:
+              description: ID of the machine. This field is required by Cluster API.
+              type: string
             providerID:
-              description: ProviderID is the unique identifier as specified by the
-                cloud provider.
               type: string
             sshKeys:
               items:
                 type: string
               type: array
             tags:
-              description: Tags is an optional set of tags to add to Metal resources
-                managed by the Metal provider.
+              description: Tags is an optional set of tags to add to MetalStack resources
+                managed by the MetalStack provider.
               items:
                 type: string
               type: array
+            type:
+              type: string
           required:
           - image
           - machineType
+          - partition
           type: object
         status:
-          description: MetalMachineStatus defines the observed state of MetalMachine
+          description: MetalStackMachineStatus defines the observed state of MetalStackMachine
           properties:
             addresses:
-              description: Addresses contains the Metal machine associated addresses.
+              description: Addresses contains the MetalStack machine associated addresses.
               items:
                 description: NodeAddress contains information for the node's address.
                 properties:
@@ -108,6 +116,8 @@ spec:
                 - type
                 type: object
               type: array
+            allocated:
+              type: boolean
             errorMessage:
               description: "ErrorMessage will be set in the event that there is a
                 terminal problem reconciling the Machine and will contain a more verbose
@@ -128,13 +138,21 @@ spec:
                 of Machines can be added as events to the Machine object and/or logged
                 in the controller's output.
               type: string
-            instanceStatus:
-              description: InstanceStatus is the status of the Metal machine instance
-                for this machine.
+            failureMessage:
               type: string
+            failureReason:
+              type: string
+            instanceStatus:
+              description: InstanceStatus is the status of the MetalStack machine
+                instance for this machine.
+              type: string
+            lldp:
+              type: boolean
             ready:
               description: Ready is true when the provider resource is ready.
               type: boolean
+          required:
+          - allocated
           type: object
       type: object
   version: v1alpha3

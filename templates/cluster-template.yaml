@@ -19,8 +19,8 @@ spec:
     - systemctl enable docker
     - systemctl start docker
   postKubeadmCommands:
-    - "kubectl --kubeconfig /etc/kubernetes/admin.conf create secret generic -n kube-system metal-cloud-config --from-literal=cloud-sa.json='{\"apiKey\": \"{{ .apiKey }}\",\"projectID\": \"${PROJECT_ID}\"}'"
-    - "kubectl apply --kubeconfig /etc/kubernetes/admin.conf -f https://raw.githubusercontent.com/metalstack/metal-ccm/master/deploy/releases/v1.0.0/deployment.yaml"
+    - "kubectl --kubeconfig /etc/kubernetes/admin.conf create secret generic -n kube-system metalstack-cloud-config --from-literal=cloud-sa.json='{\"apiKey\": \"{{ .apiKey }}\",\"projectID\": \"${PROJECT_ID}\"}'"
+    - "kubectl apply --kubeconfig /etc/kubernetes/admin.conf -f https://raw.githubusercontent.com/metalstack/metalstack-ccm/master/deploy/releases/v1.0.0/deployment.yaml"
   initConfiguration:
     nodeRegistration:
       kubeletExtraArgs:
@@ -40,18 +40,17 @@ spec:
       cidrBlocks: ["${POD_CIDR}"]
   infrastructureRef:
     apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
-    kind: MetalCluster
+    kind: MetalStackCluster
     name: "${CLUSTER_NAME}"
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
-kind: MetalCluster
+kind: MetalStackCluster
 metadata:
   name: "${CLUSTER_NAME}"
 spec:
-  projectID: "${PROJECT_ID}"
   partition: "${PARTITION}"
-  additionalNetworks:
-    - internet
+  privateNetworkID: "${NETWORK_ID}"
+  projectID: "${PROJECT_ID}"
 ---
 apiVersion: cluster.x-k8s.io/v1alpha3
 kind: Machine
@@ -69,17 +68,16 @@ spec:
       name: "${CLUSTER_NAME}-control-plane1-config"
   infrastructureRef:
     apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
-    kind: MetalMachine
+    kind: MetalStackMachine
     name: "${CLUSTER_NAME}-master-0"
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
-kind: MetalMachine
+kind: MetalStackMachine
 metadata:
   name: "${CLUSTER_NAME}-master-0"
 spec:
   image: "${NODE_IMAGE}"
-  partition:
-  - "${PARTITION}"
+  partition: "${PARTITION}"
   machineType: "${MASTER_NODE_TYPE}"
   sshKeys:
   - "${SSH_KEY}"
@@ -115,10 +113,10 @@ spec:
       infrastructureRef:
         name: ${CLUSTER_NAME}-worker-a
         apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
-        kind: MetalMachineTemplate
+        kind: MetalStackMachineTemplate
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
-kind: MetalMachineTemplate
+kind: MetalStackMachineTemplate
 metadata:
   name: ${CLUSTER_NAME}-worker-a
 spec:

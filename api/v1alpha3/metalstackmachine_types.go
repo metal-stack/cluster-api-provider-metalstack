@@ -23,52 +23,75 @@ import (
 )
 
 const (
-	// MachineFinalizer allows ReconcileMetalMachine to clean up Metal resources before
+	// MachineFinalizer allows ReconcileMetalStackMachine to clean up MetalStack resources before
 	// removing it from the apiserver.
-	MachineFinalizer = "metalmachine.infrastructure.cluster.x-k8s.io"
+	MachineFinalizer = "metalstackmachine.infrastructure.cluster.x-k8s.io"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// MetalMachineSpec defines the desired state of MetalMachine
-type MetalMachineSpec struct {
+// MetalStackMachineSpec defines the desired state of MetalStackMachine
+type MetalStackMachineSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Image       string   `json:"image"`
+	Image string `json:"image"`
+
+	// +optional
+	NetworkIDs []string `json:"networkIDs"`
+	Partition  *string  `json:"partition"`
+
+	// ID of the machine. This field is required by Cluster API.
+	// +optional
+	ProjectID *string `json:"projectID,omitempty"`
+	// +optional
+	ProviderID *string `json:"providerID"`
+	// +optional
+	Type *string `json:"type"`
+
+	// TODO: Clear up the following members.
+
 	MachineType string   `json:"machineType"`
 	SSHKeys     []string `json:"sshKeys,omitempty"`
 
 	// HardwareReservationID is the unique machine hardware reservation ID or `next-available` to
-	// automatically let the Metal api determine one.
+	// automatically let the MetalStack api determine one.
 	// +optional
 	HardwareReservationID string `json:"hardwareReservationID,omitempty"`
 
-	// ProviderID is the unique identifier as specified by the cloud provider.
-	// +optional
-	ProviderID *string `json:"providerID,omitempty"`
-
-	// Tags is an optional set of tags to add to Metal resources managed by the Metal provider.
+	// Tags is an optional set of tags to add to MetalStack resources managed by the MetalStack provider.
 	// +optional
 	Tags Tags `json:"tags,omitempty"`
 }
 
-// MetalMachineStatus defines the observed state of MetalMachine
-type MetalMachineStatus struct {
+// MetalStackMachineStatus defines the observed state of MetalStackMachine
+type MetalStackMachineStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+
+	Allocated bool `json:"allocated"`
+
+	// +optional
+	FailureMessage *string `json:"failureMessage,omitempty"`
+
+	// +optional
+	FailureReason *string `json:"failureReason,omitempty"`
+
+	LLDP bool `json:"lldp,omitempty"`
+
+	// TODO: Clear up the following memebers.
 
 	// Ready is true when the provider resource is ready.
 	// +optional
 	Ready bool `json:"ready"`
 
-	// Addresses contains the Metal machine associated addresses.
+	// Addresses contains the MetalStack machine associated addresses.
 	Addresses []corev1.NodeAddress `json:"addresses,omitempty"`
 
-	// InstanceStatus is the status of the Metal machine instance for this machine.
+	// InstanceStatus is the status of the MetalStack machine instance for this machine.
 	// +optional
-	InstanceStatus *MetalResourceStatus `json:"instanceStatus,omitempty"`
+	InstanceStatus *MetalStackResourceStatus `json:"instanceStatus,omitempty"`
 
 	// Any transient errors that occur during the reconciliation of Machines
 	// can be added as events to the Machine object and/or logged in the
@@ -96,34 +119,38 @@ type MetalMachineStatus struct {
 	ErrorMessage *string `json:"errorMessage,omitempty"`
 }
 
+func (st *MetalStackMachineStatus) Failed() bool {
+	return st.FailureMessage != nil || st.FailureReason != nil
+}
+
 // +kubebuilder:subresource:status
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:path=metalmachines,scope=Namespaced,categories=cluster-api
+// +kubebuilder:resource:path=metalstackmachines,scope=Namespaced,categories=cluster-api
 // +kubebuilder:storageversion
-// +kubebuilder:printcolumn:name="Cluster",type="string",JSONPath=".metadata.labels.cluster\\.x-k8s\\.io/cluster-name",description="Cluster to which this MetalMachine belongs"
-// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.instanceState",description="Metal instance state"
+// +kubebuilder:printcolumn:name="Cluster",type="string",JSONPath=".metadata.labels.cluster\\.x-k8s\\.io/cluster-name",description="Cluster to which this MetalStackMachine belongs"
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.instanceState",description="MetalStack instance state"
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.ready",description="Machine ready status"
-// +kubebuilder:printcolumn:name="InstanceID",type="string",JSONPath=".spec.providerID",description="Metal instance ID"
-// +kubebuilder:printcolumn:name="Machine",type="string",JSONPath=".metadata.ownerReferences[?(@.kind==\"Machine\")].name",description="Machine object which owns with this MetalMachine"
+// +kubebuilder:printcolumn:name="InstanceID",type="string",JSONPath=".spec.providerID",description="MetalStack instance ID"
+// +kubebuilder:printcolumn:name="Machine",type="string",JSONPath=".metadata.ownerReferences[?(@.kind==\"Machine\")].name",description="Machine object which owns with this MetalStackMachine"
 
-// MetalMachine is the Schema for the metalmachines API
-type MetalMachine struct {
+// MetalStackMachine is the Schema for the metalstackmachines API
+type MetalStackMachine struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   MetalMachineSpec   `json:"spec,omitempty"`
-	Status MetalMachineStatus `json:"status,omitempty"`
+	Spec   MetalStackMachineSpec   `json:"spec,omitempty"`
+	Status MetalStackMachineStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// MetalMachineList contains a list of MetalMachine
-type MetalMachineList struct {
+// MetalStackMachineList contains a list of MetalStackMachine
+type MetalStackMachineList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []MetalMachine `json:"items"`
+	Items           []MetalStackMachine `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&MetalMachine{}, &MetalMachineList{})
+	SchemeBuilder.Register(&MetalStackMachine{}, &MetalStackMachineList{})
 }

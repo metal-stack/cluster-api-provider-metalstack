@@ -1,13 +1,13 @@
-# permissions for end users to view metalclusters.
+# permissions for end users to view metalstackmachines.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: metalcluster-viewer-role
+  name: metalstackmachine-viewer-role
 rules:
 - apiGroups:
   - infrastructure.cluster.x-k8s.io
   resources:
-  - metalclusters
+  - metalstackmachines
   verbs:
   - get
   - list
@@ -15,6 +15,6 @@ rules:
 - apiGroups:
   - infrastructure.cluster.x-k8s.io
   resources:
-  - metalclusters/status
+  - metalstackmachines/status
   verbs:
   - get

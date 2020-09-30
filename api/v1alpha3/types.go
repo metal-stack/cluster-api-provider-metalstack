@@ -16,34 +16,34 @@ limitations under the License.
 
 package v1alpha3
 
-// MetalResourceStatus describes the status of a Metal resource.
-type MetalResourceStatus string
+// MetalStackResourceStatus describes the status of a MetalStack resource.
+type MetalStackResourceStatus string
 
 var (
-	// MetalResourceStatusNew represents a Metal resource requested.
-	// The Metal infrastructure uses a queue to avoid any abuse. So a resource
+	// MetalStackResourceStatusNew represents a MetalStack resource requested.
+	// The MetalStack infrastructure uses a queue to avoid any abuse. So a resource
 	// does not get created straight away but it can wait for a bit in a queue.
-	MetalResourceStatusNew = MetalResourceStatus("new")
-	// MetalResourceStatusQueued represents a machine waiting for his turn to be provisioned.
+	MetalStackResourceStatusNew = MetalStackResourceStatus("new")
+	// MetalStackResourceStatusQueued represents a machine waiting for his turn to be provisioned.
 	// Time in queue depends on how many creation requests you already issued, or
 	// from how many resources waiting to be deleted we have for you.
-	MetalResourceStatusQueued = MetalResourceStatus("queued")
-	// MetalResourceStatusProvisioning represents a resource that got dequeued
+	MetalStackResourceStatusQueued = MetalStackResourceStatus("queued")
+	// MetalStackResourceStatusProvisioning represents a resource that got dequeued
 	// and it is actively processed by a worker.
-	MetalResourceStatusProvisioning = MetalResourceStatus("provisioning")
-	// MetalResourceStatusRunning represents a Metal resource already provisioned and in a active state.
-	MetalResourceStatusRunning = MetalResourceStatus("active")
-	// MetalResourceStatusErrored represents a Metal resource in a errored state.
-	MetalResourceStatusErrored = MetalResourceStatus("errored")
-	// MetalResourceStatusOff represents a Metal resource in off state.
-	MetalResourceStatusOff = MetalResourceStatus("off")
+	MetalStackResourceStatusProvisioning = MetalStackResourceStatus("provisioning")
+	// MetalStackResourceStatusRunning represents a MetalStack resource already provisioned and in a active state.
+	MetalStackResourceStatusRunning = MetalStackResourceStatus("active")
+	// MetalStackResourceStatusErrored represents a MetalStack resource in a errored state.
+	MetalStackResourceStatusErrored = MetalStackResourceStatus("errored")
+	// MetalStackResourceStatusOff represents a MetalStack resource in off state.
+	MetalStackResourceStatusOff = MetalStackResourceStatus("off")
 )
 
 // Tags defines a slice of tags.
 type Tags []string
 
-// MetalMachineTemplateResource describes the data needed to create am MetalMachine from a template
-type MetalMachineTemplateResource struct {
+// MetalStackMachineTemplateResource describes the data needed to create am MetalStackMachine from a template
+type MetalStackMachineTemplateResource struct {
 	// Spec is the specification of the desired behavior of the machine.
-	Spec MetalMachineSpec `json:"spec"`
+	Spec MetalStackMachineSpec `json:"spec"`
 }

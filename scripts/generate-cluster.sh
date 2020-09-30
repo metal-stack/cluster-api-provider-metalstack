@@ -20,7 +20,7 @@ CLUSTERCTL=${CLUSTERCTL:-clusterctl}
 
 # might want to use a specific config URL
 CONFIG_URL=${CONFIG_URL:-""}
-CONFIG_OPT=${CONFIG_OPT:-"--config=out/managerless/infrastructure-metal/clusterctl-v0.3.0.yaml"}
+CONFIG_OPT=${CONFIG_OPT:-"--config=out/managerless/infrastructure-metalstack/clusterctl-v0.3.0.yaml"}
 if [ -n "$CONFIG_URL" ]; then
 	CONFIG_OPT="--config ${CONFIG_URL}"
 fi
@@ -30,19 +30,19 @@ TEMPLATE_OUT=./out/cluster.yaml
 DEFAULT_KUBERNETES_VERSION=1.18.5
 DEFAULT_POD_CIDR="172.25.0.0/16"
 DEFAULT_SERVICE_CIDR="172.26.0.0/16"
-DEFAULT_MASTER_NODE_TYPE="c1-xlarge-x86"
-DEFAULT_WORKER_NODE_TYPE="c1-xlarge-x86"
-DEFAULT_NODE_IMAGE="ubuntu-19.10"
+DEFAULT_MASTER_NODE_TYPE="v1-small-x86"
+DEFAULT_WORKER_NODE_TYPE="v1-small-x86"
+DEFAULT_NODE_IMAGE="ubuntu-20.04"
 
 # check required environment variables
 errstring=""
 
-if [ -z "$METAL_PROJECT_ID" ]; then
-	errstring="${errstring} METAL_PROJECT_ID"
-fi
-if [ -z "$METAL_PARTITION" ]; then
-	errstring="${errstring} METAL_PARTITION"
-fi
+# if [ -z "$METAL_PROJECT_ID" ]; then
+# 	errstring="${errstring} METAL_PROJECT_ID"
+# fi
+# if [ -z "$METAL_PARTITION" ]; then
+# 	errstring="${errstring} METAL_PARTITION"
+# fi
 
 if [ -n "$errstring" ]; then
 	echo "must set environment variables: ${errstring}" >&2
@@ -65,17 +65,18 @@ NODE_IMAGE=${DEFAULT_NODE_IMAGE:-${DEFAULT_NODE_IMAGE}}
 KUBERNETES_VERSION=${KUBERNETES_VERSION:-${DEFAULT_KUBERNETES_VERSION}}
 SSH_KEY=${SSH_KEY:-""}
 
-PROJECT_ID=${METAL_PROJECT_ID}
-PARTITION=${METAL_PARTITION}
+NETWORK_ID=${METAL_NETWORK_ID:-"00000000-0000-0000-0000-000000000000"}
+PROJECT_ID=${METAL_PROJECT_ID:-"00000000-0000-0000-0000-000000000000"}
+PARTITION=${METAL_PARTITION:-"vagrant"}
 
 # FIXME unused
 NODE_OS=NODE_IMAGE
 FACILITY=PARTITION
 
 # and now export them all so envsubst can use them
-export PROJECT_ID PARTITION NODE_IMAGE WORKER_NODE_TYPE MASTER_NODE_TYPE POD_CIDR SERVICE_CIDR SSH_KEY KUBERNETES_VERSION NODE_OS FACILITY
-echo "${CLUSTERCTL} -v3 ${CONFIG_OPT} config cluster ${CLUSTER_NAME} > $TEMPLATE_OUT"
-${CLUSTERCTL} -v3 ${CONFIG_OPT} config cluster ${CLUSTER_NAME} > $TEMPLATE_OUT
+export PROJECT_ID PARTITION NETWORK_ID NODE_IMAGE WORKER_NODE_TYPE MASTER_NODE_TYPE POD_CIDR SERVICE_CIDR SSH_KEY KUBERNETES_VERSION NODE_OS FACILITY
+echo "${CLUSTERCTL} -v3 ${CONFIG_OPT} --infrastructure=metalstack config cluster ${CLUSTER_NAME} > $TEMPLATE_OUT"
+${CLUSTERCTL} -v3 ${CONFIG_OPT} --infrastructure=metalstack config cluster ${CLUSTER_NAME} > $TEMPLATE_OUT
 
 echo "Done! See output file at ${TEMPLATE_OUT}. Run:"
 echo "   kubectl apply -f ${TEMPLATE_OUT}"

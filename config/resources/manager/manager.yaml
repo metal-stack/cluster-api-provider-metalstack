@@ -20,7 +20,7 @@ spec:
         - /manager
         args:
         - --enable-leader-election
-        image: metal-controller
+        image: metalstack-controller
         imagePullPolicy: IfNotPresent
         name: manager
         resources:

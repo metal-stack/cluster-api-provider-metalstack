@@ -1,10 +1,10 @@
 # See the OWNERS docs: https://git.k8s.io/community/contributors/guide/owners.md
 
 approvers:
-  - cluster-api-metal-maintainers
+  - cluster-api-metalstack-maintainers
 
 reviewers:
-  - cluster-api-metal-maintainers
+  - cluster-api-metalstack-maintainers
 
 labels:
   - sig/cluster-lifecycle

@@ -35,7 +35,7 @@ rules:
 - apiGroups:
   - infrastructure.cluster.x-k8s.io
   resources:
-  - metalclusters
+  - metalstackclusters
   verbs:
   - create
   - delete
@@ -47,7 +47,7 @@ rules:
 - apiGroups:
   - infrastructure.cluster.x-k8s.io
   resources:
-  - metalclusters/status
+  - metalstackclusters/status
   verbs:
   - get
   - patch
@@ -55,7 +55,7 @@ rules:
 - apiGroups:
   - infrastructure.cluster.x-k8s.io
   resources:
-  - metalmachines
+  - metalstackmachines
   verbs:
   - create
   - delete
@@ -67,7 +67,7 @@ rules:
 - apiGroups:
   - infrastructure.cluster.x-k8s.io
   resources:
-  - metalmachines/status
+  - metalstackmachines/status
   verbs:
   - get
   - patch
