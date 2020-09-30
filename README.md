@@ -28,5 +28,5 @@ watch metalctl machine ls
 
 # in another terminal
 watch kubectl get cluster 
-# "Provioned" should be observed
+# "Provisioned" should be observed
 ```
