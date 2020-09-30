@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	metalgo "github.com/metal-stack/metal-go"
@@ -103,23 +104,29 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		}
 	}(h)
 
-	networkID, err := r.allocateNetwork(mstCluster)
-	if err != nil {
-		logger.Error(err, "no reponse to network allocation")
-		return ctrl.Result{Requeue: true, RequeueAfter: 30 * time.Second}, err
+	if mstCluster.Spec.PrivateNetworkID == nil {
+		networkID, err := r.allocateNetwork(mstCluster)
+		if err != nil {
+			logger.Error(err, "no response to network allocation")
+			return ctrl.Result{Requeue: true, RequeueAfter: 2 * time.Second}, err
+		}
+		*mstCluster.Spec.PrivateNetworkID = *networkID
 	}
-	*mstCluster.Spec.PrivateNetworkID = *networkID
 
-	r.createFirewall(mstCluster)
+	if !mstCluster.Status.FirewallReady {
+		if err = r.createFirewall(mstCluster); err != nil {
+			return ctrl.Result{Requeue: true, RequeueAfter: 2 * time.Second}, err
+		}
+	}
 
 	ip, err := r.getControlPlaneIP(mstCluster)
 	if err != nil {
 		switch err.(type) {
 		case *MachineNotFound, *MachineNoIP: // todo: Do we really need these two types?
-			logger.Info(err.Error(), "Control plane machine not found. Requeueing...")
+			logger.Info(err.Error() + " Control plane machine not found. Requeueing...")
 			return ctrl.Result{Requeue: true, RequeueAfter: 30 * time.Second}, nil
 		default:
-			logger.Info(err.Error(), "error getting a control plane ip")
+			logger.Info(err.Error() + " error getting a control plane ip")
 			return ctrl.Result{}, err
 		}
 	}
@@ -146,6 +153,7 @@ func (r *MetalStackClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *MetalStackClusterReconciler) allocateNetwork(mstCluster *v1alpha3.MetalStackCluster) (*string, error) {
+	log.Println(mstCluster)
 	resp, err := r.MStClient.NetworkAllocate(&metalgo.NetworkAllocateRequest{
 		ProjectID:   *mstCluster.Spec.ProjectID,
 		PartitionID: *mstCluster.Spec.Partition,

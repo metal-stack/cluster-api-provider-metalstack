@@ -47,10 +47,11 @@ type MetalStackClusterSpec struct {
 
 	// AdditionalNetworks this cluster should be part of
 	// +optional
-	AdditionalNetworks []string `json:"additionalNetworks"`
+	AdditionalNetworks []string `json:"additionalNetworks,omitempty"`
 
 	// PrivateNetworkID is the id if the network which connects the machine together
-	PrivateNetworkID *string `json:"privateNetworkID"`
+	// +optional
+	PrivateNetworkID *string `json:"privateNetworkID,omitempty"`
 }
 
 // MetalStackClusterStatus defines the observed state of MetalStackCluster
@@ -61,6 +62,9 @@ type MetalStackClusterStatus struct {
 	// Ready denotes that the cluster (infrastructure) is ready.
 	// +optional
 	Ready bool `json:"ready"`
+
+	// todo: Consider CR Firewall.
+	FirewallReady bool `json:"firewallReady,omitempty"`
 }
 
 // +kubebuilder:subresource:status

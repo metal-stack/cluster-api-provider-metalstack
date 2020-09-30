@@ -49,7 +49,6 @@ metadata:
   name: "${CLUSTER_NAME}"
 spec:
   partition: "${PARTITION}"
-  privateNetworkID: "${NETWORK_ID}"
   projectID: "${PROJECT_ID}"
 ---
 apiVersion: cluster.x-k8s.io/v1alpha3

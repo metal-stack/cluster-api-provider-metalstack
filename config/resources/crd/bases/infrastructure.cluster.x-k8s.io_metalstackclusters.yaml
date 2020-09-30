@@ -71,12 +71,13 @@ spec:
               description: ProjectID is th projectID of MetalStackCluster. Edit MetalStackCluster_types.go
                 to remove/update
               type: string
-          required:
-          - privateNetworkID
           type: object
         status:
           description: MetalStackClusterStatus defines the observed state of MetalStackCluster
           properties:
+            firewallReady:
+              description: 'todo: Consider CR Firewall.'
+              type: boolean
             ready:
               description: Ready denotes that the cluster (infrastructure) is ready.
               type: boolean
