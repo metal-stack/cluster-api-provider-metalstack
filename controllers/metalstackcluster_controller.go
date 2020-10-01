@@ -45,8 +45,6 @@ const (
 	clusterIDTag = "cluster-api-provider-metalstack:cluster-id"
 )
 
-var firewallReady bool
-
 // MetalStackClusterReconciler reconciles a MetalStackCluster object
 type MetalStackClusterReconciler struct {
 	client.Client
@@ -115,14 +113,14 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		mstCluster.Spec.PrivateNetworkID = networkID
 	}
 
-	if !mstCluster.Status.FirewallReady && !firewallReady {
+	if !mstCluster.Status.FirewallReady /* && !firewallReady */ {
 		err = r.createFirewall(mstCluster)
 		if err != nil {
 			return ctrl.Result{Requeue: true, RequeueAfter: 2 * time.Second}, err
 		}
 		logger.Info("A firewall was created.")
 		mstCluster.Status.FirewallReady = true
-		firewallReady = true
+		// firewallReady = true
 	}
 
 	mstCluster.Status.Ready = true
@@ -178,7 +176,7 @@ func (r *MetalStackClusterReconciler) createFirewall(mstCluster *v1alpha3.MetalS
 		MachineCreateRequest: metalgo.MachineCreateRequest{
 			Description:   mstCluster.Name + " created by Cluster API provider MetalStack",
 			Name:          mstCluster.Name,
-			Hostname:      mstCluster.Name,
+			Hostname:      mstCluster.Name + "-firewall",
 			Size:          "v1-small-x86",
 			Project:       *mstCluster.Spec.ProjectID,
 			Partition:     *mstCluster.Spec.Partition,
