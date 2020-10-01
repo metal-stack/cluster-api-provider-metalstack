@@ -97,14 +97,14 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "failed to initialize patch.Helper")
 	}
-	defer func(h *patch.Helper) {
+	defer func() {
 		if e := h.Patch(context.TODO(), mstCluster); e != nil {
 			if err != nil {
 				err = errors.Wrap(e, err.Error())
 			}
 			err = e
 		}
-	}(h)
+	}()
 
 	if mstCluster.Spec.PrivateNetworkID == nil {
 		networkID, err := r.allocateNetwork(mstCluster)
