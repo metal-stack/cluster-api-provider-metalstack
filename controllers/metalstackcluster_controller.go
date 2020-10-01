@@ -113,14 +113,13 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		mstCluster.Spec.PrivateNetworkID = networkID
 	}
 
-	if !mstCluster.Status.FirewallReady /* && !firewallReady */ {
+	if !mstCluster.Status.FirewallReady {
 		err = r.createFirewall(mstCluster)
 		if err != nil {
 			return ctrl.Result{Requeue: true, RequeueAfter: 2 * time.Second}, err
 		}
 		logger.Info("A firewall was created.")
 		mstCluster.Status.FirewallReady = true
-		// firewallReady = true
 	}
 
 	mstCluster.Status.Ready = true
