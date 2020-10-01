@@ -43,7 +43,7 @@ import (
 	metalstack "github.com/metal-stack/cluster-api-provider-metalstack/pkg/cloud/metalstack"
 	"github.com/metal-stack/cluster-api-provider-metalstack/pkg/cloud/metalstack/scope"
 
-	infrastructurev1alpha3 "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
+	"github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
 )
 
 // MetalStackMachineReconciler reconciles a MetalStackMachine object
@@ -65,7 +65,7 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	logger := r.Log.WithValues("metalstackmachine", req.NamespacedName)
 
 	// your logic here
-	metalstackmachine := &infrastructurev1alpha3.MetalStackMachine{}
+	metalstackmachine := &v1alpha3.MetalStackMachine{}
 	if err := r.Get(ctx, req.NamespacedName, metalstackmachine); err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
@@ -101,7 +101,7 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		return ctrl.Result{}, nil
 	}
 
-	metalstackcluster := &infrastructurev1alpha3.MetalStackCluster{}
+	metalstackcluster := &v1alpha3.MetalStackCluster{}
 	metalstackclusterNamespacedName := client.ObjectKey{
 		Namespace: metalstackmachine.Namespace,
 		Name:      cluster.Spec.InfrastructureRef.Name,
@@ -154,11 +154,11 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 
 func (r *MetalStackMachineReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&infrastructurev1alpha3.MetalStackMachine{}).
+		For(&v1alpha3.MetalStackMachine{}).
 		Watches(
 			&source.Kind{Type: &clusterv1.Machine{}},
 			&handler.EnqueueRequestsFromMapFunc{
-				ToRequests: util.MachineToInfrastructureMapFunc(infrastructurev1alpha3.GroupVersion.WithKind("MetalStackMachine")),
+				ToRequests: util.MachineToInfrastructureMapFunc(v1alpha3.GroupVersion.WithKind("MetalStackMachine")),
 			},
 		).
 		Complete(r)
@@ -174,7 +174,7 @@ func (r *MetalStackMachineReconciler) reconcile(ctx context.Context, machineScop
 	// }
 
 	// If the MetalStackMachine doesn't have our finalizer, add it.
-	controllerutil.AddFinalizer(metalstackmachine, infrastructurev1alpha3.MachineFinalizer)
+	controllerutil.AddFinalizer(metalstackmachine, v1alpha3.MachineFinalizer)
 
 	if !machineScope.Cluster.Status.InfrastructureReady {
 		machineScope.Info("Cluster infrastructure is not ready yet")
@@ -274,7 +274,7 @@ func (r *MetalStackMachineReconciler) reconcile(ctx context.Context, machineScop
 
 	// we do not need to set this as metalstack://<id> because SetProviderID() does the formatting for us
 	machineScope.SetProviderID(*machine.ID)
-	machineScope.SetInstanceStatus(infrastructurev1alpha3.MetalStackResourceStatus(*machine.Liveliness))
+	machineScope.SetInstanceStatus(v1alpha3.MetalStackResourceStatus(*machine.Liveliness))
 
 	addrs, err := r.MetalStackClient.GetMachineAddresses(machine)
 	if err != nil {
@@ -287,11 +287,11 @@ func (r *MetalStackMachineReconciler) reconcile(ctx context.Context, machineScop
 	var result ctrl.Result
 
 	// FIXME match Liveleness with MetalStackResourceStatus
-	switch infrastructurev1alpha3.MetalStackResourceStatus(*machine.Liveliness) {
-	case infrastructurev1alpha3.MetalStackResourceStatusNew, infrastructurev1alpha3.MetalStackResourceStatusQueued, infrastructurev1alpha3.MetalStackResourceStatusProvisioning:
+	switch v1alpha3.MetalStackResourceStatus(*machine.Liveliness) {
+	case v1alpha3.MetalStackResourceStatusNew, v1alpha3.MetalStackResourceStatusQueued, v1alpha3.MetalStackResourceStatusProvisioning:
 		machineScope.Info("Machine instance is pending", "instance-id", machineScope.GetInstanceID())
 		result = ctrl.Result{RequeueAfter: 10 * time.Second}
-	case infrastructurev1alpha3.MetalStackResourceStatusRunning:
+	case v1alpha3.MetalStackResourceStatusRunning:
 		machineScope.Info("Machine instance is active", "instance-id", machineScope.GetInstanceID())
 		machineScope.SetReady()
 		result = ctrl.Result{}
@@ -310,7 +310,7 @@ func (r *MetalStackMachineReconciler) reconcileDelete(ctx context.Context, machi
 	providerID := machineScope.GetInstanceID()
 	if providerID == "" {
 		logger.Info("no provider ID provided, nothing to delete")
-		controllerutil.RemoveFinalizer(metalstackmachine, infrastructurev1alpha3.MachineFinalizer)
+		controllerutil.RemoveFinalizer(metalstackmachine, v1alpha3.MachineFinalizer)
 		return ctrl.Result{}, nil
 	}
 
@@ -322,7 +322,7 @@ func (r *MetalStackMachineReconciler) reconcileDelete(ctx context.Context, machi
 		// 	// When the server does not exist we do not have anything left to do.
 		// 	// Probably somebody manually deleted the server from the UI or via API.
 		// 	logger.Info("Server not found, nothing left to do")
-		// 	controllerutil.RemoveFinalizer(metalstackmachine, infrastructurev1alpha3.MachineFinalizer)
+		// 	controllerutil.RemoveFinalizer(metalstackmachine, v1alpha3.MachineFinalizer)
 		// 	return ctrl.Result{}, nil
 		// }
 		return ctrl.Result{}, fmt.Errorf("error retrieving machine status %s: %v", metalstackmachine.Name, err)
@@ -330,7 +330,7 @@ func (r *MetalStackMachineReconciler) reconcileDelete(ctx context.Context, machi
 
 	// We should never get there but this is a safetly check
 	if machine == nil {
-		controllerutil.RemoveFinalizer(metalstackmachine, infrastructurev1alpha3.MachineFinalizer)
+		controllerutil.RemoveFinalizer(metalstackmachine, v1alpha3.MachineFinalizer)
 		return ctrl.Result{}, fmt.Errorf("machine does not exist: %s", metalstackmachine.Name)
 	}
 
@@ -339,6 +339,6 @@ func (r *MetalStackMachineReconciler) reconcileDelete(ctx context.Context, machi
 		return ctrl.Result{}, fmt.Errorf("failed to delete the machine: %v", err)
 	}
 
-	controllerutil.RemoveFinalizer(metalstackmachine, infrastructurev1alpha3.MachineFinalizer)
+	controllerutil.RemoveFinalizer(metalstackmachine, v1alpha3.MachineFinalizer)
 	return ctrl.Result{}, nil
 }
