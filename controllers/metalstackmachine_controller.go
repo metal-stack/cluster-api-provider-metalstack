@@ -50,6 +50,7 @@ import (
 type MetalStackMachineReconciler struct {
 	client.Client
 	Log              logr.Logger
+	MStClient        *metalgo.Driver
 	Recorder         record.EventRecorder
 	Scheme           *runtime.Scheme
 	MetalStackClient *metalstack.MetalStackClient
@@ -61,27 +62,26 @@ type MetalStackMachineReconciler struct {
 // +kubebuilder:rbac:groups="",resources=secrets;,verbs=get;list;watch
 
 func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, reterr error) {
+	logger := r.Log.WithName("MetalStackMachine").WithValues("namespace", req.Namespace, "name", req.Name)
+	
+	// Fetch the MetalStackMachine.
 	ctx := context.Background()
-	logger := r.Log.WithValues("metalstackmachine", req.NamespacedName)
-
-	// your logic here
-	metalstackmachine := &v1alpha3.MetalStackMachine{}
-	if err := r.Get(ctx, req.NamespacedName, metalstackmachine); err != nil {
+	mstMachine := &v1alpha3.MetalStackMachine{}
+	if err := r.Get(ctx, req.NamespacedName, mstMachine); err != nil {
 		if apierrors.IsNotFound(err) {
+			logger.Info("No MetalStackMachine with the namespaced name")
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
 	}
 
-	logger = logger.WithName(metalstackmachine.APIVersion)
-
 	// Fetch the Machine.
-	machine, err := util.GetOwnerMachine(ctx, r.Client, metalstackmachine.ObjectMeta)
+	machine, err := util.GetOwnerMachine(ctx, r.Client, mstMachine.ObjectMeta)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 	if machine == nil {
-		logger.Info("Machine Controller has not yet set OwnerRef")
+		logger.Info("OwnerReference of the MetalStackMachine not set")
 		return ctrl.Result{}, nil
 	}
 
@@ -103,7 +103,7 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 
 	metalstackcluster := &v1alpha3.MetalStackCluster{}
 	metalstackclusterNamespacedName := client.ObjectKey{
-		Namespace: metalstackmachine.Namespace,
+		Namespace: mstMachine.Namespace,
 		Name:      cluster.Spec.InfrastructureRef.Name,
 	}
 	if err := r.Get(ctx, metalstackclusterNamespacedName, metalstackcluster); err != nil {
@@ -131,7 +131,7 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		Cluster:           cluster,
 		Machine:           machine,
 		MetalStackCluster: metalstackcluster,
-		MetalStackMachine: metalstackmachine,
+		MetalStackMachine: mstMachine,
 	})
 	if err != nil {
 		return ctrl.Result{}, errors.Errorf("failed to create scope: %+v", err)
@@ -145,7 +145,7 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	}()
 
 	// Handle deleted machines
-	if !metalstackmachine.ObjectMeta.DeletionTimestamp.IsZero() {
+	if !mstMachine.ObjectMeta.DeletionTimestamp.IsZero() {
 		return r.reconcileDelete(ctx, machineScope, clusterScope, logger)
 	}
 
@@ -166,15 +166,15 @@ func (r *MetalStackMachineReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func (r *MetalStackMachineReconciler) reconcile(ctx context.Context, machineScope *scope.MachineScope, clusterScope *scope.ClusterScope, logger logr.Logger) (ctrl.Result, error) {
 	logger.Info("Reconciling MetalStackMachine")
-	metalstackmachine := machineScope.MetalStackMachine
+	mstMachine := machineScope.MetalStackMachine
 	// If the MetalStackMachine is in an error state, return early.
-	// if metalstackmachine.Status.ErrorReason != nil || metalstackmachine.Status.ErrorMessage != nil {
+	// if mstMachine.Status.ErrorReason != nil || mstMachine.Status.ErrorMessage != nil {
 	// 	machineScope.Info("Error state detected, skipping reconciliation")
 	// 	return ctrl.Result{}, nil
 	// }
 
 	// If the MetalStackMachine doesn't have our finalizer, add it.
-	controllerutil.AddFinalizer(metalstackmachine, v1alpha3.MachineFinalizer)
+	controllerutil.AddFinalizer(mstMachine, v1alpha3.MachineFinalizer)
 
 	if !machineScope.Cluster.Status.InfrastructureReady {
 		machineScope.Info("Cluster infrastructure is not ready yet")
@@ -306,11 +306,11 @@ func (r *MetalStackMachineReconciler) reconcile(ctx context.Context, machineScop
 
 func (r *MetalStackMachineReconciler) reconcileDelete(ctx context.Context, machineScope *scope.MachineScope, clusterScope *scope.ClusterScope, logger logr.Logger) (ctrl.Result, error) {
 	logger.Info("Deleting machine")
-	metalstackmachine := machineScope.MetalStackMachine
+	mstMachine := machineScope.MetalStackMachine
 	providerID := machineScope.GetInstanceID()
 	if providerID == "" {
 		logger.Info("no provider ID provided, nothing to delete")
-		controllerutil.RemoveFinalizer(metalstackmachine, v1alpha3.MachineFinalizer)
+		controllerutil.RemoveFinalizer(mstMachine, v1alpha3.MachineFinalizer)
 		return ctrl.Result{}, nil
 	}
 
@@ -322,16 +322,16 @@ func (r *MetalStackMachineReconciler) reconcileDelete(ctx context.Context, machi
 		// 	// When the server does not exist we do not have anything left to do.
 		// 	// Probably somebody manually deleted the server from the UI or via API.
 		// 	logger.Info("Server not found, nothing left to do")
-		// 	controllerutil.RemoveFinalizer(metalstackmachine, v1alpha3.MachineFinalizer)
+		// 	controllerutil.RemoveFinalizer(mstMachine, v1alpha3.MachineFinalizer)
 		// 	return ctrl.Result{}, nil
 		// }
-		return ctrl.Result{}, fmt.Errorf("error retrieving machine status %s: %v", metalstackmachine.Name, err)
+		return ctrl.Result{}, fmt.Errorf("error retrieving machine status %s: %v", mstMachine.Name, err)
 	}
 
 	// We should never get there but this is a safetly check
 	if machine == nil {
-		controllerutil.RemoveFinalizer(metalstackmachine, v1alpha3.MachineFinalizer)
-		return ctrl.Result{}, fmt.Errorf("machine does not exist: %s", metalstackmachine.Name)
+		controllerutil.RemoveFinalizer(mstMachine, v1alpha3.MachineFinalizer)
+		return ctrl.Result{}, fmt.Errorf("machine does not exist: %s", mstMachine.Name)
 	}
 
 	_, err = r.MetalStackClient.MachineDelete(*machine.Machine.ID)
@@ -339,6 +339,6 @@ func (r *MetalStackMachineReconciler) reconcileDelete(ctx context.Context, machi
 		return ctrl.Result{}, fmt.Errorf("failed to delete the machine: %v", err)
 	}
 
-	controllerutil.RemoveFinalizer(metalstackmachine, v1alpha3.MachineFinalizer)
+	controllerutil.RemoveFinalizer(mstMachine, v1alpha3.MachineFinalizer)
 	return ctrl.Result{}, nil
 }
