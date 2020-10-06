@@ -93,7 +93,7 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 
 	h, err := patch.NewHelper(mstCluster, r.Client)
 	if err != nil {
-		return ctrl.Result{}, errors.Wrap(err, "failed to initialize patch.Helper")
+		return ctrl.Result{}, err
 	}
 	defer func() {
 		if e := h.Patch(context.TODO(), mstCluster); e != nil {

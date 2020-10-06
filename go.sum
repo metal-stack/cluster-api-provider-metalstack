@@ -1057,6 +1057,7 @@ rsc.io/sampler v1.3.0/go.mod h1:T1hPZKmBbMNahiBKFy5HrXp6adAjACjK9JXDnKaTXpA=
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.0.7/go.mod h1:PHgbrJT7lCHcxMU+mDHEm+nx46H4zuuHZkDP6icnhu0=
 sigs.k8s.io/cluster-api v0.3.6 h1:Md//qVTwPvJFIBzQ8Mnsro1510x4UFtOyx4t6sPoDnM=
 sigs.k8s.io/cluster-api v0.3.6/go.mod h1:joh0d0Xu2VGQa3knsf2ZIHyOLX7puUp8LvJjyneeCb8=
+sigs.k8s.io/cluster-api v0.3.10 h1:iUbnDdFQjp406hclEV1/rRMO7/NpyJ7IxozAaAA9Zns=
 sigs.k8s.io/controller-runtime v0.5.2/go.mod h1:JZUwSMVbxDupo0lTJSSFP5pimEyxGynROImSsqIOx1A=
 sigs.k8s.io/controller-runtime v0.6.0 h1:Fzna3DY7c4BIP6KwfSlrfnj20DJ+SeMBK8HSFvOk9NM=
 sigs.k8s.io/controller-runtime v0.6.0/go.mod h1:CpYf5pdNY/B352A1TFLAS2JVSlnGQ5O2cftPHndTroo=
