@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/docker/docker/daemon/logger"
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	metalgo "github.com/metal-stack/metal-go"
@@ -32,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	cluster "sigs.k8s.io/cluster-api/api/v1alpha3"
+	"sigs.k8s.io/cluster-api/controllers/noderefutil"
 	capierrors "sigs.k8s.io/cluster-api/errors"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/patch"
@@ -45,6 +47,11 @@ import (
 	"github.com/metal-stack/cluster-api-provider-metalstack/pkg/cloud/metalstack/scope"
 
 	mst "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
+)
+
+const (
+	// MStMachineFinalizer is the finalizer for the MetalStackMachine.
+	MStMachineFinalizer = "metalstackmachine.infrastructure.cluster.x-k8s.io"
 )
 
 // MetalStackMachineReconciler reconciles a MetalStackMachine object
@@ -72,7 +79,6 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 
 	// Fetch the MetalStackMachine.
 	ctx := context.Background()
-	// mstMachine := &mst.MetalStackMachine{}
 	if err := r.Get(ctx, req.NamespacedName, r.mstMachine); err != nil {
 		if apierrors.IsNotFound(err) {
 			logger.Info(err.Error())
@@ -82,35 +88,34 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	}
 
 	// Fetch the Machine.
-	machine, err := util.GetOwnerMachine(ctx, r.Client, r.mstMachine.ObjectMeta)
+	r.machine, err = util.GetOwnerMachine(ctx, r.Client, r.mstMachine.ObjectMeta)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if machine == nil {
+	if r.machine == nil {
 		logger.Info("no OwnerReference of the MetalStackMachine has the Kind Machine")
 		return ctrl.Result{}, nil
 	}
-	logger = logger.WithName("Machine").WithValues("name", machine.Name)
+	logger = logger.WithName("Machine").WithValues("name", r.machine.Name)
 
 	// Fetch the Cluster.
-	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, machine.ObjectMeta)
+	r.cluster, err = util.GetClusterFromMetadata(ctx, r.Client, r.machine.ObjectMeta)
 	if err != nil {
 		logger.Info(err.Error())
 		return ctrl.Result{}, nil
 	}
-	logger = logger.WithName("Cluster").WithValues("name", cluster.Name)
+	logger = logger.WithName("Cluster").WithValues("name", r.cluster.Name)
 
-	// Return if objects are paused.
-	if util.IsPaused(cluster, r.mstMachine) {
+	// Return if the retrieved objects are paused.
+	if util.IsPaused(r.cluster, r.mstMachine) {
 		logger.Info("the Cluster is paused or the MetalStackMachine has the `paused` annotation")
 		return ctrl.Result{}, nil
 	}
 
 	// Fetch the MetalStackCluster.
-	// mstCluster := &mst.MetalStackCluster{}
 	k := client.ObjectKey{
 		Namespace: r.mstMachine.Namespace,
-		Name:      cluster.Spec.InfrastructureRef.Name,
+		Name:      r.cluster.Spec.InfrastructureRef.Name,
 	}
 	if err := r.Get(ctx, k, r.mstCluster); err != nil {
 		logger.Info(err.Error())
@@ -118,29 +123,29 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	}
 	logger = logger.WithName("MetalStackCluster").WithValues("name", r.mstCluster.Name)
 
-	// // Create the cluster scope
-	// clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
-	// 	Client:            r.Client,
-	// 	Logger:            logger,
-	// 	Cluster:           cluster,
-	// 	MetalStackCluster: mstCluster,
-	// })
-	// if err != nil {
-	// 	return ctrl.Result{}, err
-	// }
+	// Create the cluster scope
+	clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
+		Client:            r.Client,
+		Logger:            logger,
+		Cluster:           cluster,
+		MetalStackCluster: mstCluster,
+	})
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 
-	// // Create the machine scope
-	// machineScope, err := scope.NewMachineScope(scope.MachineScopeParams{
-	// 	Logger:            logger,
-	// 	Client:            r.Client,
-	// 	Cluster:           cluster,
-	// 	Machine:           machine,
-	// 	MetalStackCluster: mstCluster,
-	// 	MetalStackMachine: mstMachine,
-	// })
-	// if err != nil {
-	// 	return ctrl.Result{}, errors.Errorf("failed to create scope: %+v", err)
-	// }
+	// Create the machine scope
+	machineScope, err := scope.NewMachineScope(scope.MachineScopeParams{
+		Logger:            logger,
+		Client:            r.Client,
+		Cluster:           cluster,
+		Machine:           machine,
+		MetalStackCluster: mstCluster,
+		MetalStackMachine: mstMachine,
+	})
+	if err != nil {
+		return ctrl.Result{}, errors.Errorf("failed to create scope: %+v", err)
+	}
 
 	// Persist any change of the MetalStackMachine.
 	h, err := patch.NewHelper(r.mstMachine, r.Client)
@@ -148,7 +153,7 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		return ctrl.Result{}, err
 	}
 	defer func() {
-		if e := h.Patch(context.TODO(), r.mstCluster); e != nil {
+		if e := h.Patch(ctx, r.mstCluster); e != nil {
 			if err != nil {
 				err = errors.Wrap(e, err.Error())
 			}
@@ -158,7 +163,7 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 
 	// Handle deleted machines
 	if !r.mstMachine.ObjectMeta.DeletionTimestamp.IsZero() {
-		return r.reconcileDelete(ctx, machineScope, clusterScope, logger)
+		return r.reconcileDelete(ctx)
 	}
 
 	return r.reconcile(ctx, machineScope, clusterScope, logger)
@@ -316,13 +321,29 @@ func (r *MetalStackMachineReconciler) reconcile(ctx context.Context, machineScop
 	return result, nil
 }
 
-func (r *MetalStackMachineReconciler) reconcileDelete(ctx context.Context, machineScope *scope.MachineScope, clusterScope *scope.ClusterScope, logger logr.Logger) (ctrl.Result, error) {
-	logger.Info("Deleting machine")
-	mstMachine := machineScope.MetalStackMachine
-	providerID := machineScope.GetInstanceID()
-	if providerID == "" {
-		logger.Info("no provider ID provided, nothing to delete")
-		controllerutil.RemoveFinalizer(mstMachine, mst.MachineFinalizer)
+func (r *MetalStackMachineReconciler) mstMachineProviderID() (string, error) {
+	if unparsed := r.mstMachine.Spec.ProviderID; unparsed != nil {
+		parsed, err := noderefutil.NewProviderID(*unparsed)
+		if err != nil {
+			return parsed.ID(), nil
+		}
+		return "", err
+	}
+	return "", errors.New(".spec.providerID of the MetalStackMachine not set")
+}
+
+func (r *MetalStackMachineReconciler) removeFinalizer() {
+	controllerutil.RemoveFinalizer(r.mstMachine, "metalstackmachine.infrastructure.cluster.x-k8s.io")
+}
+
+func (r *MetalStackMachineReconciler) reconcileDelete(ctx context.Context) (ctrl.Result, error){
+	r.Log.Info("the MetalStackMachine being deleted")
+	// mstMachine := machineScope.MetalStackMachine
+	// providerID := machineScope.GetInstanceID()
+	providerID, err := r.mstMachineProviderID()
+	if err != nil {
+		r.Log.Info(err.Error())
+		r.removeFinalizer()
 		return ctrl.Result{}, nil
 	}
 
