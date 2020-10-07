@@ -19,7 +19,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	metalgo "github.com/metal-stack/metal-go"

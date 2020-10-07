@@ -137,7 +137,7 @@ type MetalStackMachineStatus struct {
 	LLDP bool `json:"lldp,omitempty"`
 
 	// +optional
-	Liveliness *string `json:"liveliness,omitempty`
+	Liveliness *string `json:"liveliness,omitempty"`
 
 	// Ready is true when the provider resource is ready.
 	// +optional

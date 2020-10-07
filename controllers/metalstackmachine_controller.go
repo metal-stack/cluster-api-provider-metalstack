@@ -167,7 +167,11 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 			return ctrl.Result{}, nil
 		case *mst.ErrorProviderIDNotSet:
 			logger.Info("ProviderID ot the MetalStackMachine not set")
-			resp, err := r.createMStMachine()
+			req, err := r.newRequestToCreateMachine()
+			if err != nil {
+				logger.Info("failed to create a new machine-creation-request")
+			}
+			resp, err := r.MStClient.MachineCreate(req)
 			if err != nil {
 				logger.Info("failed to create the MetalStackMachine")
 				r.mstMachine.Status.SetFailure(err.Error(), clustererr.CreateMachineError)
@@ -222,10 +226,6 @@ func (r *MetalStackMachineReconciler) allocatePrivateNetwork() (*string, error) 
 	return resp.Network.ID, nil
 }
 
-func (r *MetalStackMachineReconciler) createMStMachine() (*metalgo.MachineCreateResponse, error) {
-
-}
-
 func (r *MetalStackMachineReconciler) deleteMStMachine(ctx context.Context) (ctrl.Result, error) {
 	r.Log.Info("the MetalStackMachine being deleted")
 
@@ -243,11 +243,8 @@ func (r *MetalStackMachineReconciler) deleteMStMachine(ctx context.Context) (ctr
 	return ctrl.Result{}, nil
 }
 
-func (r *MetalStackMachineReconciler) newRequest() (*metalgo.MachineCreateRequest, error) {
-	tags := append([]string{
-		fmt.Sprintf("%s:%s", "cluster-api-provider-metalstack:machine-uid", uuid.New().String()),
-		fmt.Sprintf("%s:%s", "cluster-api-provider-metalstack:cluster-id", r.mstCluster.Name),
-	}, r.mstMachine.Spec.Tags...)
+func (r *MetalStackMachineReconciler) newRequestToCreateMachine() (*metalgo.MachineCreateRequest, error) {
+	name := r.mstMachine.Name
 
 	privateNID := r.mstCluster.Spec.PrivateNetworkID
 	if privateNID == nil {
@@ -271,7 +268,24 @@ func (r *MetalStackMachineReconciler) newRequest() (*metalgo.MachineCreateReques
 		})
 	}
 
+	tags := append([]string{
+		fmt.Sprintf("%s:%s", "cluster-api-provider-metalstack:machine-uid", uuid.New().String()),
+		fmt.Sprintf("%s:%s", "cluster-api-provider-metalstack:cluster-id", r.mstCluster.Name),
+	}, r.mstMachine.Spec.Tags...)
 
+	// todo: Add the logic of UserData
+
+	return &metalgo.MachineCreateRequest{
+		Hostname:  name,
+		Image:     r.mstMachine.Spec.Image,
+		Name:      name,
+		Networks:  networks,
+		Partition: *r.mstCluster.Spec.Partition,
+		Project:   *r.mstCluster.Spec.ProjectID,
+		Size:      r.mstMachine.Spec.MachineType,
+		Tags:      tags,
+		UserData:  "",
+	}, nil
 }
 
 func (r *MetalStackMachineReconciler) removeMStMachineFinalizer() {
