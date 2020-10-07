@@ -156,7 +156,6 @@ func (r *MetalStackClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *MetalStackClusterReconciler) allocateNetwork(mstCluster *v1alpha3.MetalStackCluster) (*string, error) {
-	log.Println(mstCluster)
 	resp, err := r.MStClient.NetworkAllocate(&metalgo.NetworkAllocateRequest{
 		ProjectID:   *mstCluster.Spec.ProjectID,
 		PartitionID: *mstCluster.Spec.Partition,

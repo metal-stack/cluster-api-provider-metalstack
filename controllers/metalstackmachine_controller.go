@@ -22,19 +22,19 @@ import (
 	"strings"
 	"time"
 
-	"github.com/docker/docker/daemon/logger"
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	metalgo "github.com/metal-stack/metal-go"
 	"github.com/metal-stack/metal-go/api/models"
+	"github.com/metal-stack/metal-lib/pkg/tag"
 	"github.com/pkg/errors"
 
+	core "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	cluster "sigs.k8s.io/cluster-api/api/v1alpha3"
-	"sigs.k8s.io/cluster-api/controllers/noderefutil"
-	capierrors "sigs.k8s.io/cluster-api/errors"
+	clustererr "sigs.k8s.io/cluster-api/errors"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -44,7 +44,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	metalstack "github.com/metal-stack/cluster-api-provider-metalstack/pkg/cloud/metalstack"
-	"github.com/metal-stack/cluster-api-provider-metalstack/pkg/cloud/metalstack/scope"
 
 	mst "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
 )
@@ -123,30 +122,6 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	}
 	logger = logger.WithName("MetalStackCluster").WithValues("name", r.mstCluster.Name)
 
-	// Create the cluster scope
-	clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
-		Client:            r.Client,
-		Logger:            logger,
-		Cluster:           cluster,
-		MetalStackCluster: mstCluster,
-	})
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	// Create the machine scope
-	machineScope, err := scope.NewMachineScope(scope.MachineScopeParams{
-		Logger:            logger,
-		Client:            r.Client,
-		Cluster:           cluster,
-		Machine:           machine,
-		MetalStackCluster: mstCluster,
-		MetalStackMachine: mstMachine,
-	})
-	if err != nil {
-		return ctrl.Result{}, errors.Errorf("failed to create scope: %+v", err)
-	}
-
 	// Persist any change of the MetalStackMachine.
 	h, err := patch.NewHelper(r.mstMachine, r.Client)
 	if err != nil {
@@ -161,12 +136,59 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		}
 	}()
 
-	// Handle deleted machines
 	if !r.mstMachine.ObjectMeta.DeletionTimestamp.IsZero() {
-		return r.reconcileDelete(ctx)
+		return r.deleteMStMachine(ctx)
 	}
 
-	return r.reconcile(ctx, machineScope, clusterScope, logger)
+	if r.mstMachine.Status.Failed() {
+		logger.Info("the Status of the MetalStackMachine showing failure")
+		return ctrl.Result{}, nil
+	}
+
+	r.addMStMachineFinalizer()
+
+	// todo: Better the logic. The reconciliation of the MetalStackCluster isn't done yet.
+	if !r.cluster.Status.InfrastructureReady {
+		logger.Info("the network not ready")
+		return ctrl.Result{}, nil
+	}
+
+	if !r.machine.Status.BootstrapReady {
+		logger.Info("the bootstrap provider not ready")
+		return ctrl.Result{}, nil
+	}
+
+	rawMachine := &models.V1MachineResponse{}
+	ID, err := r.mstMachine.Spec.ParsedProviderID()
+	if err != nil {
+		switch err.(type) {
+		case nil:
+			logger.Info("failed to parse ProviderID of the MetalStackMachine")
+			return ctrl.Result{}, nil
+		case *mst.ErrorProviderIDNotSet:
+			logger.Info("ProviderID ot the MetalStackMachine not set")
+			resp, err := r.createMStMachine()
+			if err != nil {
+				logger.Info("failed to create the MetalStackMachine")
+				r.mstMachine.Status.SetFailure(err.Error(), clustererr.CreateMachineError)
+				return ctrl.Result{
+					Requeue:      true,
+					RequeueAfter: 3 * time.Second,
+				}, err
+			}
+			rawMachine = resp.Machine
+		}
+	}
+	resp, err := r.MStClient.MachineGet(ID)
+	if err != nil {
+		logger.Info("failed to get the MetalStackMachine with the ID %v", ID)
+		return ctrl.Result{}, err
+	}
+	rawMachine = resp.Machine
+
+	r.setMStMachineStatus(rawMachine)
+
+	return ctrl.Result{}, nil
 }
 
 func (r *MetalStackMachineReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -181,197 +203,98 @@ func (r *MetalStackMachineReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *MetalStackMachineReconciler) reconcile(ctx context.Context, machineScope *scope.MachineScope, clusterScope *scope.ClusterScope, logger logr.Logger) (ctrl.Result, error) {
-	logger.Info("Reconciling MetalStackMachine")
-	mstMachine := machineScope.MetalStackMachine
-	// If the MetalStackMachine is in an error state, return early.
-	// if mstMachine.Status.ErrorReason != nil || mstMachine.Status.ErrorMessage != nil {
-	// 	machineScope.Info("Error state detected, skipping reconciliation")
-	// 	return ctrl.Result{}, nil
-	// }
+func (r *MetalStackMachineReconciler) addMStMachineFinalizer() {
+	controllerutil.AddFinalizer(r.mstMachine, MStMachineFinalizer)
+}
 
-	// If the MetalStackMachine doesn't have our finalizer, add it.
-	controllerutil.AddFinalizer(mstMachine, mst.MachineFinalizer)
-
-	if !machineScope.Cluster.Status.InfrastructureReady {
-		machineScope.Info("Cluster infrastructure is not ready yet")
-		return ctrl.Result{}, nil
-	}
-
-	// Make sure bootstrap data secret is available and populated.
-	if machineScope.Machine.Spec.Bootstrap.DataSecretName == nil {
-		machineScope.Info("Bootstrap data secret is not yet available")
-		return ctrl.Result{}, nil
-	}
-
-	providerID := machineScope.GetInstanceID()
-	var (
-		machine *models.V1MachineResponse
-		err     error
-	)
-	// if we have no provider ID, then we are creating
-	if providerID != "" {
-		mr, err := r.MetalStackClient.GetMachine(providerID)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		machine = mr.Machine
-	}
-
-	privateNetwork := *clusterScope.MetalStackCluster.Spec.PrivateNetworkID
-	if privateNetwork == "" {
-		nwID, err := r.MetalStackClient.AllocatePrivateNetwork(
-			clusterScope.Cluster.ClusterName,
-			*clusterScope.MetalStackCluster.Spec.ProjectID,
-			*machineScope.MetalStackCluster.Spec.Partition)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		machineScope.SetPrivateNetworkID(nwID)
-		privateNetwork = nwID
-	}
-
-	if machine == nil || machine.ID == nil {
-		// generate a unique UID that will survive pivot, i.e. is not tied to the cluster itself
-		mUID := uuid.New().String()
-		tags := []string{
-			metalstack.GenerateMachineTag(mUID),
-			metalstack.GenerateClusterTag(clusterScope.Name()),
-		}
-
-		tags = append(tags, machineScope.MetalStackMachine.Spec.Tags...)
-
-		name := machineScope.Name()
-
-		networks := []metalgo.MachineAllocationNetwork{
-			{NetworkID: privateNetwork, Autoacquire: true},
-		}
-		for _, additionalNetwork := range machineScope.MetalStackCluster.Spec.AdditionalNetworks {
-			anw := metalgo.MachineAllocationNetwork{
-				NetworkID:   additionalNetwork,
-				Autoacquire: true,
-			}
-			networks = append(networks, anw)
-		}
-		if s := machineScope.MetalStackMachine.Spec.Image; strings.Contains(s, "firewall") {
-			networks = append(networks, metalgo.MachineAllocationNetwork{
-				NetworkID:   "internet-vagrant-lab",
-				Autoacquire: true,
-			})
-		}
-
-		userDataRaw, err := machineScope.GetRawBootstrapData()
-		if err != nil {
-			return ctrl.Result{}, errors.Wrap(err, "impossible to retrieve bootstrap data from secret")
-		}
-		userData := string(userDataRaw)
-
-		mcr := metalgo.MachineCreateRequest{
-			Name:      name,
-			Hostname:  name,
-			Project:   *clusterScope.MetalStackCluster.Spec.ProjectID,
-			Partition: *machineScope.MetalStackCluster.Spec.Partition,
-			Image:     machineScope.MetalStackMachine.Spec.Image,
-			Networks:  networks,
-			Size:      machineScope.MetalStackMachine.Spec.MachineType,
-			Tags:      tags,
-			UserData:  userData,
-		}
-		response, err := r.MetalStackClient.MachineCreate(&mcr)
-		if err != nil {
-			machineScope.SetErrorReason(capierrors.CreateMachineError)
-			machineScope.SetErrorMessage(err)
-			return ctrl.Result{
-				Requeue:      true,
-				RequeueAfter: 3 * time.Second,
-			}, fmt.Errorf("failed to create a machine: %v", err)
-		}
-		machine = response.Machine
-	}
-
-	// we do not need to set this as metalstack://<id> because SetProviderID() does the formatting for us
-	machineScope.SetProviderID(*machine.ID)
-	machineScope.SetInstanceStatus(mst.MetalStackResourceStatus(*machine.Liveliness))
-
-	addrs, err := r.MetalStackClient.GetMachineAddresses(machine)
+// todo: duplicate
+func (r *MetalStackMachineReconciler) allocatePrivateNetwork() (*string, error) {
+	resp, err := r.MStClient.NetworkAllocate(&metalgo.NetworkAllocateRequest{
+		ProjectID:   *r.mstCluster.Spec.ProjectID,
+		PartitionID: *r.mstCluster.Spec.Partition,
+		Name:        *r.mstCluster.Spec.Partition,
+		Description: r.mstCluster.Name,
+		Labels:      map[string]string{tag.ClusterID: r.mstCluster.Name},
+	})
 	if err != nil {
-		machineScope.SetErrorMessage(errors.New("failed to getting machine addresses"))
-		return ctrl.Result{}, err
+		return nil, err
 	}
-	machineScope.SetAddresses(addrs)
-
-	// Proceed to reconcile the MetalStackMachine state.
-	var result ctrl.Result
-
-	// FIXME match Liveleness with MetalStackResourceStatus
-	switch mst.MetalStackResourceStatus(*machine.Liveliness) {
-	case mst.MetalStackResourceStatusNew, mst.MetalStackResourceStatusQueued, mst.MetalStackResourceStatusProvisioning:
-		machineScope.Info("Machine instance is pending", "instance-id", machineScope.GetInstanceID())
-		result = ctrl.Result{RequeueAfter: 10 * time.Second}
-	case mst.MetalStackResourceStatusRunning:
-		machineScope.Info("Machine instance is active", "instance-id", machineScope.GetInstanceID())
-		machineScope.SetReady()
-		result = ctrl.Result{}
-	default:
-		machineScope.SetErrorReason(capierrors.UpdateMachineError)
-		machineScope.SetErrorMessage(errors.Errorf("Instance status %q is unexpected", *machine.Liveliness))
-		result = ctrl.Result{}
-	}
-
-	return result, nil
+	return resp.Network.ID, nil
 }
 
-func (r *MetalStackMachineReconciler) mstMachineProviderID() (string, error) {
-	if unparsed := r.mstMachine.Spec.ProviderID; unparsed != nil {
-		parsed, err := noderefutil.NewProviderID(*unparsed)
-		if err != nil {
-			return parsed.ID(), nil
-		}
-		return "", err
-	}
-	return "", errors.New(".spec.providerID of the MetalStackMachine not set")
+func (r *MetalStackMachineReconciler) createMStMachine() (*metalgo.MachineCreateResponse, error) {
+
 }
 
-func (r *MetalStackMachineReconciler) removeFinalizer() {
-	controllerutil.RemoveFinalizer(r.mstMachine, "metalstackmachine.infrastructure.cluster.x-k8s.io")
-}
-
-func (r *MetalStackMachineReconciler) reconcileDelete(ctx context.Context) (ctrl.Result, error){
+func (r *MetalStackMachineReconciler) deleteMStMachine(ctx context.Context) (ctrl.Result, error) {
 	r.Log.Info("the MetalStackMachine being deleted")
-	// mstMachine := machineScope.MetalStackMachine
-	// providerID := machineScope.GetInstanceID()
-	providerID, err := r.mstMachineProviderID()
+
+	defer r.removeMStMachineFinalizer()
+
+	ID, err := r.mstMachine.Spec.ParsedProviderID()
 	if err != nil {
 		r.Log.Info(err.Error())
-		r.removeFinalizer()
 		return ctrl.Result{}, nil
 	}
 
-	machine, err := r.MetalStackClient.GetMachine(providerID)
-	if err != nil {
-		// FIXME check not found
-		// if err  {
-		// 	//		if err.(*packngo.ErrorResponse).Response != nil && err.(*packngo.ErrorResponse).Response.StatusCode == http.StatusNotFound {
-		// 	// When the server does not exist we do not have anything left to do.
-		// 	// Probably somebody manually deleted the server from the UI or via API.
-		// 	logger.Info("Server not found, nothing left to do")
-		// 	controllerutil.RemoveFinalizer(mstMachine, mst.MachineFinalizer)
-		// 	return ctrl.Result{}, nil
-		// }
-		return ctrl.Result{}, fmt.Errorf("error retrieving machine status %s: %v", mstMachine.Name, err)
+	if _, err = r.MetalStackClient.MachineDelete(ID); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to delete the MetalStackMachine %v: %v", r.mstMachine.Name, err)
 	}
-
-	// We should never get there but this is a safetly check
-	if machine == nil {
-		controllerutil.RemoveFinalizer(mstMachine, mst.MachineFinalizer)
-		return ctrl.Result{}, fmt.Errorf("machine does not exist: %s", mstMachine.Name)
-	}
-
-	_, err = r.MetalStackClient.MachineDelete(*machine.Machine.ID)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to delete the machine: %v", err)
-	}
-
-	controllerutil.RemoveFinalizer(mstMachine, mst.MachineFinalizer)
 	return ctrl.Result{}, nil
+}
+
+func (r *MetalStackMachineReconciler) newRequest() (*metalgo.MachineCreateRequest, error) {
+	tags := append([]string{
+		fmt.Sprintf("%s:%s", "cluster-api-provider-metalstack:machine-uid", uuid.New().String()),
+		fmt.Sprintf("%s:%s", "cluster-api-provider-metalstack:cluster-id", r.mstCluster.Name),
+	}, r.mstMachine.Spec.Tags...)
+
+	privateNID := r.mstCluster.Spec.PrivateNetworkID
+	if privateNID == nil {
+		nID, err := r.allocatePrivateNetwork()
+		if err != nil {
+			r.Log.Info("failed to allocate a private network")
+			return nil, err
+		}
+		if nID == nil {
+			s := "nil as private network ID"
+			r.Log.Info(s)
+			return nil, errors.New(s)
+		}
+		privateNID = nID
+	}
+	networks := toMStNetworks(append(r.mstCluster.Spec.AdditionalNetworks, *privateNID)...)
+	if i := r.mstMachine.Spec.Image; strings.Contains(i, "firewall") {
+		networks = append(networks, metalgo.MachineAllocationNetwork{
+			NetworkID:   "internet-vagrant-lab",
+			Autoacquire: true,
+		})
+	}
+
+
+}
+
+func (r *MetalStackMachineReconciler) removeMStMachineFinalizer() {
+	controllerutil.RemoveFinalizer(r.mstMachine, MStMachineFinalizer)
+}
+
+func (r *MetalStackMachineReconciler) setMStMachineStatus(rawMachine *models.V1MachineResponse) {
+	r.mstMachine.Spec.SetProviderID(*rawMachine.ID)
+	r.mstMachine.Status.Liveliness = rawMachine.Liveliness
+	r.mstMachine.Status.Addresses = toNodeAddrs(rawMachine)
+}
+
+func toNodeAddrs(machine *models.V1MachineResponse) []core.NodeAddress {
+	addrs := []core.NodeAddress{}
+	for _, n := range machine.Allocation.Networks {
+		t := core.NodeExternalIP
+		if *n.Private {
+			t = core.NodeInternalIP
+		}
+		addrs = append(addrs, core.NodeAddress{
+			Type:    t,
+			Address: n.Ips[0],
+		})
+	}
+	return addrs
 }

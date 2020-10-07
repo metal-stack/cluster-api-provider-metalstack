@@ -39,7 +39,7 @@ const (
 	apiTokenVarName = "METAL_API_TOKEN"
 	apiKeyVarName   = "METALCTL_HMAC"
 	apiURLVarName   = "METALCTL_URL"
-	clientName      = "CAPM-v1alpha3"
+	clientName      = "CAPMST-v1alpha3"
 )
 
 var (

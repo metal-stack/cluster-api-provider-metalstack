@@ -17,9 +17,14 @@ limitations under the License.
 package v1alpha3
 
 import (
+	"errors"
+	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	capierrors "sigs.k8s.io/cluster-api/errors"
+	"k8s.io/utils/pointer"
+	"sigs.k8s.io/cluster-api/controllers/noderefutil"
+	clustererr "sigs.k8s.io/cluster-api/errors"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -59,39 +64,45 @@ type MetalStackMachineSpec struct {
 	Tags Tags `json:"tags,omitempty"`
 }
 
+type ErrorProviderIDNotSet struct{}
+
+func (err *ErrorProviderIDNotSet) Error() string {
+	return "ProviderID of the MetalStackMachineSpec not set"
+}
+
+func (spec *MetalStackMachineSpec) ParsedProviderID() (string, error) {
+	unparsed := spec.ProviderID
+	if unparsed == nil {
+		return "", errors.New("ProviderID of the MetalStackMachineSpec not set")
+	}
+	parsed, err := noderefutil.NewProviderID(*unparsed)
+	if err != nil {
+		return "", err
+	}
+	return parsed.ID(), nil
+}
+
+func (spec *MetalStackMachineSpec) SetProviderID(ID string) {
+	spec.ProjectID = pointer.StringPtr(fmt.Sprintf("metalstack://%v", ID))
+}
+
 // MetalStackMachineStatus defines the observed state of MetalStackMachine
 type MetalStackMachineStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Allocated bool `json:"allocated"`
-
-	// +optional
-	FailureMessage *string `json:"failureMessage,omitempty"`
-
-	// +optional
-	FailureReason *string `json:"failureReason,omitempty"`
-
-	LLDP bool `json:"lldp,omitempty"`
-
-	// TODO: Clear up the following memebers.
-
-	// Ready is true when the provider resource is ready.
-	// +optional
-	Ready bool `json:"ready"`
-
 	// Addresses contains the MetalStack machine associated addresses.
+	// +optional
 	Addresses []corev1.NodeAddress `json:"addresses,omitempty"`
 
-	// InstanceStatus is the status of the MetalStack machine instance for this machine.
 	// +optional
-	InstanceStatus *MetalStackResourceStatus `json:"instanceStatus,omitempty"`
+	Allocated bool `json:"allocated"`
 
 	// Any transient errors that occur during the reconciliation of Machines
 	// can be added as events to the Machine object and/or logged in the
 	// controller's output.
 	// +optional
-	ErrorReason *capierrors.MachineStatusError `json:"errorReason,omitempty"`
+	ErrorReason *clustererr.MachineStatusError `json:"errorReason,omitempty"`
 
 	// ErrorMessage will be set in the event that there is a terminal problem
 	// reconciling the Machine and will contain a more verbose string suitable
@@ -111,10 +122,39 @@ type MetalStackMachineStatus struct {
 	// controller's output.
 	// +optional
 	ErrorMessage *string `json:"errorMessage,omitempty"`
+
+	// +optional
+	FailureMessage *string `json:"failureMessage,omitempty"`
+
+	// +optional
+	FailureReason *clustererr.MachineStatusError `json:"failureReason,omitempty"`
+
+	// InstanceStatus is the status of the MetalStack machine instance for this machine.
+	// +optional
+	InstanceStatus *MetalStackResourceStatus `json:"instanceStatus,omitempty"`
+
+	// +optional
+	LLDP bool `json:"lldp,omitempty"`
+
+	// +optional
+	Liveliness *string `json:"liveliness,omitempty`
+
+	// Ready is true when the provider resource is ready.
+	// +optional
+	Ready bool `json:"ready"`
 }
+
+// func (st *MetalStackMachineStatus) Erroneous() bool {
+// 	return st.ErrorMessage != nil || st.ErrorReason != nil
+// }
 
 func (st *MetalStackMachineStatus) Failed() bool {
 	return st.FailureMessage != nil || st.FailureReason != nil
+}
+
+func (st *MetalStackMachineStatus) SetFailure(msg string, err clustererr.MachineStatusError) {
+	st.FailureMessage = &msg
+	st.FailureReason = &err
 }
 
 // +kubebuilder:subresource:status
