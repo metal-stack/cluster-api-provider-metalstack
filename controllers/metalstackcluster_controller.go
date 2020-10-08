@@ -219,10 +219,6 @@ func (r *MetalStackClusterReconciler) getControlPlaneIP(mstCluster *v1alpha3.Met
 	return m.Allocation.Networks[0].Ips[0], nil
 }
 
-func (r *MetalStackClusterReconciler) newHelper(c *v1alpha3.MetalStackCluster) (*patch.Helper, error) {
-	return patch.NewHelper(c, r.Client)
-}
-
 // MachineNotFound error representing that the requested machine was not yet found
 type MachineNotFound struct {
 	s string

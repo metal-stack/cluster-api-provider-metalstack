@@ -141,18 +141,20 @@ spec:
             failureMessage:
               type: string
             failureReason:
+              description: Constants aren't automatically generated for unversioned
+                packages. Instead share the same constant for all versioned packages
               type: string
             instanceStatus:
               description: InstanceStatus is the status of the MetalStack machine
                 instance for this machine.
+              type: string
+            liveliness:
               type: string
             lldp:
               type: boolean
             ready:
               description: Ready is true when the provider resource is ready.
               type: boolean
-          required:
-          - allocated
           type: object
       type: object
   version: v1alpha3

@@ -26,7 +26,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	metalstack "github.com/metal-stack/cluster-api-provider-metalstack/pkg/cloud/metalstack"
 	metalgo "github.com/metal-stack/metal-go"
 
 	infrastructurev1alpha3 "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
@@ -71,20 +70,13 @@ func main() {
 		BurstSize: 100,
 	})
 
-	// mstClient, err := metalgo.NewDriver(os.Getenv("METALCTL_URL"), "", os.Getenv("METALCTL_HMAC"))
+	// todo: Add env.
 	mstClient, err := metalgo.NewDriver("http://api.0.0.0.0.xip.io:8080/metal", "", "metal-admin")
 	if err != nil {
 		setupLog.Error(err, "unable to get Metal-Stack client")
 		os.Exit(1)
 	}
 
-	// todo: remove the dependency of the package metalstack
-	// get a metalstack client
-	// client, err := metalstack.GetClient()
-	// if err != nil {
-	// 	setupLog.Error(err, "unable to get MetalStack client")
-	// 	os.Exit(1)
-	// }
 	setupLog.Info("metalstack client connected")
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
@@ -111,11 +103,10 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&controllers.MetalStackMachineReconciler{
-		Client:           mgr.GetClient(),
-		Log:              ctrl.Log.WithName("controllers").WithName("MetalStackMachine"),
-		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("metalstackmachine-controller"),
-		MetalStackClient: &metalstack.MetalStackClient{Driver: mstClient},
+		Client:   mgr.GetClient(),
+		Log:      ctrl.Log.WithName("controllers").WithName("MetalStackMachine"),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorderFor("metalstackmachine-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "MetalStackMachine")
 		os.Exit(1)

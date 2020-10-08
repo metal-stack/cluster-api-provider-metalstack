@@ -43,8 +43,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	metalstack "github.com/metal-stack/cluster-api-provider-metalstack/pkg/cloud/metalstack"
-
 	mst "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
 )
 
@@ -56,11 +54,11 @@ const (
 // MetalStackMachineReconciler reconciles a MetalStackMachine object
 type MetalStackMachineReconciler struct {
 	client.Client
-	Log              logr.Logger
-	MStClient        *metalgo.Driver
-	Recorder         record.EventRecorder
-	Scheme           *runtime.Scheme
-	MetalStackClient *metalstack.MetalStackClient
+	Log       logr.Logger
+	MStClient *metalgo.Driver
+	Recorder  record.EventRecorder
+	Scheme    *runtime.Scheme
+	// MetalStackClient *metalstack.MetalStackClient
 
 	cluster    *cluster.Cluster
 	machine    *cluster.Machine
@@ -101,6 +99,7 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	r.cluster, err = util.GetClusterFromMetadata(ctx, r.Client, r.machine.ObjectMeta)
 	if err != nil {
 		logger.Info(err.Error())
+		// todo: Return err or nil?
 		return ctrl.Result{}, nil
 	}
 	logger = logger.WithName("Cluster").WithValues("name", r.cluster.Name)
@@ -185,7 +184,7 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	}
 	resp, err := r.MStClient.MachineGet(ID)
 	if err != nil {
-		logger.Info("failed to get the MetalStackMachine with the ID %v", ID)
+		logger.Error(err, "failed to get the MetalStackMachine with the ID %v", ID)
 		return ctrl.Result{}, err
 	}
 	rawMachine = resp.Machine
@@ -233,11 +232,11 @@ func (r *MetalStackMachineReconciler) deleteMStMachine(ctx context.Context) (ctr
 
 	ID, err := r.mstMachine.Spec.ParsedProviderID()
 	if err != nil {
-		r.Log.Info(err.Error())
-		return ctrl.Result{}, nil
+		r.Log.Error(err, "failed to parse the ProviderID of the MetalStackMachine")
+		return ctrl.Result{}, err
 	}
 
-	if _, err = r.MetalStackClient.MachineDelete(ID); err != nil {
+	if _, err = r.MStClient.MachineDelete(ID); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to delete the MetalStackMachine %v: %v", r.mstMachine.Name, err)
 	}
 	return ctrl.Result{}, nil
@@ -269,8 +268,8 @@ func (r *MetalStackMachineReconciler) newRequestToCreateMachine() (*metalgo.Mach
 	}
 
 	tags := append([]string{
-		fmt.Sprintf("%s:%s", "cluster-api-provider-metalstack:machine-uid", uuid.New().String()),
-		fmt.Sprintf("%s:%s", "cluster-api-provider-metalstack:cluster-id", r.mstCluster.Name),
+		"cluster-api-provider-metalstack:machine-uid:" + uuid.New().String(),
+		"cluster-api-provider-metalstack:cluster-id:" + r.mstCluster.Name,
 	}, r.mstMachine.Spec.Tags...)
 
 	// todo: Add the logic of UserData
