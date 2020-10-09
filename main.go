@@ -29,7 +29,9 @@ import (
 	metalgo "github.com/metal-stack/metal-go"
 
 	infrastructurev1alpha3 "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
+	mst "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
 	"github.com/metal-stack/cluster-api-provider-metalstack/controllers"
+	cluster "sigs.k8s.io/cluster-api/api/v1alpha3"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	// +kubebuilder:scaffold:imports
 )
@@ -44,6 +46,13 @@ const (
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
+)
+
+var (
+	cl    = cluster.Cluster{}
+	m     = cluster.Machine{}
+	mstCl = mst.MetalStackCluster{}
+	mstM  = mst.MetalStackCluster{}
 )
 
 func init() {

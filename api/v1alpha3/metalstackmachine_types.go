@@ -49,8 +49,6 @@ type MetalStackMachineSpec struct {
 	// +optional
 	Type *string `json:"type"`
 
-	// TODO: Clear up the following members.
-
 	MachineType string   `json:"machineType"`
 	SSHKeys     []string `json:"sshKeys,omitempty"`
 
@@ -73,7 +71,8 @@ func (err *ErrorProviderIDNotSet) Error() string {
 func (spec *MetalStackMachineSpec) ParsedProviderID() (string, error) {
 	unparsed := spec.ProviderID
 	if unparsed == nil {
-		return "", errors.New("ProviderID of the MetalStackMachineSpec not set")
+		// todo: Check if there's an implementation from the platform.
+		return "", &ErrorProviderIDNotSet{}
 	}
 	parsed, err := noderefutil.NewProviderID(*unparsed)
 	if err != nil {

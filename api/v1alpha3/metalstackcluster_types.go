@@ -43,8 +43,6 @@ type MetalStackClusterSpec struct {
 	// ProjectID is th projectID of MetalStackCluster. Edit MetalStackCluster_types.go to remove/update
 	ProjectID *string `json:"projectID,omitempty"`
 
-	// TODO: Remove the following members. Complete the logic for the NetworkID above.
-
 	// AdditionalNetworks this cluster should be part of
 	// +optional
 	AdditionalNetworks []string `json:"additionalNetworks,omitempty"`
@@ -64,6 +62,7 @@ type MetalStackClusterStatus struct {
 	Ready bool `json:"ready"`
 
 	// todo: Consider CR Firewall.
+	// +optional
 	FirewallReady bool `json:"firewallReady,omitempty"`
 }
 

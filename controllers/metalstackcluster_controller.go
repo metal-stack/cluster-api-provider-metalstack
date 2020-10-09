@@ -95,7 +95,7 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		return ctrl.Result{}, err
 	}
 	defer func() {
-		if e := h.Patch(context.TODO(), mstCluster); e != nil {
+		if e := h.Patch(ctx, mstCluster); e != nil {
 			if err != nil {
 				err = errors.Wrap(e, err.Error())
 			}
@@ -126,11 +126,11 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	ip, err := r.getControlPlaneIP(mstCluster)
 	if err != nil {
 		switch err.(type) {
-		case *MachineNotFound, *MachineNoIP: // todo: Do we really need these two types?
-			logger.Info(err.Error() + " Control plane machine not found. Requeueing...")
+		case *MachineNotFound, *MachineNoIP: // todo: Do we really need these two types? Check the logs.
+			logger.Info(" Control plane machine not found. Requeueing...", "error", err.Error())
 			return ctrl.Result{Requeue: true, RequeueAfter: 30 * time.Second}, nil
 		default:
-			logger.Info(err.Error() + " error getting a control plane ip")
+			logger.Error(err, " error getting a control plane ip")
 			return ctrl.Result{}, err
 		}
 	}
@@ -168,6 +168,8 @@ func (r *MetalStackClusterReconciler) allocateNetwork(mstCluster *v1alpha3.Metal
 	return resp.Network.ID, nil
 }
 
+// todo: Implement the logic regarding sshKeys: [] 
+// todo: add the logic for MetalSTackCluster defaultNetwork: internet-vagrant-lab
 func (r *MetalStackClusterReconciler) createFirewall(mstCluster *v1alpha3.MetalStackCluster) error {
 	req := &metalgo.FirewallCreateRequest{
 		MachineCreateRequest: metalgo.MachineCreateRequest{
@@ -179,7 +181,7 @@ func (r *MetalStackClusterReconciler) createFirewall(mstCluster *v1alpha3.MetalS
 			Partition:     *mstCluster.Spec.Partition,
 			Image:         "firewall-ubuntu-2.0",
 			SSHPublicKeys: []string{},
-			Networks:      toMStNetworks("internet-vagrant-lab", *mstCluster.Spec.PrivateNetworkID),
+			Networks:      toMetalNetworks("internet-vagrant-lab", *mstCluster.Spec.PrivateNetworkID), // todo: Ask metal-API to find out the external internet network IP (partition id empty -> destinationprefix: 0.0.0.0/0)
 			UserData:      "",
 			Tags:          []string{""},
 		},
@@ -189,6 +191,9 @@ func (r *MetalStackClusterReconciler) createFirewall(mstCluster *v1alpha3.MetalS
 	return err
 }
 
+// todo: Implement?
+// The IP is internal at the moment.
+// This could be replaced by explicitly allocated IP address for the control plane during machine-creation.
 func (r *MetalStackClusterReconciler) getControlPlaneIP(mstCluster *v1alpha3.MetalStackCluster) (string, error) {
 	if mstCluster == nil {
 		return "", fmt.Errorf("cannot get IP of machine in nil cluster")
@@ -237,7 +242,7 @@ func (e *MachineNoIP) Error() string {
 	return e.s
 }
 
-func toMStNetworks(ss ...string) (networks []metalgo.MachineAllocationNetwork) {
+func toMetalNetworks(ss ...string) (networks []metalgo.MachineAllocationNetwork) {
 	for _, s := range ss {
 		networks = append(networks, metalgo.MachineAllocationNetwork{
 			NetworkID:   s,
