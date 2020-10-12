@@ -104,7 +104,7 @@ func main() {
 	if err = (&controllers.MetalStackClusterReconciler{
 		Client:    mgr.GetClient(),
 		Log:       ctrl.Log.WithName("controllers").WithName("MetalStackCluster"),
-		MStClient: mstClient,
+		MetalClient: mstClient,
 		Recorder:  mgr.GetEventRecorderFor("metalstackcluster-controller"),
 		Scheme:    mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {

@@ -47,7 +47,7 @@ import (
 )
 
 const (
-	// MachineFinalizer is the finalizer for the MetalStackMachine.
+	// MachineFinalizer is the finalizer for MetalStackMachine.
 	MachineFinalizer = "metalstackmachine.infrastructure.cluster.x-k8s.io"
 )
 
@@ -80,6 +80,19 @@ func newResource(
 		metalCluster: metalCl,
 		metalMachine: metalM,
 	}
+}
+
+func (rsrc *resource) toMetalTags() []string {
+	tags := append([]string{
+		"cluster-api-provider-metalstack:machine-uid:" + uuid.New().String(),
+		clusterIDTag + rsrc.metalCluster.Name,
+	}, rsrc.metalMachine.Spec.Tags...)
+	if util.IsControlPlaneMachine(rsrc.machine) {
+		tags = append(tags, cluster.MachineControlPlaneLabelName+":true")
+	}
+	tags = append(tags, cluster.MachineControlPlaneLabelName+":false")
+
+	return tags
 }
 
 // +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=metalstackmachines,verbs=get;list;watch;create;update;patch;delete
@@ -183,7 +196,6 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	rawMachine := &models.V1MachineResponse{}
 	ID, err := rsrc.metalMachine.Spec.ParsedProviderID()
 	if err != nil {
-		// todo: Add default.
 		switch err.(type) {
 		case nil:
 			logger.Info("failed to parse ProviderID of the MetalStackMachine")
@@ -205,6 +217,9 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 			}
 			rawMachine = resp.Machine
 			ID = *rawMachine.ID
+		default:
+			logger.Info("unknown errors")
+			return ctrl.Result{}, err
 		}
 	}
 	resp, err := r.MetalClient.MachineGet(ID)
@@ -295,12 +310,7 @@ func (r *MetalStackMachineReconciler) newRequestToCreateMachine(rsrc *resource) 
 		})
 	}
 
-	tags := append([]string{
-		"cluster-api-provider-metalstack:machine-uid:" + uuid.New().String(),
-		"cluster-api-provider-metalstack:cluster-id:" + rsrc.metalCluster.Name,
-	}, rsrc.metalMachine.Spec.Tags...)
-
-	// todo: Add the logic of UserData
+	// todo: Add the logic of UserData.
 
 	return &metalgo.MachineCreateRequest{
 		Hostname:  name,
@@ -310,7 +320,7 @@ func (r *MetalStackMachineReconciler) newRequestToCreateMachine(rsrc *resource) 
 		Partition: *rsrc.metalCluster.Spec.Partition,
 		Project:   *rsrc.metalCluster.Spec.ProjectID,
 		Size:      rsrc.metalMachine.Spec.MachineType,
-		Tags:      tags,
+		Tags:      rsrc.toMetalTags(),
 		UserData:  "",
 	}, nil
 }

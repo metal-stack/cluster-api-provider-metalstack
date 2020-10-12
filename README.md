@@ -12,7 +12,7 @@ clusterctl init --config=out/managerless/infrastructure-metalstack/clusterctl-v0
 make cluster
 
 # Add the tag "kubernetes.io/role:master" to .spec.tags of the MetalStackMachine. The result reads: 
-# tags: ["kubernetes.io/role:node"]
+# tags: ["kubernetes.io/role:master"]
 
 k apply -f ./out/cluster.yaml
 make manager && ./bin/manager-linux-amd64

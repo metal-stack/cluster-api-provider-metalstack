@@ -29,7 +29,9 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
+	clusterapi "sigs.k8s.io/cluster-api/api/v1alpha3"
+
+	// clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -48,10 +50,10 @@ const (
 type MetalStackClusterReconciler struct {
 	client.Client
 
-	Log       logr.Logger
-	MStClient *metalgo.Driver
-	Recorder  record.EventRecorder
-	Scheme    *runtime.Scheme
+	Log         logr.Logger
+	MetalClient *metalgo.Driver
+	Recorder    record.EventRecorder
+	Scheme      *runtime.Scheme
 }
 
 // +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=metalstackclusters,verbs=get;list;watch;create;update;patch;delete
@@ -62,17 +64,17 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	ctx := context.Background()
 	logger := r.Log.WithValues("MetalStackCluster", req.NamespacedName)
 
-	mstCluster := &v1alpha3.MetalStackCluster{}
-	if err := r.Get(ctx, req.NamespacedName, mstCluster); err != nil {
+	metalCluster := &v1alpha3.MetalStackCluster{}
+	if err := r.Get(ctx, req.NamespacedName, metalCluster); err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
 	}
 
-	logger = logger.WithName(mstCluster.APIVersion)
+	logger = logger.WithName(metalCluster.APIVersion)
 
-	cluster, err := util.GetOwnerCluster(ctx, r.Client, mstCluster.ObjectMeta)
+	cluster, err := util.GetOwnerCluster(ctx, r.Client, metalCluster.ObjectMeta)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -85,17 +87,17 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		}, nil
 	}
 
-	if util.IsPaused(cluster, mstCluster) {
+	if util.IsPaused(cluster, metalCluster) {
 		logger.Info("MetalStackCluster or linked Cluster is marked as paused. Won't reconcile")
 		return ctrl.Result{}, nil
 	}
 
-	h, err := patch.NewHelper(mstCluster, r.Client)
+	h, err := patch.NewHelper(metalCluster, r.Client)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 	defer func() {
-		if e := h.Patch(ctx, mstCluster); e != nil {
+		if e := h.Patch(ctx, metalCluster); e != nil {
 			if err != nil {
 				err = errors.Wrap(e, err.Error())
 			}
@@ -103,27 +105,27 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		}
 	}()
 
-	if mstCluster.Spec.PrivateNetworkID == nil {
-		networkID, err := r.allocateNetwork(mstCluster)
+	if metalCluster.Spec.PrivateNetworkID == nil {
+		networkID, err := r.allocateNetwork(metalCluster)
 		if err != nil {
 			logger.Error(err, "no response to network allocation")
 			return ctrl.Result{Requeue: true, RequeueAfter: 2 * time.Second}, err
 		}
-		mstCluster.Spec.PrivateNetworkID = networkID
+		metalCluster.Spec.PrivateNetworkID = networkID
 	}
 
-	if !mstCluster.Status.FirewallReady {
-		err = r.createFirewall(mstCluster)
+	if !metalCluster.Status.FirewallReady {
+		err = r.createFirewall(metalCluster)
 		if err != nil {
 			return ctrl.Result{Requeue: true, RequeueAfter: 2 * time.Second}, err
 		}
 		logger.Info("A firewall was created.")
-		mstCluster.Status.FirewallReady = true
+		metalCluster.Status.FirewallReady = true
 	}
 
-	mstCluster.Status.Ready = true
+	metalCluster.Status.Ready = true
 
-	ip, err := r.getControlPlaneIP(mstCluster)
+	ip, err := r.getControlPlaneIP(metalCluster)
 	if err != nil {
 		switch err.(type) {
 		case *MachineNotFound, *MachineNoIP: // todo: Do we really need these two types? Check the logs.
@@ -134,7 +136,7 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 			return ctrl.Result{}, err
 		}
 	}
-	mstCluster.Spec.ControlPlaneEndpoint = clusterv1.APIEndpoint{
+	metalCluster.Spec.ControlPlaneEndpoint = clusterapi.APIEndpoint{
 		Host: ip,
 		Port: 6443,
 	}
@@ -146,7 +148,7 @@ func (r *MetalStackClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha3.MetalStackCluster{}).
 		Watches(
-			&source.Kind{Type: &clusterv1.Cluster{}},
+			&source.Kind{Type: &clusterapi.Cluster{}},
 			&handler.EnqueueRequestsFromMapFunc{
 				ToRequests: util.ClusterToInfrastructureMapFunc(v1alpha3.GroupVersion.WithKind("MetalStackCluster")),
 			},
@@ -154,13 +156,13 @@ func (r *MetalStackClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *MetalStackClusterReconciler) allocateNetwork(mstCluster *v1alpha3.MetalStackCluster) (*string, error) {
-	resp, err := r.MStClient.NetworkAllocate(&metalgo.NetworkAllocateRequest{
-		ProjectID:   *mstCluster.Spec.ProjectID,
-		PartitionID: *mstCluster.Spec.Partition,
-		Name:        *mstCluster.Spec.Partition,
-		Description: mstCluster.Name,
-		Labels:      map[string]string{tag.ClusterID: mstCluster.Name},
+func (r *MetalStackClusterReconciler) allocateNetwork(metalCluster *v1alpha3.MetalStackCluster) (*string, error) {
+	resp, err := r.MetalClient.NetworkAllocate(&metalgo.NetworkAllocateRequest{
+		ProjectID:   *metalCluster.Spec.ProjectID,
+		PartitionID: *metalCluster.Spec.Partition,
+		Name:        *metalCluster.Spec.Partition,
+		Description: metalCluster.Name,
+		Labels:      map[string]string{tag.ClusterID: metalCluster.Name},
 	})
 	if err != nil {
 		return nil, err
@@ -168,49 +170,50 @@ func (r *MetalStackClusterReconciler) allocateNetwork(mstCluster *v1alpha3.Metal
 	return resp.Network.ID, nil
 }
 
-// todo: Implement the logic regarding sshKeys: [] 
-// todo: add the logic for MetalSTackCluster defaultNetwork: internet-vagrant-lab
-func (r *MetalStackClusterReconciler) createFirewall(mstCluster *v1alpha3.MetalStackCluster) error {
+// todo: Implement the logic regarding sshKeys: []
+// todo: add the logic for MetalStackCluster defaultNetwork: internet-vagrant-lab
+func (r *MetalStackClusterReconciler) createFirewall(metalCluster *v1alpha3.MetalStackCluster) error {
 	req := &metalgo.FirewallCreateRequest{
 		MachineCreateRequest: metalgo.MachineCreateRequest{
-			Description:   mstCluster.Name + " created by Cluster API provider MetalStack",
-			Name:          mstCluster.Name,
-			Hostname:      mstCluster.Name + "-firewall",
+			Description:   metalCluster.Name + " created by Cluster API provider MetalStack",
+			Name:          metalCluster.Name,
+			Hostname:      metalCluster.Name + "-firewall",
 			Size:          "v1-small-x86",
-			Project:       *mstCluster.Spec.ProjectID,
-			Partition:     *mstCluster.Spec.Partition,
+			Project:       *metalCluster.Spec.ProjectID,
+			Partition:     *metalCluster.Spec.Partition,
 			Image:         "firewall-ubuntu-2.0",
 			SSHPublicKeys: []string{},
-			Networks:      toMetalNetworks("internet-vagrant-lab", *mstCluster.Spec.PrivateNetworkID), // todo: Ask metal-API to find out the external internet network IP (partition id empty -> destinationprefix: 0.0.0.0/0)
+			Networks:      toMetalNetworks("internet-vagrant-lab", *metalCluster.Spec.PrivateNetworkID), // todo: Ask metal-API to find out the external internet network IP (partition id empty -> destinationprefix: 0.0.0.0/0)
 			UserData:      "",
 			Tags:          []string{""},
 		},
 	}
 
-	_, err := r.MStClient.FirewallCreate(req)
+	_, err := r.MetalClient.FirewallCreate(req)
 	return err
 }
 
 // todo: Implement?
 // The IP is internal at the moment.
 // This could be replaced by explicitly allocated IP address for the control plane during machine-creation.
-func (r *MetalStackClusterReconciler) getControlPlaneIP(mstCluster *v1alpha3.MetalStackCluster) (string, error) {
-	if mstCluster == nil {
-		return "", fmt.Errorf("cannot get IP of machine in nil cluster")
+func (r *MetalStackClusterReconciler) getControlPlaneIP(metalCluster *v1alpha3.MetalStackCluster) (string, error) {
+	if metalCluster == nil {
+		return "", errors.New("pointer to MetalStackCluster not allowed to be nil")
 	}
+
 	tags := []string{
-		fmt.Sprintf("%s:%s", clusterIDTag, mstCluster.Name),
-		v1alpha3.MasterTag,
+		clusterIDTag + ":" + metalCluster.Name,
+		clusterapi.MachineControlPlaneLabelName + ":true",
 	}
-
-	mm, err := r.MStClient.MachineFind(&metalgo.MachineFindRequest{AllocationProject: mstCluster.Spec.ProjectID, Tags: tags})
-
+	mm, err := r.MetalClient.MachineFind(&metalgo.MachineFindRequest{
+		AllocationProject: metalCluster.Spec.ProjectID,
+		Tags:              tags,
+	})
 	if err != nil {
-		return "", fmt.Errorf("Error retrieving machines: %v", err)
+		return "", err
 	}
-
 	if mm == nil {
-		return "", &MachineNotFound{fmt.Sprintf("A machine with the project ID %s and tags %v doesn't exist.", *mstCluster.Spec.ProjectID, tags)}
+		return "", &MachineNotFound{fmt.Sprintf("A machine with the project ID %s and tags %v doesn't exist.", *metalCluster.Spec.ProjectID, tags)}
 	}
 
 	if len(mm.Machines) != 1 {
