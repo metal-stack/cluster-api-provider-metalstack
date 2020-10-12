@@ -16,7 +16,10 @@ limitations under the License.
 
 package v1alpha3
 
-const (
-	MasterTag = "kubernetes.io/role:master"
-	WorkerTag = "kubernetes.io/role:node"
-)
+type Firewall struct {
+	// +optional
+	DefaultNetworkID *string `json:"defaultNetworkID,omitempty"`
+
+	// +optional
+	SSHKeys []string `json:"sshKeys,omitempty"`
+}

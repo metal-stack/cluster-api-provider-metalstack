@@ -128,7 +128,7 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	ip, err := r.getControlPlaneIP(metalCluster)
 	if err != nil {
 		switch err.(type) {
-		case *MachineNotFound, *MachineNoIP: // todo: Do we really need these two types? Check the logs.
+		case *MachineNotFound, *IPNotAllocated: // todo: Do we really need these two types? Check the logs.
 			logger.Info(" Control plane machine not found. Requeueing...", "error", err.Error())
 			return ctrl.Result{Requeue: true, RequeueAfter: 30 * time.Second}, nil
 		default:
@@ -170,8 +170,7 @@ func (r *MetalStackClusterReconciler) allocateNetwork(metalCluster *v1alpha3.Met
 	return resp.Network.ID, nil
 }
 
-// todo: Implement the logic regarding sshKeys: []
-// todo: add the logic for MetalStackCluster defaultNetwork: internet-vagrant-lab
+// todo: Ask metal-API to find out the external network IP (partition id empty -> destinationprefix: 0.0.0.0/0)
 func (r *MetalStackClusterReconciler) createFirewall(metalCluster *v1alpha3.MetalStackCluster) error {
 	req := &metalgo.FirewallCreateRequest{
 		MachineCreateRequest: metalgo.MachineCreateRequest{
@@ -182,10 +181,10 @@ func (r *MetalStackClusterReconciler) createFirewall(metalCluster *v1alpha3.Meta
 			Project:       *metalCluster.Spec.ProjectID,
 			Partition:     *metalCluster.Spec.Partition,
 			Image:         "firewall-ubuntu-2.0",
-			SSHPublicKeys: []string{},
-			Networks:      toMetalNetworks("internet-vagrant-lab", *metalCluster.Spec.PrivateNetworkID), // todo: Ask metal-API to find out the external internet network IP (partition id empty -> destinationprefix: 0.0.0.0/0)
+			SSHPublicKeys: metalCluster.Spec.Firewall.SSHKeys,
+			Networks:      toNetworks(*metalCluster.Spec.Firewall.DefaultNetworkID, *metalCluster.Spec.PrivateNetworkID),
 			UserData:      "",
-			Tags:          []string{""},
+			Tags:          []string{},
 		},
 	}
 
@@ -194,8 +193,7 @@ func (r *MetalStackClusterReconciler) createFirewall(metalCluster *v1alpha3.Meta
 }
 
 // todo: Implement?
-// The IP is internal at the moment.
-// This could be replaced by explicitly allocated IP address for the control plane during machine-creation.
+// The IP is internal at the moment, which can be replaced by explicitly allocated IP at the creation of the control plane.
 func (r *MetalStackClusterReconciler) getControlPlaneIP(metalCluster *v1alpha3.MetalStackCluster) (string, error) {
 	if metalCluster == nil {
 		return "", errors.New("pointer to MetalStackCluster not allowed to be nil")
@@ -213,7 +211,7 @@ func (r *MetalStackClusterReconciler) getControlPlaneIP(metalCluster *v1alpha3.M
 		return "", err
 	}
 	if mm == nil {
-		return "", &MachineNotFound{fmt.Sprintf("A machine with the project ID %s and tags %v doesn't exist.", *metalCluster.Spec.ProjectID, tags)}
+		return "", &MachineNotFound{fmt.Sprintf("machine with the project ID %v and the tags %v not found", *metalCluster.Spec.ProjectID, tags)}
 	}
 
 	if len(mm.Machines) != 1 {
@@ -222,7 +220,7 @@ func (r *MetalStackClusterReconciler) getControlPlaneIP(metalCluster *v1alpha3.M
 	m := mm.Machines[0]
 
 	if m.Allocation == nil || len(m.Allocation.Networks) == 0 || len(m.Allocation.Networks[0].Ips) == 0 || m.Allocation.Networks[0].Ips[0] == "" {
-		return "", &MachineNoIP{"The machine doesn't have an IP address."}
+		return "", &IPNotAllocated{"IP address not allocate"}
 	}
 	return m.Allocation.Networks[0].Ips[0], nil
 }
@@ -236,16 +234,16 @@ func (e *MachineNotFound) Error() string {
 	return e.s
 }
 
-// MachineNoIP error representing that the requested machine does not have an IP yet assigned
-type MachineNoIP struct {
+// IPNotAllocated error representing that the requested machine does not have an IP yet assigned
+type IPNotAllocated struct {
 	s string
 }
 
-func (e *MachineNoIP) Error() string {
+func (e *IPNotAllocated) Error() string {
 	return e.s
 }
 
-func toMetalNetworks(ss ...string) (networks []metalgo.MachineAllocationNetwork) {
+func toNetworks(ss ...string) (networks []metalgo.MachineAllocationNetwork) {
 	for _, s := range ss {
 		networks = append(networks, metalgo.MachineAllocationNetwork{
 			NetworkID:   s,

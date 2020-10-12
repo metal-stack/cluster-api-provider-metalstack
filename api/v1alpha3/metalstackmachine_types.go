@@ -17,7 +17,6 @@ limitations under the License.
 package v1alpha3
 
 import (
-	"errors"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"

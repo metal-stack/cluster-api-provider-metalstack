@@ -29,9 +29,7 @@ import (
 	metalgo "github.com/metal-stack/metal-go"
 
 	infrastructurev1alpha3 "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
-	mst "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
 	"github.com/metal-stack/cluster-api-provider-metalstack/controllers"
-	cluster "sigs.k8s.io/cluster-api/api/v1alpha3"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	// +kubebuilder:scaffold:imports
 )
@@ -46,13 +44,6 @@ const (
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
-)
-
-var (
-	cl    = cluster.Cluster{}
-	m     = cluster.Machine{}
-	mstCl = mst.MetalStackCluster{}
-	mstM  = mst.MetalStackCluster{}
 )
 
 func init() {
@@ -80,7 +71,7 @@ func main() {
 	})
 
 	// todo: Add env.
-	mstClient, err := metalgo.NewDriver("http://api.0.0.0.0.xip.io:8080/metal", "", "metal-admin")
+	metalClient, err := metalgo.NewDriver("http://api.0.0.0.0.xip.io:8080/metal", "", "metal-admin")
 	if err != nil {
 		setupLog.Error(err, "unable to get Metal-Stack client")
 		os.Exit(1)
@@ -102,21 +93,16 @@ func main() {
 	}
 
 	if err = (&controllers.MetalStackClusterReconciler{
-		Client:    mgr.GetClient(),
-		Log:       ctrl.Log.WithName("controllers").WithName("MetalStackCluster"),
-		MetalClient: mstClient,
-		Recorder:  mgr.GetEventRecorderFor("metalstackcluster-controller"),
-		Scheme:    mgr.GetScheme(),
+		Client:      mgr.GetClient(),
+		Log:         ctrl.Log.WithName("controllers").WithName("MetalStackCluster"),
+		MetalClient: metalClient,
+		Recorder:    mgr.GetEventRecorderFor("metalstackcluster-controller"),
+		Scheme:      mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "MetalStackCluster")
 		os.Exit(1)
 	}
-	if err = (&controllers.MetalStackMachineReconciler{
-		Client:   mgr.GetClient(),
-		Log:      ctrl.Log.WithName("controllers").WithName("MetalStackMachine"),
-		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorderFor("metalstackmachine-controller"),
-	}).SetupWithManager(mgr); err != nil {
+	if err = controllers.NewMetalStackMachineReconciler(metalClient, mgr).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "MetalStackMachine")
 		os.Exit(1)
 	}

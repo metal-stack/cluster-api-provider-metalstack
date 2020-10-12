@@ -33,23 +33,25 @@ type MetalStackClusterSpec struct {
 	// +optional
 	ControlPlaneEndpoint v1alpha3.APIEndpoint `json:"controlPlaneEndpoint"`
 
-	// todo: This should be required after the implementation.
 	// +optional
-	NetworkID *string `json:"networkID,omitempty"`
+	Firewall *Firewall `json:"firewall,omitempty"`
+	// // todo: This should be required after the implementation.
+	// // +optional
+	// NetworkID *string `json:"networkID,omitempty"`
 
 	// Partition is the physical location where the cluster will be created
 	Partition *string `json:"partition,omitempty"`
 
-	// ProjectID is th projectID of MetalStackCluster. Edit MetalStackCluster_types.go to remove/update
-	ProjectID *string `json:"projectID,omitempty"`
-
-	// AdditionalNetworks this cluster should be part of
-	// +optional
-	AdditionalNetworks []string `json:"additionalNetworks,omitempty"`
-
 	// PrivateNetworkID is the id if the network which connects the machine together
 	// +optional
 	PrivateNetworkID *string `json:"privateNetworkID,omitempty"`
+
+	// ProjectID is th projectID of MetalStackCluster. Edit MetalStackCluster_types.go to remove/update
+	ProjectID *string `json:"projectID,omitempty"`
+
+	// // AdditionalNetworks this cluster should be part of
+	// // +optional
+	// AdditionalNetworks []string `json:"additionalNetworks,omitempty"`
 }
 
 // MetalStackClusterStatus defines the observed state of MetalStackCluster
