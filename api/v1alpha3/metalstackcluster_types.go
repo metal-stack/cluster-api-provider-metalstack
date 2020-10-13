@@ -35,9 +35,6 @@ type MetalStackClusterSpec struct {
 
 	// +optional
 	Firewall *Firewall `json:"firewall,omitempty"`
-	// // todo: This should be required after the implementation.
-	// // +optional
-	// NetworkID *string `json:"networkID,omitempty"`
 
 	// Partition is the physical location where the cluster will be created
 	Partition *string `json:"partition,omitempty"`
@@ -48,10 +45,6 @@ type MetalStackClusterSpec struct {
 
 	// ProjectID is th projectID of MetalStackCluster. Edit MetalStackCluster_types.go to remove/update
 	ProjectID *string `json:"projectID,omitempty"`
-
-	// // AdditionalNetworks this cluster should be part of
-	// // +optional
-	// AdditionalNetworks []string `json:"additionalNetworks,omitempty"`
 }
 
 // MetalStackClusterStatus defines the observed state of MetalStackCluster

@@ -28,7 +28,7 @@ import (
 
 	metalgo "github.com/metal-stack/metal-go"
 
-	infrastructurev1alpha3 "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
+	infra "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
 	"github.com/metal-stack/cluster-api-provider-metalstack/controllers"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	// +kubebuilder:scaffold:imports
@@ -48,7 +48,7 @@ var (
 
 func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
-	_ = infrastructurev1alpha3.AddToScheme(scheme)
+	_ = infra.AddToScheme(scheme)
 	_ = clusterv1.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
 }
@@ -76,7 +76,6 @@ func main() {
 		setupLog.Error(err, "unable to get Metal-Stack client")
 		os.Exit(1)
 	}
-
 	setupLog.Info("metalstack client connected")
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
@@ -85,20 +84,14 @@ func main() {
 		Port:               9443,
 		EventBroadcaster:   broadcaster,
 		LeaderElection:     enableLeaderElection,
-		LeaderElectionID:   "cad3ba79.cluster.x-k8s.io",
+		LeaderElectionID:   "cad3ba79.cluster.x-k8s.io", // todo: What is this?
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
 
-	if err = (&controllers.MetalStackClusterReconciler{
-		Client:      mgr.GetClient(),
-		Log:         ctrl.Log.WithName("controllers").WithName("MetalStackCluster"),
-		MetalClient: metalClient,
-		Recorder:    mgr.GetEventRecorderFor("metalstackcluster-controller"),
-		Scheme:      mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	if err = controllers.NewMetalStackClusterReconciler(metalClient, mgr).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "MetalStackCluster")
 		os.Exit(1)
 	}
@@ -106,6 +99,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "MetalStackMachine")
 		os.Exit(1)
 	}
+
 	// +kubebuilder:scaffold:builder
 
 	setupLog.Info("starting manager")

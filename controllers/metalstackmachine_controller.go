@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/google/uuid"
 	metalgo "github.com/metal-stack/metal-go"
 	"github.com/metal-stack/metal-go/api/models"
 	"github.com/pkg/errors"
@@ -42,7 +41,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	metal "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
+	infra "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
 )
 
 const (
@@ -50,7 +49,6 @@ const (
 	MachineFinalizer = "metalstackmachine.infrastructure.cluster.x-k8s.io"
 )
 
-// todo: Add constructor.
 // MetalStackMachineReconciler reconciles a MetalStackMachine object
 type MetalStackMachineReconciler struct {
 	client.Client
@@ -60,49 +58,14 @@ type MetalStackMachineReconciler struct {
 	Scheme      *runtime.Scheme
 }
 
-func NewMetalStackMachineReconciler(dr *metalgo.Driver, mgr manager.Manager) *MetalStackMachineReconciler {
+func NewMetalStackMachineReconciler(metalClient *metalgo.Driver, mgr manager.Manager) *MetalStackMachineReconciler {
 	return &MetalStackMachineReconciler{
 		Client:      mgr.GetClient(),
 		Log:         ctrl.Log.WithName("controllers").WithName("MetalStackMachine"),
-		MetalClient: dr,
+		MetalClient: metalClient,
 		Recorder:    mgr.GetEventRecorderFor("metalstackmachine-controller"),
 		Scheme:      mgr.GetScheme(),
 	}
-}
-
-type resource struct {
-	cluster      *cluster.Cluster
-	machine      *cluster.Machine
-	metalCluster *metal.MetalStackCluster
-	metalMachine *metal.MetalStackMachine
-}
-
-func newResource(
-	cl *cluster.Cluster,
-	m *cluster.Machine,
-	metalCl *metal.MetalStackCluster,
-	metalM *metal.MetalStackMachine,
-) *resource {
-	return &resource{
-		cluster:      cl,
-		machine:      m,
-		metalCluster: metalCl,
-		metalMachine: metalM,
-	}
-}
-
-func (rsrc *resource) toTagsForMachineCreation() []string {
-	tags := append([]string{
-		"cluster-api-provider-metalstack:machine-uid:" + uuid.New().String(),
-		clusterIDTag + rsrc.metalCluster.Name,
-	}, rsrc.metalMachine.Spec.Tags...)
-	if util.IsControlPlaneMachine(rsrc.machine) {
-		tags = append(tags, cluster.MachineControlPlaneLabelName+":true")
-	} else {
-		tags = append(tags, cluster.MachineControlPlaneLabelName+":false")
-	}
-
-	return tags
 }
 
 // +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=metalstackmachines,verbs=get;list;watch;create;update;patch;delete
@@ -115,7 +78,7 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	ctx := context.Background()
 
 	// Fetch the MetalStackMachine.
-	metalMachine := &metal.MetalStackMachine{}
+	metalMachine := &infra.MetalStackMachine{}
 	if err := r.Get(ctx, req.NamespacedName, metalMachine); err != nil {
 		if apierrors.IsNotFound(err) {
 			logger.Info(err.Error())
@@ -155,7 +118,7 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		Namespace: metalMachine.Namespace,
 		Name:      cluster.Spec.InfrastructureRef.Name,
 	}
-	metalCluster := &metal.MetalStackCluster{}
+	metalCluster := &infra.MetalStackCluster{}
 	if err := r.Get(ctx, k, metalCluster); err != nil {
 		logger.Info(err.Error())
 		return ctrl.Result{}, nil
@@ -210,7 +173,7 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		case nil:
 			logger.Info("failed to parse ProviderID of the MetalStackMachine")
 			return ctrl.Result{}, nil
-		case *metal.ErrorProviderIDNotSet:
+		case *infra.ErrorProviderIDNotSet:
 			logger.Info("ProviderID ot the MetalStackMachine not set")
 			resp, err := r.MetalClient.MachineCreate(r.newRequestToCreateMachine(rsrc))
 			if err != nil {
@@ -242,11 +205,11 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 
 func (r *MetalStackMachineReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&metal.MetalStackMachine{}).
+		For(&infra.MetalStackMachine{}).
 		Watches(
 			&source.Kind{Type: &cluster.Machine{}},
 			&handler.EnqueueRequestsFromMapFunc{
-				ToRequests: util.MachineToInfrastructureMapFunc(metal.GroupVersion.WithKind("MetalStackMachine")),
+				ToRequests: util.MachineToInfrastructureMapFunc(infra.GroupVersion.WithKind("MetalStackMachine")),
 			},
 		).
 		Complete(r)
@@ -287,7 +250,7 @@ func (r *MetalStackMachineReconciler) newRequestToCreateMachine(rsrc *resource) 
 		Partition: *rsrc.metalCluster.Spec.Partition,
 		Project:   *rsrc.metalCluster.Spec.ProjectID,
 		Size:      rsrc.metalMachine.Spec.MachineType,
-		Tags:      rsrc.toTagsForMachineCreation(),
+		Tags:      rsrc.machineCreationTags(),
 		UserData:  "",
 	}
 }

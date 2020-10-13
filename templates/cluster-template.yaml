@@ -48,6 +48,9 @@ kind: MetalStackCluster
 metadata:
   name: "${CLUSTER_NAME}"
 spec:
+  firewall:
+    defaultNetworkID: internet-vagrant-lab
+    sshKeys: ["trial-key"]
   partition: "${PARTITION}"
   projectID: "${PROJECT_ID}"
 ---
