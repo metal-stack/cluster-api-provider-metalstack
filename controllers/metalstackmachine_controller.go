@@ -149,59 +149,61 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	// todo: Check if the failure still holds after some time.
 	// todo: Check the logic of failure. It should be Idempotent.
 	if rsrc.metalMachine.Status.Failed() {
-		logger.Info("the Status of the MetalStackMachine showing failure")
+		logger.Info("Status of the MetalStackMachine showing failure")
 		return ctrl.Result{}, nil
 	}
 
 	r.addMachineFinalizer(rsrc)
 
-	// todo: Better the logic. The reconciliation of the MetalStackCluster isn't done yet.
-	if !rsrc.cluster.Status.InfrastructureReady {
-		logger.Info("the network not ready")
+	if !rsrc.metalCluster.Status.FirewallReady {
+		logger.Info("firewall not ready")
 		return ctrl.Result{}, nil
 	}
 
 	if !rsrc.machine.Status.BootstrapReady {
-		logger.Info("the bootstrap provider not ready")
+		logger.Info("bootstrap provider not ready")
 		return ctrl.Result{}, nil
 	}
 
-	rawMachine := &models.V1MachineResponse{}
+	raw, err := r.getRawMachineOrCreate(logger, rsrc)
+	if err != nil {
+		if errors.Cause(err) == errCreatingMachine {
+			return ctrl.Result{
+				Requeue:      true,
+				RequeueAfter: 30 * time.Second,
+			}, err
+		}
+		logger.Info(err.Error())
+		return ctrl.Result{}, nil
+	}
+	r.setMachineStatus(rsrc, raw)
+
+	return ctrl.Result{}, nil
+}
+
+var errCreatingMachine = errors.New("failed to create the raw machine")
+
+func (r *MetalStackMachineReconciler) getRawMachineOrCreate(logger logr.Logger, rsrc *resource) (*models.V1MachineResponse, error) {
 	ID, err := rsrc.metalMachine.Spec.ParsedProviderID()
 	if err != nil {
-		switch err.(type) {
-		case nil:
-			logger.Info("failed to parse ProviderID of the MetalStackMachine")
-			return ctrl.Result{}, nil
-		case *infra.ErrorProviderIDNotSet:
+		if err == infra.ErrProviderIDNotSet {
 			logger.Info("ProviderID ot the MetalStackMachine not set")
 			resp, err := r.MetalClient.MachineCreate(r.newRequestToCreateMachine(rsrc))
 			if err != nil {
-				logger.Info("failed to create the MetalStackMachine")
+				// todo: When to unset?
 				rsrc.metalMachine.Status.SetFailure(err.Error(), clustererr.CreateMachineError)
-				return ctrl.Result{
-					Requeue:      true,
-					RequeueAfter: 30 * time.Second,
-				}, err
+				return nil, errors.Wrap(errCreatingMachine, err.Error())
 			}
-			rawMachine = resp.Machine
-			ID = *rawMachine.ID
-		default:
-			logger.Info("unknown errors")
-			return ctrl.Result{}, err
+			rsrc.metalMachine.Spec.ProviderID = resp.Machine.ID
+			return resp.Machine, nil
 		}
-	} else {
-		resp, err := r.MetalClient.MachineGet(ID)
-		if err != nil {
-			logger.Error(err, "failed to get the MetalStackMachine with the ID %", ID)
-			return ctrl.Result{}, err
-		}
-		rawMachine = resp.Machine
+		return nil, err
 	}
-
-	r.setMachineStatus(rsrc, rawMachine)
-
-	return ctrl.Result{}, nil
+	resp, err := r.MetalClient.MachineGet(ID)
+	if err != nil {
+		return nil, err
+	}
+	return resp.Machine, nil
 }
 
 func (r *MetalStackMachineReconciler) SetupWithManager(mgr ctrl.Manager) error {

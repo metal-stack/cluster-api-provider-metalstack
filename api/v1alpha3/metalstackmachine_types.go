@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha3
 
 import (
+	"errors"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
@@ -61,17 +62,13 @@ type MetalStackMachineSpec struct {
 	Tags Tags `json:"tags,omitempty"`
 }
 
-type ErrorProviderIDNotSet struct{}
-
-func (err *ErrorProviderIDNotSet) Error() string {
-	return "ProviderID of the MetalStackMachineSpec not set"
-}
+var ErrProviderIDNotSet = errors.New("ProviderID of the MetalStackMachineSpec not set")
 
 func (spec *MetalStackMachineSpec) ParsedProviderID() (string, error) {
 	unparsed := spec.ProviderID
 	if unparsed == nil {
 		// todo: Check if there's an implementation from the platform.
-		return "", &ErrorProviderIDNotSet{}
+		return "", ErrProviderIDNotSet
 	}
 	parsed, err := noderefutil.NewProviderID(*unparsed)
 	if err != nil {

@@ -70,10 +70,10 @@ func main() {
 		BurstSize: 100,
 	})
 
-	// todo: Add env.
-	metalClient, err := metalgo.NewDriver("http://api.0.0.0.0.xip.io:8080/metal", "", "metal-admin")
+	// todo: Mock the client for tests.
+	metalClient, err := metalgo.NewDriver(os.Getenv("METALCTL_URL"), "", os.Getenv("METALCTL_HMAC"))
 	if err != nil {
-		setupLog.Error(err, "unable to get Metal-Stack client")
+		setupLog.Error(err, "unable to get `metal-stack/metal-go`client")
 		os.Exit(1)
 	}
 	setupLog.Info("metalstack client connected")

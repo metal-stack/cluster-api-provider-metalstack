@@ -42,6 +42,7 @@ import (
 	infra "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
 )
 
+// todo: Use the metal-stack cluster ID tag
 const (
 	clusterIDTag = "cluster-api-provider-metalstack:cluster-id"
 )
@@ -130,12 +131,13 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	if !metalCluster.Status.FirewallReady {
 		err = r.createFirewall(metalCluster)
 		if err != nil {
-			return ctrl.Result{Requeue: true, RequeueAfter: 2 * time.Second}, err
+			return ctrl.Result{Requeue: true, RequeueAfter: 30 * time.Second}, err
 		}
 		logger.Info("A firewall was created.")
 		metalCluster.Status.FirewallReady = true
 	}
 
+	// todo: Evalute firewallready?
 	metalCluster.Status.Ready = true
 
 	// Set ControlPlaneEndpoint of the MetalStackCluster.
@@ -191,10 +193,10 @@ func (r *MetalStackClusterReconciler) createFirewall(metalCluster *infra.MetalSt
 			Description:   metalCluster.Name + " created by Cluster API provider MetalStack",
 			Name:          metalCluster.Name,
 			Hostname:      metalCluster.Name + "-firewall",
-			Size:          "v1-small-x86",
+			Size:          "v1-small-x86", // todo: from yaml
 			Project:       *metalCluster.Spec.ProjectID,
 			Partition:     *metalCluster.Spec.Partition,
-			Image:         "firewall-ubuntu-2.0",
+			Image:         "firewall-ubuntu-2.0", // todo: from yaml
 			SSHPublicKeys: []string{},
 			Networks:      toNetworks(*metalCluster.Spec.Firewall.DefaultNetworkID, *metalCluster.Spec.PrivateNetworkID),
 			UserData:      "",
