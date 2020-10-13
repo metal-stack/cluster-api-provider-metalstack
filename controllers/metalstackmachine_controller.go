@@ -190,13 +190,14 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 			logger.Info("unknown errors")
 			return ctrl.Result{}, err
 		}
+	} else {
+		resp, err := r.MetalClient.MachineGet(ID)
+		if err != nil {
+			logger.Error(err, "failed to get the MetalStackMachine with the ID %", ID)
+			return ctrl.Result{}, err
+		}
+		rawMachine = resp.Machine
 	}
-	resp, err := r.MetalClient.MachineGet(ID)
-	if err != nil {
-		logger.Error(err, "failed to get the MetalStackMachine with the ID %", ID)
-		return ctrl.Result{}, err
-	}
-	rawMachine = resp.Machine
 
 	r.setMachineStatus(rsrc, rawMachine)
 

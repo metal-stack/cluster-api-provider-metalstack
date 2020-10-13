@@ -31,7 +31,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	clusterapi "sigs.k8s.io/cluster-api/api/v1alpha3"
 
-	// clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -40,7 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
+	infra "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
 )
 
 const (
@@ -74,7 +73,8 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	ctx := context.Background()
 	logger := r.Log.WithValues("MetalStackCluster", req.NamespacedName)
 
-	metalCluster := &v1alpha3.MetalStackCluster{}
+	// Fetch the MetalStackCluster.
+	metalCluster := &infra.MetalStackCluster{}
 	if err := r.Get(ctx, req.NamespacedName, metalCluster); err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
@@ -84,11 +84,11 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 
 	logger = logger.WithName(metalCluster.APIVersion)
 
+	// Fetch the Cluster.
 	cluster, err := util.GetOwnerCluster(ctx, r.Client, metalCluster.ObjectMeta)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-
 	if cluster == nil {
 		logger.Info("OwnerCluster is not set yet. The reconciliation request will be requeued.")
 		return ctrl.Result{
@@ -102,6 +102,7 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		return ctrl.Result{}, nil
 	}
 
+	// Persist any change of the MetalStackCluster.
 	h, err := patch.NewHelper(metalCluster, r.Client)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -115,6 +116,7 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		}
 	}()
 
+	// Allocate network.
 	if metalCluster.Spec.PrivateNetworkID == nil {
 		networkID, err := r.allocateNetwork(metalCluster)
 		if err != nil {
@@ -124,6 +126,7 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		metalCluster.Spec.PrivateNetworkID = networkID
 	}
 
+	// Create firewall.
 	if !metalCluster.Status.FirewallReady {
 		err = r.createFirewall(metalCluster)
 		if err != nil {
@@ -135,14 +138,15 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 
 	metalCluster.Status.Ready = true
 
-	ip, err := r.getControlPlaneIP(metalCluster)
+	// Set ControlPlaneEndpoint of the MetalStackCluster.
+	ip, err := r.controlPlaneIP(metalCluster)
 	if err != nil {
 		switch err.(type) {
 		case *MachineNotFound, *IPNotAllocated: // todo: Do we really need these two types? Check the logs.
-			logger.Info(" Control plane machine not found. Requeueing...", "error", err.Error())
+			logger.Info("control plane not found: requeueing", "error", err.Error())
 			return ctrl.Result{Requeue: true, RequeueAfter: 30 * time.Second}, nil
 		default:
-			logger.Error(err, " error getting a control plane ip")
+			logger.Error(err, "failed to get control plane ip")
 			return ctrl.Result{}, err
 		}
 	}
@@ -156,17 +160,17 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 
 func (r *MetalStackClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha3.MetalStackCluster{}).
+		For(&infra.MetalStackCluster{}).
 		Watches(
 			&source.Kind{Type: &clusterapi.Cluster{}},
 			&handler.EnqueueRequestsFromMapFunc{
-				ToRequests: util.ClusterToInfrastructureMapFunc(v1alpha3.GroupVersion.WithKind("MetalStackCluster")),
+				ToRequests: util.ClusterToInfrastructureMapFunc(infra.GroupVersion.WithKind("MetalStackCluster")),
 			},
 		).
 		Complete(r)
 }
 
-func (r *MetalStackClusterReconciler) allocateNetwork(metalCluster *v1alpha3.MetalStackCluster) (*string, error) {
+func (r *MetalStackClusterReconciler) allocateNetwork(metalCluster *infra.MetalStackCluster) (*string, error) {
 	resp, err := r.MetalClient.NetworkAllocate(&metalgo.NetworkAllocateRequest{
 		ProjectID:   *metalCluster.Spec.ProjectID,
 		PartitionID: *metalCluster.Spec.Partition,
@@ -181,7 +185,7 @@ func (r *MetalStackClusterReconciler) allocateNetwork(metalCluster *v1alpha3.Met
 }
 
 // todo: Ask metal-API to find out the external network IP (partition id empty -> destinationprefix: 0.0.0.0/0)
-func (r *MetalStackClusterReconciler) createFirewall(metalCluster *v1alpha3.MetalStackCluster) error {
+func (r *MetalStackClusterReconciler) createFirewall(metalCluster *infra.MetalStackCluster) error {
 	req := &metalgo.FirewallCreateRequest{
 		MachineCreateRequest: metalgo.MachineCreateRequest{
 			Description:   metalCluster.Name + " created by Cluster API provider MetalStack",
@@ -204,7 +208,7 @@ func (r *MetalStackClusterReconciler) createFirewall(metalCluster *v1alpha3.Meta
 
 // todo: Implement?
 // The IP is internal at the moment, which can be replaced by explicitly allocated IP at the creation of the control plane.
-func (r *MetalStackClusterReconciler) getControlPlaneIP(metalCluster *v1alpha3.MetalStackCluster) (string, error) {
+func (r *MetalStackClusterReconciler) controlPlaneIP(metalCluster *infra.MetalStackCluster) (string, error) {
 	if metalCluster == nil {
 		return "", errors.New("pointer to MetalStackCluster not allowed to be nil")
 	}
