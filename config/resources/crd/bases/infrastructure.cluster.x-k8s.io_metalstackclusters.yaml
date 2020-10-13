@@ -36,11 +36,6 @@ spec:
         spec:
           description: MetalStackClusterSpec defines the desired state of MetalStackCluster
           properties:
-            additionalNetworks:
-              description: AdditionalNetworks this cluster should be part of
-              items:
-                type: string
-              type: array
             controlPlaneEndpoint:
               description: ControlPlaneEndpoint represents the endpoint used to communicate
                 with the control plane.
@@ -56,9 +51,15 @@ spec:
               - host
               - port
               type: object
-            networkID:
-              description: 'todo: This should be required after the implementation.'
-              type: string
+            firewall:
+              properties:
+                defaultNetworkID:
+                  type: string
+                sshKeys:
+                  items:
+                    type: string
+                  type: array
+              type: object
             partition:
               description: Partition is the physical location where the cluster will
                 be created

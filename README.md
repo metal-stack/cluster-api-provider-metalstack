@@ -1,18 +1,16 @@
-# Cluster API Provider Metal-Stack
+# Cluster API Provider MetalStack
 
 ```
 cd /path/to/mini-lab
 make
-eval `make dev-env`
+eval $(make dev-env)
 cd /path/to/cluster-api-provider-metalstack
+make crds
 make managerless
 
 sed -i "s/cluster-api-provider-metalstack-controller-manager-metrics-service/cap-metalstack-controller-manager-metrics-service/g" out/managerless/infrastructure-metalstack/v0.3.0/infrastructure-components.yaml
 clusterctl init --config=out/managerless/infrastructure-metalstack/clusterctl-v0.3.0.yaml --infrastructure=metalstack -v3
 make cluster
-
-# Add the tag "kubernetes.io/role:master" to .spec.tags of the MetalStackMachine. The result reads: 
-# tags: ["kubernetes.io/role:master"]
 
 k apply -f ./out/cluster.yaml
 make manager && ./bin/manager-linux-amd64
