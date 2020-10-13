@@ -40,7 +40,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	infra "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
+	"github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
 )
 
 const (
@@ -74,7 +74,7 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	ctx := context.Background()
 	logger := r.Log.WithValues("MetalStackCluster", req.NamespacedName)
 
-	metalCluster := &infra.MetalStackCluster{}
+	metalCluster := &v1alpha3.MetalStackCluster{}
 	if err := r.Get(ctx, req.NamespacedName, metalCluster); err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
@@ -156,17 +156,17 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 
 func (r *MetalStackClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&infra.MetalStackCluster{}).
+		For(&v1alpha3.MetalStackCluster{}).
 		Watches(
 			&source.Kind{Type: &clusterapi.Cluster{}},
 			&handler.EnqueueRequestsFromMapFunc{
-				ToRequests: util.ClusterToInfrastructureMapFunc(infra.GroupVersion.WithKind("MetalStackCluster")),
+				ToRequests: util.ClusterToInfrastructureMapFunc(v1alpha3.GroupVersion.WithKind("MetalStackCluster")),
 			},
 		).
 		Complete(r)
 }
 
-func (r *MetalStackClusterReconciler) allocateNetwork(metalCluster *infra.MetalStackCluster) (*string, error) {
+func (r *MetalStackClusterReconciler) allocateNetwork(metalCluster *v1alpha3.MetalStackCluster) (*string, error) {
 	resp, err := r.MetalClient.NetworkAllocate(&metalgo.NetworkAllocateRequest{
 		ProjectID:   *metalCluster.Spec.ProjectID,
 		PartitionID: *metalCluster.Spec.Partition,
@@ -181,7 +181,7 @@ func (r *MetalStackClusterReconciler) allocateNetwork(metalCluster *infra.MetalS
 }
 
 // todo: Ask metal-API to find out the external network IP (partition id empty -> destinationprefix: 0.0.0.0/0)
-func (r *MetalStackClusterReconciler) createFirewall(metalCluster *infra.MetalStackCluster) error {
+func (r *MetalStackClusterReconciler) createFirewall(metalCluster *v1alpha3.MetalStackCluster) error {
 	req := &metalgo.FirewallCreateRequest{
 		MachineCreateRequest: metalgo.MachineCreateRequest{
 			Description:   metalCluster.Name + " created by Cluster API provider MetalStack",
@@ -191,7 +191,7 @@ func (r *MetalStackClusterReconciler) createFirewall(metalCluster *infra.MetalSt
 			Project:       *metalCluster.Spec.ProjectID,
 			Partition:     *metalCluster.Spec.Partition,
 			Image:         "firewall-ubuntu-2.0",
-			SSHPublicKeys: metalCluster.Spec.Firewall.SSHKeys,
+			SSHPublicKeys: []string{},
 			Networks:      toNetworks(*metalCluster.Spec.Firewall.DefaultNetworkID, *metalCluster.Spec.PrivateNetworkID),
 			UserData:      "",
 			Tags:          []string{},
@@ -204,7 +204,7 @@ func (r *MetalStackClusterReconciler) createFirewall(metalCluster *infra.MetalSt
 
 // todo: Implement?
 // The IP is internal at the moment, which can be replaced by explicitly allocated IP at the creation of the control plane.
-func (r *MetalStackClusterReconciler) getControlPlaneIP(metalCluster *infra.MetalStackCluster) (string, error) {
+func (r *MetalStackClusterReconciler) getControlPlaneIP(metalCluster *v1alpha3.MetalStackCluster) (string, error) {
 	if metalCluster == nil {
 		return "", errors.New("pointer to MetalStackCluster not allowed to be nil")
 	}

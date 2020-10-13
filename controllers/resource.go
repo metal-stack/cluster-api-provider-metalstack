@@ -47,7 +47,7 @@ func newResource(
 func (rsrc *resource) machineCreationTags() []string {
 	tags := append([]string{
 		"cluster-api-provider-metalstack:machine-uid:" + uuid.New().String(),
-		clusterIDTag + rsrc.metalCluster.Name,
+		clusterIDTag + ":" + rsrc.metalCluster.Name,
 	}, rsrc.metalMachine.Spec.Tags...)
 	if util.IsControlPlaneMachine(rsrc.machine) {
 		tags = append(tags, cluster.MachineControlPlaneLabelName+":true")
