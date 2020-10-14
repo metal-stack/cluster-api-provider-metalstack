@@ -62,13 +62,12 @@ type MetalStackMachineSpec struct {
 	Tags Tags `json:"tags,omitempty"`
 }
 
-var ErrProviderIDNotSet = errors.New("ProviderID of the MetalStackMachineSpec not set")
+var ProviderIDNotSet = errors.New("ProviderID of the MetalStackMachineSpec not set")
 
 func (spec *MetalStackMachineSpec) ParsedProviderID() (string, error) {
 	unparsed := spec.ProviderID
 	if unparsed == nil {
-		// todo: Check if there's an implementation from the platform.
-		return "", ErrProviderIDNotSet
+		return "", ProviderIDNotSet
 	}
 	parsed, err := noderefutil.NewProviderID(*unparsed)
 	if err != nil {

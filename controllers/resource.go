@@ -19,6 +19,7 @@ package controllers
 import (
 	"github.com/google/uuid"
 	infra "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
+	"github.com/metal-stack/metal-lib/pkg/tag"
 	cluster "sigs.k8s.io/cluster-api/api/v1alpha3"
 	"sigs.k8s.io/cluster-api/util"
 )
@@ -44,16 +45,15 @@ func newResource(
 	}
 }
 
-// todo: Change : to = .
 func (rsrc *resource) machineCreationTags() []string {
 	tags := append([]string{
-		"cluster-api-provider-metalstack:machine-uid:" + uuid.New().String(),
-		clusterIDTag + ":" + rsrc.metalCluster.Name,
+		"cluster-api-provider-metalstack:machine-uid=" + uuid.New().String(),
+		tag.ClusterID + "=" + rsrc.metalCluster.Name,
 	}, rsrc.metalMachine.Spec.Tags...)
 	if util.IsControlPlaneMachine(rsrc.machine) {
-		tags = append(tags, cluster.MachineControlPlaneLabelName+":true")
+		tags = append(tags, cluster.MachineControlPlaneLabelName+"=true")
 	} else {
-		tags = append(tags, cluster.MachineControlPlaneLabelName+":false")
+		tags = append(tags, cluster.MachineControlPlaneLabelName+"=false")
 	}
 
 	return tags

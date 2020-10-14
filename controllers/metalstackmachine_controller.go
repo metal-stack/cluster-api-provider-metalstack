@@ -19,7 +19,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/go-logr/logr"
 	metalgo "github.com/metal-stack/metal-go"
@@ -153,7 +152,7 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		return ctrl.Result{}, nil
 	}
 
-	r.addMachineFinalizer(rsrc)
+	r.addFinalizer(rsrc)
 
 	if !rsrc.metalCluster.Status.FirewallReady {
 		logger.Info("firewall not ready")
@@ -167,11 +166,8 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 
 	raw, err := r.getRawMachineOrCreate(logger, rsrc)
 	if err != nil {
-		if errors.Cause(err) == errCreatingMachine {
-			return ctrl.Result{
-				Requeue:      true,
-				RequeueAfter: 30 * time.Second,
-			}, err
+		if errors.Cause(err) == failedToCreateMachine {
+			return requeue, nil
 		}
 		logger.Info(err.Error())
 		return ctrl.Result{}, nil
@@ -181,25 +177,25 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	return ctrl.Result{}, nil
 }
 
-var errCreatingMachine = errors.New("failed to create the raw machine")
+var failedToCreateMachine = errors.New("failed to create a metal-stack/metal-go machine")
 
 func (r *MetalStackMachineReconciler) getRawMachineOrCreate(logger logr.Logger, rsrc *resource) (*models.V1MachineResponse, error) {
-	ID, err := rsrc.metalMachine.Spec.ParsedProviderID()
+	id, err := rsrc.metalMachine.Spec.ParsedProviderID()
 	if err != nil {
-		if err == infra.ErrProviderIDNotSet {
-			logger.Info("ProviderID ot the MetalStackMachine not set")
+		if err == infra.ProviderIDNotSet {
+			logger.Info(err.Error())
 			resp, err := r.MetalClient.MachineCreate(r.newRequestToCreateMachine(rsrc))
 			if err != nil {
 				// todo: When to unset?
 				rsrc.metalMachine.Status.SetFailure(err.Error(), clustererr.CreateMachineError)
-				return nil, errors.Wrap(errCreatingMachine, err.Error())
+				return nil, errors.Wrap(failedToCreateMachine, err.Error())
 			}
 			rsrc.metalMachine.Spec.ProviderID = resp.Machine.ID
 			return resp.Machine, nil
 		}
 		return nil, err
 	}
-	resp, err := r.MetalClient.MachineGet(ID)
+	resp, err := r.MetalClient.MachineGet(id)
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +214,7 @@ func (r *MetalStackMachineReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *MetalStackMachineReconciler) addMachineFinalizer(rsrc *resource) {
+func (r *MetalStackMachineReconciler) addFinalizer(rsrc *resource) {
 	controllerutil.AddFinalizer(rsrc.metalMachine, MachineFinalizer)
 }
 
@@ -227,7 +223,6 @@ func (r *MetalStackMachineReconciler) deleteMachine(ctx context.Context, logger 
 
 	id, err := rsrc.metalMachine.Spec.ParsedProviderID()
 	if err != nil {
-		logger.Error(err, "failed to parse the ProviderID of the MetalStackMachine")
 		return ctrl.Result{}, err
 	}
 

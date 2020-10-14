@@ -19,7 +19,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"time"
 
 	metalgo "github.com/metal-stack/metal-go"
 	"github.com/metal-stack/metal-lib/pkg/tag"
@@ -40,11 +39,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	infra "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
-)
-
-// todo: Use the metal-stack cluster ID tag
-const (
-	clusterIDTag = "cluster-api-provider-metalstack:cluster-id"
 )
 
 // MetalStackClusterReconciler reconciles a MetalStackCluster object
@@ -91,15 +85,12 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		return ctrl.Result{}, err
 	}
 	if cluster == nil {
-		logger.Info("OwnerCluster is not set yet. The reconciliation request will be requeued.")
-		return ctrl.Result{
-			Requeue:      true,
-			RequeueAfter: 2 * time.Second,
-		}, nil
+		logger.Info("OwnerCluster not set: requeueing")
+		return requeue, nil
 	}
 
 	if util.IsPaused(cluster, metalCluster) {
-		logger.Info("MetalStackCluster or linked Cluster is marked as paused. Won't reconcile")
+		logger.Info("MetalStackCluster or its OwnerCluster paused: reconciliation stopped")
 		return ctrl.Result{}, nil
 	}
 
@@ -121,8 +112,8 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	if metalCluster.Spec.PrivateNetworkID == nil {
 		networkID, err := r.allocateNetwork(metalCluster)
 		if err != nil {
-			logger.Error(err, "no response to network allocation")
-			return ctrl.Result{Requeue: true, RequeueAfter: 2 * time.Second}, err
+			logger.Info(err.Error() + ": requeueing")
+			return requeue, nil
 		}
 		metalCluster.Spec.PrivateNetworkID = networkID
 	}
@@ -131,9 +122,10 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	if !metalCluster.Status.FirewallReady {
 		err = r.createFirewall(metalCluster)
 		if err != nil {
-			return ctrl.Result{Requeue: true, RequeueAfter: 30 * time.Second}, err
+			logger.Info(err.Error() + ": requeueing")
+			return requeue, nil
 		}
-		logger.Info("A firewall was created.")
+		logger.Info("firewall created")
 		metalCluster.Status.FirewallReady = true
 	}
 
@@ -145,10 +137,10 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	if err != nil {
 		switch err.(type) {
 		case *MachineNotFound, *IPNotAllocated: // todo: Do we really need these two types? Check the logs.
-			logger.Info("control plane not found: requeueing", "error", err.Error())
-			return ctrl.Result{Requeue: true, RequeueAfter: 30 * time.Second}, nil
+			logger.Info(err.Error() + ": requeueing")
+			return requeue, nil
 		default:
-			logger.Error(err, "failed to get control plane ip")
+			logger.Error(err, "failed to get control plane IP")
 			return ctrl.Result{}, err
 		}
 	}
@@ -216,8 +208,8 @@ func (r *MetalStackClusterReconciler) controlPlaneIP(metalCluster *infra.MetalSt
 	}
 
 	tags := []string{
-		clusterIDTag + ":" + metalCluster.Name,
-		clusterapi.MachineControlPlaneLabelName + ":true",
+		tag.ClusterID + "=" + metalCluster.Name,
+		clusterapi.MachineControlPlaneLabelName + "=true",
 	}
 	mm, err := r.MetalClient.MachineFind(&metalgo.MachineFindRequest{
 		AllocationProject: metalCluster.Spec.ProjectID,
