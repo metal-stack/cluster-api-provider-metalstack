@@ -17,31 +17,35 @@ limitations under the License.
 package controllers
 
 import (
-	metalgo "github.com/metal-stack/metal-go"
+	"testing"
+
+	"github.com/golang/mock/gomock"
+	infra "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
+	"github.com/metal-stack/cluster-api-provider-metalstack/controllers/mocks"
+	"k8s.io/apimachinery/pkg/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	clusterapi "sigs.k8s.io/cluster-api/api/v1alpha3"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-type MockClient struct{}
-
-func (cl *MockClient) FirewallCreate(fcr *metalgo.FirewallCreateRequest) (*metalgo.FirewallCreateResponse, error) {
-
+// todo: duplicate
+func NewAndReadyScheme() *runtime.Scheme {
+	scheme := runtime.NewScheme()
+	_ = clientgoscheme.AddToScheme(scheme)
+	_ = clusterapi.AddToScheme(scheme)
+	_ = infra.AddToScheme(scheme)
+	return scheme
 }
+func TestMetalStackClusterReconciler(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-func (cl *MockClient) MachineCreate(mcr *metalgo.MachineCreateRequest) (*metalgo.MachineCreateResponse, error) {
-
-}
-
-func (cl *MockClient) MachineDelete(machineID string) (*metalgo.MachineDeleteResponse, error) {
-
-}
-
-func (cl *MockClient) MachineFind(mfr *metalgo.MachineFindRequest) (*metalgo.MachineListResponse, error) {
-
-}
-
-func (cl *MockClient) MachineGet(id string) (*metalgo.MachineGetResponse, error) {
-
-}
-
-func (cl *MockClient) NetworkAllocate(ncr *metalgo.NetworkAllocateRequest) (*metalgo.NetworkDetailResponse, error) {
-
+	mCl := mocks.NewMockMetalStackClient(ctrl)
+	cl := fake.NewFakeClientWithScheme(NewAndReadyScheme())
+	r := &MetalStackClusterReconciler{
+		Client:           cl,
+		Log:              zap.New(zap.UseDevMode(true)),
+		MetalStackClient: mCl,
+	}
 }

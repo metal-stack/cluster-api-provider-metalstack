@@ -50,6 +50,8 @@ metadata:
 spec:
   firewall:
     defaultNetworkID: internet-vagrant-lab
+    image: "firewall-ubuntu-2.0"
+    size: "v1-small-x86"
   partition: "${PARTITION}"
   projectID: "${PROJECT_ID}"
 ---

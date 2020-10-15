@@ -30,7 +30,7 @@ import (
 
 	infra "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
 	"github.com/metal-stack/cluster-api-provider-metalstack/controllers"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
+	clusterapi "sigs.k8s.io/cluster-api/api/v1alpha3"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -41,34 +41,20 @@ const (
 	clientName      = "CAPMST-v1alpha3"
 )
 
-var (
-	scheme   = runtime.NewScheme()
-	setupLog = ctrl.Log.WithName("setup")
-)
-
-func init() {
-	_ = clientgoscheme.AddToScheme(scheme)
-	_ = infra.AddToScheme(scheme)
-	_ = clusterv1.AddToScheme(scheme)
-	// +kubebuilder:scaffold:scheme
-}
+var setupLog = ctrl.Log.WithName("setup")
 
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8081", "The address the metric endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
-		"Enable leader election for controller manager. "+
-			"Enabling this will ensure there is only one active controller manager.")
+	flag.BoolVar(
+		&enableLeaderElection,
+		"enable-leader-election",
+		false,
+		"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
-
-	// Machine and cluster operations can create enough events to trigger the event recorder spam filter
-	// Setting the burst size higher ensures all events will be recorded and submitted to the API
-	broadcaster := record.NewBroadcasterWithCorrelatorOptions(record.CorrelatorOptions{
-		BurstSize: 100,
-	})
 
 	// todo: Mock the client for tests.
 	metalClient, err := metalgo.NewDriver(os.Getenv("METALCTL_URL"), "", os.Getenv("METALCTL_HMAC"))
@@ -78,14 +64,7 @@ func main() {
 	}
 	setupLog.Info("metalstack client connected")
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:             scheme,
-		MetricsBindAddress: metricsAddr,
-		Port:               9443,
-		EventBroadcaster:   broadcaster,
-		LeaderElection:     enableLeaderElection,
-		LeaderElectionID:   "cad3ba79.cluster.x-k8s.io", // todo: What is this?
-	})
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), *NewManagerOptions(metricsAddr, enableLeaderElection))
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
@@ -106,5 +85,29 @@ func main() {
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
+	}
+}
+
+func NewAndReadyScheme() *runtime.Scheme {
+	scheme := runtime.NewScheme()
+	_ = clientgoscheme.AddToScheme(scheme)
+	_ = clusterapi.AddToScheme(scheme)
+	_ = infra.AddToScheme(scheme)
+	return scheme
+}
+
+func NewManagerOptions(metricsAddr string, enableLeaderElection bool) *ctrl.Options {
+	// Machine and cluster operations can create enough events to trigger the event recorder spam filter
+	// Setting the burst size higher ensures all events will be recorded and submitted to the API
+	broadcaster := record.NewBroadcasterWithCorrelatorOptions(record.CorrelatorOptions{
+		BurstSize: 100,
+	})
+	return &ctrl.Options{
+		Scheme:             NewAndReadyScheme(),
+		MetricsBindAddress: metricsAddr,
+		Port:               9443,
+		EventBroadcaster:   broadcaster,
+		LeaderElection:     enableLeaderElection,
+		LeaderElectionID:   "cad3ba79.cluster.x-k8s.io", // todo: What is this?
 	}
 }

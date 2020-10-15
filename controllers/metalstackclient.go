@@ -18,7 +18,8 @@ package controllers
 
 import metalgo "github.com/metal-stack/metal-go"
 
-type BareMetalClient interface {
+// go:generate mockgen -destination=mocks/mock_metalstackclient.go -package=mocks . MetalStackClient
+type MetalStackClient interface {
 	FirewallCreate(fcr *metalgo.FirewallCreateRequest) (*metalgo.FirewallCreateResponse, error)
 	MachineCreate(mcr *metalgo.MachineCreateRequest) (*metalgo.MachineCreateResponse, error)
 	MachineDelete(machineID string) (*metalgo.MachineDeleteResponse, error)

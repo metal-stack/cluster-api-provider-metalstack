@@ -27,8 +27,6 @@ import (
 
 	core "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/tools/record"
 	cluster "sigs.k8s.io/cluster-api/api/v1alpha3"
 	clustererr "sigs.k8s.io/cluster-api/errors"
 	"sigs.k8s.io/cluster-api/util"
@@ -51,19 +49,15 @@ const (
 // MetalStackMachineReconciler reconciles a MetalStackMachine object
 type MetalStackMachineReconciler struct {
 	client.Client
-	Log         logr.Logger
-	MetalClient *metalgo.Driver
-	Recorder    record.EventRecorder
-	Scheme      *runtime.Scheme
+	Log logr.Logger
+	MetalStackClient
 }
 
-func NewMetalStackMachineReconciler(metalClient *metalgo.Driver, mgr manager.Manager) *MetalStackMachineReconciler {
+func NewMetalStackMachineReconciler(metalClient MetalStackClient, mgr manager.Manager) *MetalStackMachineReconciler {
 	return &MetalStackMachineReconciler{
-		Client:      mgr.GetClient(),
-		Log:         ctrl.Log.WithName("controllers").WithName("MetalStackMachine"),
-		MetalClient: metalClient,
-		Recorder:    mgr.GetEventRecorderFor("metalstackmachine-controller"),
-		Scheme:      mgr.GetScheme(),
+		Client:           mgr.GetClient(),
+		Log:              ctrl.Log.WithName("controllers").WithName("MetalStackMachine"),
+		MetalStackClient: metalClient,
 	}
 }
 
@@ -184,7 +178,7 @@ func (r *MetalStackMachineReconciler) getRawMachineOrCreate(logger logr.Logger, 
 	if err != nil {
 		if err == infra.ProviderIDNotSet {
 			logger.Info(err.Error())
-			resp, err := r.MetalClient.MachineCreate(r.newRequestToCreateMachine(rsrc))
+			resp, err := r.MetalStackClient.MachineCreate(r.newRequestToCreateMachine(rsrc))
 			if err != nil {
 				// todo: When to unset?
 				rsrc.metalMachine.Status.SetFailure(err.Error(), clustererr.CreateMachineError)
@@ -195,7 +189,7 @@ func (r *MetalStackMachineReconciler) getRawMachineOrCreate(logger logr.Logger, 
 		}
 		return nil, err
 	}
-	resp, err := r.MetalClient.MachineGet(id)
+	resp, err := r.MetalStackClient.MachineGet(id)
 	if err != nil {
 		return nil, err
 	}
@@ -226,7 +220,7 @@ func (r *MetalStackMachineReconciler) deleteMachine(ctx context.Context, logger 
 		return ctrl.Result{}, err
 	}
 
-	if _, err = r.MetalClient.MachineDelete(id); err != nil {
+	if _, err = r.MetalStackClient.MachineDelete(id); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to delete the MetalStackMachine %v: %v", rsrc.metalMachine.Name, err)
 	}
 

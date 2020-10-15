@@ -21,5 +21,11 @@ type Firewall struct {
 	DefaultNetworkID *string `json:"defaultNetworkID,omitempty"`
 
 	// +optional
+	Image *string `json:"image,omitempty"`
+
+	// +optional
+	Size *string `json:"size,omitempty"`
+
+	// +optional
 	SSHKeys []string `json:"sshKeys,omitempty"`
 }

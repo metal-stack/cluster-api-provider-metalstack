@@ -26,8 +26,6 @@ import (
 
 	"github.com/go-logr/logr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/tools/record"
 	clusterapi "sigs.k8s.io/cluster-api/api/v1alpha3"
 
 	"sigs.k8s.io/cluster-api/util"
@@ -44,19 +42,15 @@ import (
 // MetalStackClusterReconciler reconciles a MetalStackCluster object
 type MetalStackClusterReconciler struct {
 	client.Client
-	Log         logr.Logger
-	MetalClient *metalgo.Driver
-	Recorder    record.EventRecorder
-	Scheme      *runtime.Scheme
+	Log logr.Logger
+	MetalStackClient
 }
 
-func NewMetalStackClusterReconciler(metalClient *metalgo.Driver, mgr manager.Manager) *MetalStackClusterReconciler {
+func NewMetalStackClusterReconciler(metalClient MetalStackClient, mgr manager.Manager) *MetalStackClusterReconciler {
 	return &MetalStackClusterReconciler{
-		Client:      mgr.GetClient(),
-		Log:         ctrl.Log.WithName("controllers").WithName("MetalStackMachine"),
-		MetalClient: metalClient,
-		Recorder:    mgr.GetEventRecorderFor("metalstackmachine-controller"),
-		Scheme:      mgr.GetScheme(),
+		Client:           mgr.GetClient(),
+		Log:              ctrl.Log.WithName("controllers").WithName("MetalStackMachine"),
+		MetalStackClient: metalClient,
 	}
 }
 
@@ -159,13 +153,12 @@ func (r *MetalStackClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&source.Kind{Type: &clusterapi.Cluster{}},
 			&handler.EnqueueRequestsFromMapFunc{
 				ToRequests: util.ClusterToInfrastructureMapFunc(infra.GroupVersion.WithKind("MetalStackCluster")),
-			},
-		).
+			}).
 		Complete(r)
 }
 
 func (r *MetalStackClusterReconciler) allocateNetwork(metalCluster *infra.MetalStackCluster) (*string, error) {
-	resp, err := r.MetalClient.NetworkAllocate(&metalgo.NetworkAllocateRequest{
+	resp, err := r.MetalStackClient.NetworkAllocate(&metalgo.NetworkAllocateRequest{
 		ProjectID:   *metalCluster.Spec.ProjectID,
 		PartitionID: *metalCluster.Spec.Partition,
 		Name:        *metalCluster.Spec.Partition,
@@ -185,10 +178,10 @@ func (r *MetalStackClusterReconciler) createFirewall(metalCluster *infra.MetalSt
 			Description:   metalCluster.Name + " created by Cluster API provider MetalStack",
 			Name:          metalCluster.Name,
 			Hostname:      metalCluster.Name + "-firewall",
-			Size:          "v1-small-x86", // todo: from yaml
+			Size:          *metalCluster.Spec.Firewall.Size,
 			Project:       *metalCluster.Spec.ProjectID,
 			Partition:     *metalCluster.Spec.Partition,
-			Image:         "firewall-ubuntu-2.0", // todo: from yaml
+			Image:         *metalCluster.Spec.Firewall.Image,
 			SSHPublicKeys: []string{},
 			Networks:      toNetworks(*metalCluster.Spec.Firewall.DefaultNetworkID, *metalCluster.Spec.PrivateNetworkID),
 			UserData:      "",
@@ -196,7 +189,7 @@ func (r *MetalStackClusterReconciler) createFirewall(metalCluster *infra.MetalSt
 		},
 	}
 
-	_, err := r.MetalClient.FirewallCreate(req)
+	_, err := r.MetalStackClient.FirewallCreate(req)
 	return err
 }
 
@@ -211,7 +204,7 @@ func (r *MetalStackClusterReconciler) controlPlaneIP(metalCluster *infra.MetalSt
 		tag.ClusterID + "=" + metalCluster.Name,
 		clusterapi.MachineControlPlaneLabelName + "=true",
 	}
-	mm, err := r.MetalClient.MachineFind(&metalgo.MachineFindRequest{
+	mm, err := r.MetalStackClient.MachineFind(&metalgo.MachineFindRequest{
 		AllocationProject: metalCluster.Spec.ProjectID,
 		Tags:              tags,
 	})
@@ -222,6 +215,7 @@ func (r *MetalStackClusterReconciler) controlPlaneIP(metalCluster *infra.MetalSt
 		return "", &MachineNotFound{fmt.Sprintf("machine with the project ID %v and the tags %v not found", *metalCluster.Spec.ProjectID, tags)}
 	}
 
+	// todo: Consider high availabilty case.
 	if len(mm.Machines) != 1 {
 		return "", &MachineNotFound{fmt.Sprintf("%v machine(s) found", len(mm.Machines))}
 	}
