@@ -17,8 +17,11 @@ limitations under the License.
 package controllers
 
 import (
+	"fmt"
+	"reflect"
+
 	. "github.com/onsi/ginkgo"
-	// . "github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"github.com/pkg/errors"
 
@@ -43,7 +46,7 @@ func NewAndReadyScheme() *runtime.Scheme {
 	return scheme
 }
 
-var _ = Describe("Test struct MetalStackClusterReconciler", func() {
+var _ = Describe("MetalStackClusterReconciler", func() {
 	// Set up gomock Controller for each test case.
 	gmckController := &gmck.Controller{}
 
@@ -57,25 +60,26 @@ var _ = Describe("Test struct MetalStackClusterReconciler", func() {
 		gmckController.Finish()
 	})
 
-	Context("Test func allocateNetwork", func() {
-		When("Partition not set", func() {
-			It("should return typed error `notSet`", func() {
-				_, err := newTestReconciler(mClient).allocateNetwork(&infra.MetalStackCluster{})
-				Expect(err).To(Equal(&notSet{"Partition not set"}))
-			})
-		})
+	Describe("allocateNetwork", func() {
+		entries := []TableEntry{}
+		for _, s := range []string{"Partition", "ProjectID"} {
+			entries = append(entries, Entry(newErrSpecNotSet(s).Error(), s))
+		}
+		DescribeTable(
+			fmt.Sprintf("returning the typed error `%v`", reflect.TypeOf(errSpecNotSet{}).String()),
+			func(s string) {
+				cluster := newTestCluster()
 
-		When("ProjectID not set", func() {
-			It("should return typed error `notSet`", func() {
-				s := "test-partition"
-				_, err := newTestReconciler(mClient).allocateNetwork(&infra.MetalStackCluster{
-					Spec: infra.MetalStackClusterSpec{
-						Partition: &s,
-					},
-				})
-				Expect(err).To(Equal(&notSet{"ProjectID not set"}))
-			})
-		})
+				// Unset a field.
+				v := reflect.ValueOf(&cluster.Spec).Elem().FieldByName(s)
+				v.Set(reflect.Zero(v.Type()))
+
+				// Run the target func.
+				_, err := newTestReconciler(mClient).allocateNetwork(cluster)
+				Expect(err).To(Equal(newErrSpecNotSet(s)))
+			},
+			entries...,
+		)
 
 		It("should forward the returned error from the lower-level API", func() {
 			// Set the returned error.

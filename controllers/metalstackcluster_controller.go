@@ -107,7 +107,7 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		networkID, err := r.allocateNetwork(metalCluster)
 		if err != nil {
 			switch err.(type) {
-			case *notSet:
+			case *errSpecNotSet:
 				return ctrl.Result{}, err
 			default:
 				logger.Info(err.Error() + ": requeueing")
@@ -161,21 +161,27 @@ func (r *MetalStackClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-type notSet struct {
+type errSpecNotSet struct {
 	msg string
 }
 
-func (e *notSet) Error() string {
+func (e *errSpecNotSet) Error() string {
 	return e.msg
+}
+
+func newErrSpecNotSet(s string) *errSpecNotSet {
+	return &errSpecNotSet{
+		msg: s + " not set",
+	}
 }
 
 func (r *MetalStackClusterReconciler) allocateNetwork(metalCluster *infra.MetalStackCluster) (*string, error) {
 	if metalCluster.Spec.Partition == nil {
-		return nil, &notSet{"Partition not set"}
+		return nil, newErrSpecNotSet("Partition")
 	}
 
 	if metalCluster.Spec.ProjectID == nil {
-		return nil, &notSet{"ProjectID not set"}
+		return nil, newErrSpecNotSet("ProjectID")
 	}
 
 	resp, err := r.MetalStackClient.NetworkAllocate(&metalgo.NetworkAllocateRequest{
@@ -227,6 +233,24 @@ func (r *MetalStackClusterReconciler) controlPlaneIP(metalCluster *infra.MetalSt
 
 // todo: Ask metal-API to find out the external network IP (partition id empty -> destinationprefix: 0.0.0.0/0)
 func (r *MetalStackClusterReconciler) createFirewall(metalCluster *infra.MetalStackCluster) error {
+	if metalCluster.Spec.Firewall.DefaultNetworkID == nil {
+		return &errSpecNotSet{""}
+	}
+	if metalCluster.Spec.Firewall.Image == nil {
+		return &errSpecNotSet{""}
+	}
+	if metalCluster.Spec.Firewall.Size == nil {
+		return &errSpecNotSet{""}
+	}
+	if metalCluster.Spec.Partition == nil {
+		return &errSpecNotSet{""}
+	}
+	if metalCluster.Spec.PrivateNetworkID == nil {
+		return &errSpecNotSet{""}
+	}
+	if metalCluster.Spec.ProjectID == nil {
+		return &errSpecNotSet{""}
+	}
 	req := &metalgo.FirewallCreateRequest{
 		MachineCreateRequest: metalgo.MachineCreateRequest{
 			Description:   metalCluster.Name + " created by Cluster API provider MetalStack",
@@ -236,7 +260,7 @@ func (r *MetalStackClusterReconciler) createFirewall(metalCluster *infra.MetalSt
 			Project:       *metalCluster.Spec.ProjectID,
 			Partition:     *metalCluster.Spec.Partition,
 			Image:         *metalCluster.Spec.Firewall.Image,
-			SSHPublicKeys: []string{},
+			SSHPublicKeys: metalCluster.Spec.Firewall.SSHKeys,
 			Networks:      toNetworks(*metalCluster.Spec.Firewall.DefaultNetworkID, *metalCluster.Spec.PrivateNetworkID),
 			UserData:      "",
 			Tags:          []string{},
