@@ -106,8 +106,13 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	if metalCluster.Spec.PrivateNetworkID == nil {
 		networkID, err := r.allocateNetwork(metalCluster)
 		if err != nil {
-			logger.Info(err.Error() + ": requeueing")
-			return requeue, nil
+			switch err.(type) {
+			case *notSet:
+				return ctrl.Result{}, err
+			default:
+				logger.Info(err.Error() + ": requeueing")
+				return requeue, nil
+			}
 		}
 		metalCluster.Spec.PrivateNetworkID = networkID
 	}
@@ -122,9 +127,6 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		logger.Info("firewall created")
 		metalCluster.Status.FirewallReady = true
 	}
-
-	// todo: Evalute firewallready?
-	metalCluster.Status.Ready = true
 
 	// Set ControlPlaneEndpoint of the MetalStackCluster.
 	ip, err := r.controlPlaneIP(metalCluster)
@@ -143,6 +145,8 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		Port: 6443,
 	}
 
+	metalCluster.Status.Ready = true
+
 	return ctrl.Result{}, nil
 }
 
@@ -157,40 +161,34 @@ func (r *MetalStackClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
+type notSet struct {
+	msg string
+}
+
+func (e *notSet) Error() string {
+	return e.msg
+}
+
 func (r *MetalStackClusterReconciler) allocateNetwork(metalCluster *infra.MetalStackCluster) (*string, error) {
+	if metalCluster.Spec.Partition == nil {
+		return nil, &notSet{"Partition not set"}
+	}
+
+	if metalCluster.Spec.ProjectID == nil {
+		return nil, &notSet{"ProjectID not set"}
+	}
+
 	resp, err := r.MetalStackClient.NetworkAllocate(&metalgo.NetworkAllocateRequest{
-		ProjectID:   *metalCluster.Spec.ProjectID,
-		PartitionID: *metalCluster.Spec.Partition,
-		Name:        *metalCluster.Spec.Partition,
 		Description: metalCluster.Name,
 		Labels:      map[string]string{tag.ClusterID: metalCluster.Name},
+		Name:        *metalCluster.Spec.Partition,
+		PartitionID: *metalCluster.Spec.Partition,
+		ProjectID:   *metalCluster.Spec.ProjectID,
 	})
 	if err != nil {
 		return nil, err
 	}
 	return resp.Network.ID, nil
-}
-
-// todo: Ask metal-API to find out the external network IP (partition id empty -> destinationprefix: 0.0.0.0/0)
-func (r *MetalStackClusterReconciler) createFirewall(metalCluster *infra.MetalStackCluster) error {
-	req := &metalgo.FirewallCreateRequest{
-		MachineCreateRequest: metalgo.MachineCreateRequest{
-			Description:   metalCluster.Name + " created by Cluster API provider MetalStack",
-			Name:          metalCluster.Name,
-			Hostname:      metalCluster.Name + "-firewall",
-			Size:          *metalCluster.Spec.Firewall.Size,
-			Project:       *metalCluster.Spec.ProjectID,
-			Partition:     *metalCluster.Spec.Partition,
-			Image:         *metalCluster.Spec.Firewall.Image,
-			SSHPublicKeys: []string{},
-			Networks:      toNetworks(*metalCluster.Spec.Firewall.DefaultNetworkID, *metalCluster.Spec.PrivateNetworkID),
-			UserData:      "",
-			Tags:          []string{},
-		},
-	}
-
-	_, err := r.MetalStackClient.FirewallCreate(req)
-	return err
 }
 
 // todo: Implement?
@@ -227,6 +225,28 @@ func (r *MetalStackClusterReconciler) controlPlaneIP(metalCluster *infra.MetalSt
 	return m.Allocation.Networks[0].Ips[0], nil
 }
 
+// todo: Ask metal-API to find out the external network IP (partition id empty -> destinationprefix: 0.0.0.0/0)
+func (r *MetalStackClusterReconciler) createFirewall(metalCluster *infra.MetalStackCluster) error {
+	req := &metalgo.FirewallCreateRequest{
+		MachineCreateRequest: metalgo.MachineCreateRequest{
+			Description:   metalCluster.Name + " created by Cluster API provider MetalStack",
+			Name:          metalCluster.Name,
+			Hostname:      metalCluster.Name + "-firewall",
+			Size:          *metalCluster.Spec.Firewall.Size,
+			Project:       *metalCluster.Spec.ProjectID,
+			Partition:     *metalCluster.Spec.Partition,
+			Image:         *metalCluster.Spec.Firewall.Image,
+			SSHPublicKeys: []string{},
+			Networks:      toNetworks(*metalCluster.Spec.Firewall.DefaultNetworkID, *metalCluster.Spec.PrivateNetworkID),
+			UserData:      "",
+			Tags:          []string{},
+		},
+	}
+
+	_, err := r.MetalStackClient.FirewallCreate(req)
+	return err
+}
+
 // MachineNotFound error representing that the requested machine was not yet found
 type MachineNotFound struct {
 	s string
@@ -243,14 +263,4 @@ type IPNotAllocated struct {
 
 func (e *IPNotAllocated) Error() string {
 	return e.s
-}
-
-func toNetworks(ss ...string) (networks []metalgo.MachineAllocationNetwork) {
-	for _, s := range ss {
-		networks = append(networks, metalgo.MachineAllocationNetwork{
-			NetworkID:   s,
-			Autoacquire: true,
-		})
-	}
-	return
 }

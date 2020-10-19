@@ -64,7 +64,7 @@ func NewMetalStackMachineReconciler(metalClient MetalStackClient, mgr manager.Ma
 // +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=metalstackmachines,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=metalstackmachines/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=cluster.x-k8s.io,resources=machines;machines/status,verbs=get;list;watch
-// +kubebuilder:rbac:groups="",resources=secrets;,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, err error) {
 	logger := r.Log.WithName("MetalStackMachine").WithValues("namespace", req.Namespace, "name", req.Name)
@@ -146,7 +146,7 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		return ctrl.Result{}, nil
 	}
 
-	r.addFinalizer(rsrc)
+	controllerutil.AddFinalizer(rsrc.metalMachine, MachineFinalizer)
 
 	if !rsrc.metalCluster.Status.FirewallReady {
 		logger.Info("firewall not ready")
@@ -167,6 +167,35 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		return ctrl.Result{}, nil
 	}
 	r.setMachineStatus(rsrc, raw)
+
+	return ctrl.Result{}, nil
+}
+
+func (r *MetalStackMachineReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&infra.MetalStackMachine{}).
+		Watches(
+			&source.Kind{Type: &cluster.Machine{}},
+			&handler.EnqueueRequestsFromMapFunc{
+				ToRequests: util.MachineToInfrastructureMapFunc(infra.GroupVersion.WithKind("MetalStackMachine")),
+			},
+		).
+		Complete(r)
+}
+
+func (r *MetalStackMachineReconciler) deleteMachine(ctx context.Context, logger logr.Logger, rsrc *resource) (ctrl.Result, error) {
+	logger.Info("the MetalStackMachine being deleted")
+
+	id, err := rsrc.metalMachine.Spec.ParsedProviderID()
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if _, err = r.MetalStackClient.MachineDelete(id); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to delete the MetalStackMachine %v: %v", rsrc.metalMachine.Name, err)
+	}
+
+	controllerutil.RemoveFinalizer(rsrc.metalMachine, MachineFinalizer)
 
 	return ctrl.Result{}, nil
 }
@@ -196,39 +225,6 @@ func (r *MetalStackMachineReconciler) getRawMachineOrCreate(logger logr.Logger, 
 	return resp.Machine, nil
 }
 
-func (r *MetalStackMachineReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&infra.MetalStackMachine{}).
-		Watches(
-			&source.Kind{Type: &cluster.Machine{}},
-			&handler.EnqueueRequestsFromMapFunc{
-				ToRequests: util.MachineToInfrastructureMapFunc(infra.GroupVersion.WithKind("MetalStackMachine")),
-			},
-		).
-		Complete(r)
-}
-
-func (r *MetalStackMachineReconciler) addFinalizer(rsrc *resource) {
-	controllerutil.AddFinalizer(rsrc.metalMachine, MachineFinalizer)
-}
-
-func (r *MetalStackMachineReconciler) deleteMachine(ctx context.Context, logger logr.Logger, rsrc *resource) (ctrl.Result, error) {
-	logger.Info("the MetalStackMachine being deleted")
-
-	id, err := rsrc.metalMachine.Spec.ParsedProviderID()
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	if _, err = r.MetalStackClient.MachineDelete(id); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to delete the MetalStackMachine %v: %v", rsrc.metalMachine.Name, err)
-	}
-
-	r.removeMachineFinalizer(rsrc)
-
-	return ctrl.Result{}, nil
-}
-
 func (r *MetalStackMachineReconciler) newRequestToCreateMachine(rsrc *resource) *metalgo.MachineCreateRequest {
 	name := rsrc.metalMachine.Name
 	networks := toNetworks(*rsrc.metalCluster.Spec.PrivateNetworkID)
@@ -245,10 +241,6 @@ func (r *MetalStackMachineReconciler) newRequestToCreateMachine(rsrc *resource) 
 		Tags:      rsrc.machineCreationTags(),
 		UserData:  "",
 	}
-}
-
-func (r *MetalStackMachineReconciler) removeMachineFinalizer(rsrc *resource) {
-	controllerutil.RemoveFinalizer(rsrc.metalMachine, MachineFinalizer)
 }
 
 func (r *MetalStackMachineReconciler) setMachineStatus(rsrc *resource, rawMachine *models.V1MachineResponse) {

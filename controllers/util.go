@@ -19,7 +19,18 @@ package controllers
 import (
 	"time"
 
+	metalgo "github.com/metal-stack/metal-go"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 var requeue = ctrl.Result{Requeue: true, RequeueAfter: 30 * time.Second}
+
+func toNetworks(ss ...string) (networks []metalgo.MachineAllocationNetwork) {
+	for _, s := range ss {
+		networks = append(networks, metalgo.MachineAllocationNetwork{
+			NetworkID:   s,
+			Autoacquire: true,
+		})
+	}
+	return
+}
