@@ -110,44 +110,85 @@ var _ = Describe("MetalStackClusterReconciler", func() {
 	})
 
 	Describe("createFirewall", func() {
+		entries := []TableEntry{}
+		for _, s := range []string{
+			"Firewall.DefaultNetworkID",
+			"Firewall.Image",
+			"Firewall.Size",
+			"Partition",
+			"PrivateNetworkID",
+			"ProjectID"} {
+			entries = append(entries, Entry(newErrSpecNotSet(s).Error(), s))
+		}
+		DescribeTable(
+			fmt.Sprintf("returning the typed error `%v`", reflect.TypeOf(errSpecNotSet{}).String()),
+			func(s string) {
+				cluster := newTestCluster()
 
+				// Unset a field.
+				v := reflect.Value{}
+				if parsed := strings.Split(s, "."); len(parsed) == 1 {
+					v = reflect.ValueOf(&cluster.Spec).Elem().FieldByName(s)
+				} else {
+					v = reflect.ValueOf(cluster.Spec.Firewall).Elem().FieldByName(parsed[len(parsed)-1])
+				}
+				v.Set(reflect.Zero(v.Type()))
+
+				// Run the target func.
+				err := newTestReconciler(mClient).createFirewall(cluster)
+				Expect(err).To(Equal(newErrSpecNotSet(s)))
+			},
+			entries...,
+		)
+
+		It("should forward the returned error from the lower-level API", func() {
+			// Set the returned error.
+			theErr := errors.New("this error going to be returned by the tested func")
+			mClient.EXPECT().FirewallCreate(gmck.Any()).Return(nil, theErr)
+			r := newTestReconciler(mClient)
+
+			// Run the target func.
+			err := r.createFirewall(newTestCluster())
+			Expect(err).To(Equal(theErr))
+		})
 	})
 })
 
 func newTestCluster() *infra.MetalStackCluster {
 	cluster := &infra.MetalStackCluster{}
 
-	cluster.SetName("test-name")
-
+	// fields to set
 	ss := []string{
-		"Firewall.DefaultNetworkID",
-		"Firewall.Image",
-		"Firewall.Size",
-		"Partition",
-		"PrivateNetworkID",
-		"ProjectID",
+		"Name",
+		"Spec.Firewall.DefaultNetworkID",
+		"Spec.Firewall.Image",
+		"Spec.Firewall.Size",
+		"Spec.Partition",
+		"Spec.PrivateNetworkID",
+		"Spec.ProjectID",
 	}
 
 	// Set corresponding fields.
 	func(ss []string) {
 		for _, s := range ss {
 			parsed := strings.Split(s, ".")
-
-			// no nested struct
-			if len(parsed) == 1 {
-				newS := "test-" + s
-				reflect.ValueOf(&cluster.Spec).Elem().FieldByName(s).Set(reflect.ValueOf(&newS))
-				continue
-			}
-			// fields in Firewall
 			last := parsed[len(parsed)-1]
-			fw := &infra.Firewall{}
-			newS := "test-" + last
-			reflect.ValueOf(fw).Elem().FieldByName(last).Set(reflect.ValueOf(&newS))
-			cluster.Spec.Firewall = fw
+			newStr := "test-" + last
+			switch len(parsed) {
+			case 1: // Name
+				reflect.ValueOf(cluster).Elem().FieldByName(last).Set(reflect.ValueOf(newStr))
+			case 2: // fields in Spec
+				reflect.ValueOf(&cluster.Spec).Elem().FieldByName(last).Set(reflect.ValueOf(&newStr))
+			case 3: // fields in Firewall
+				if cluster.Spec.Firewall == nil {
+					cluster.Spec.Firewall = &infra.Firewall{}
+				}
+				reflect.ValueOf(cluster.Spec.Firewall).Elem().FieldByName(last).Set(reflect.ValueOf(&newStr))
+			default:
+				return
+			}
 		}
 	}(ss)
-
 	return cluster
 }
 

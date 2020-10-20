@@ -234,22 +234,22 @@ func (r *MetalStackClusterReconciler) controlPlaneIP(metalCluster *infra.MetalSt
 // todo: Ask metal-API to find out the external network IP (partition id empty -> destinationprefix: 0.0.0.0/0)
 func (r *MetalStackClusterReconciler) createFirewall(metalCluster *infra.MetalStackCluster) error {
 	if metalCluster.Spec.Firewall.DefaultNetworkID == nil {
-		return &errSpecNotSet{"Firewall.DefaultNetowrkID"}
+		return newErrSpecNotSet("Firewall.DefaultNetworkID")
 	}
 	if metalCluster.Spec.Firewall.Image == nil {
-		return &errSpecNotSet{"Firewall.Image"}
+		return newErrSpecNotSet("Firewall.Image")
 	}
 	if metalCluster.Spec.Firewall.Size == nil {
-		return &errSpecNotSet{"Firewall.Size"}
+		return newErrSpecNotSet("Firewall.Size")
 	}
 	if metalCluster.Spec.Partition == nil {
-		return &errSpecNotSet{"Partition"}
+		return newErrSpecNotSet("Partition")
 	}
 	if metalCluster.Spec.PrivateNetworkID == nil {
-		return &errSpecNotSet{"PrivateNetworkID"}
+		return newErrSpecNotSet("PrivateNetworkID")
 	}
 	if metalCluster.Spec.ProjectID == nil {
-		return &errSpecNotSet{"ProjectID"}
+		return newErrSpecNotSet("ProjectID")
 	}
 	req := &metalgo.FirewallCreateRequest{
 		MachineCreateRequest: metalgo.MachineCreateRequest{
