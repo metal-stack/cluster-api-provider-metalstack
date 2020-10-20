@@ -19,6 +19,7 @@ package controllers
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
@@ -107,6 +108,10 @@ var _ = Describe("MetalStackClusterReconciler", func() {
 			Expect(id).To(Equal(&expectedID))
 		})
 	})
+
+	Describe("createFirewall", func() {
+
+	})
 })
 
 func newTestCluster() *infra.MetalStackCluster {
@@ -114,11 +119,34 @@ func newTestCluster() *infra.MetalStackCluster {
 
 	cluster.SetName("test-name")
 
-	s := "test-partition"
-	cluster.Spec.Partition = &s
+	ss := []string{
+		"Firewall.DefaultNetworkID",
+		"Firewall.Image",
+		"Firewall.Size",
+		"Partition",
+		"PrivateNetworkID",
+		"ProjectID",
+	}
 
-	id := "test-project-ID"
-	cluster.Spec.ProjectID = &id
+	// Set corresponding fields.
+	func(ss []string) {
+		for _, s := range ss {
+			parsed := strings.Split(s, ".")
+
+			// no nested struct
+			if len(parsed) == 1 {
+				newS := "test-" + s
+				reflect.ValueOf(&cluster.Spec).Elem().FieldByName(s).Set(reflect.ValueOf(&newS))
+				continue
+			}
+			// fields in Firewall
+			last := parsed[len(parsed)-1]
+			fw := &infra.Firewall{}
+			newS := "test-" + last
+			reflect.ValueOf(fw).Elem().FieldByName(last).Set(reflect.ValueOf(&newS))
+			cluster.Spec.Firewall = fw
+		}
+	}(ss)
 
 	return cluster
 }
