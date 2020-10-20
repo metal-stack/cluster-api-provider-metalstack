@@ -128,6 +128,8 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		metalCluster.Status.FirewallReady = true
 	}
 
+	metalCluster.Status.Ready = true
+
 	// Set ControlPlaneEndpoint of the MetalStackCluster.
 	ip, err := r.controlPlaneIP(metalCluster)
 	if err != nil {
@@ -144,8 +146,6 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		Host: ip,
 		Port: 6443,
 	}
-
-	metalCluster.Status.Ready = true
 
 	return ctrl.Result{}, nil
 }

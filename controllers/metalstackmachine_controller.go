@@ -148,7 +148,7 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 
 	controllerutil.AddFinalizer(rsrc.metalMachine, MachineFinalizer)
 
-	if !rsrc.metalCluster.Status.FirewallReady {
+	if !rsrc.cluster.Status.InfrastructureReady {
 		logger.Info("firewall not ready")
 		return ctrl.Result{}, nil
 	}

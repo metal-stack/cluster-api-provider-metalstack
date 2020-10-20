@@ -34,6 +34,16 @@ func (in *Firewall) DeepCopyInto(out *Firewall) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.Image != nil {
+		in, out := &in.Image, &out.Image
+		*out = new(string)
+		**out = **in
+	}
+	if in.Size != nil {
+		in, out := &in.Size, &out.Size
+		*out = new(string)
+		**out = **in
+	}
 	if in.SSHKeys != nil {
 		in, out := &in.SSHKeys, &out.SSHKeys
 		*out = make([]string, len(*in))

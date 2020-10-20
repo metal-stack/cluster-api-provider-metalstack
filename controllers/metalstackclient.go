@@ -27,4 +27,3 @@ type MetalStackClient interface {
 	MachineGet(id string) (*metalgo.MachineGetResponse, error)
 	NetworkAllocate(ncr *metalgo.NetworkAllocateRequest) (*metalgo.NetworkDetailResponse, error)
 }
-
