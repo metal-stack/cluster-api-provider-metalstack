@@ -20,14 +20,13 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/go-logr/logr"
+	infra "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
 	metalgo "github.com/metal-stack/metal-go"
 	"github.com/metal-stack/metal-lib/pkg/tag"
 	"github.com/pkg/errors"
-
-	"github.com/go-logr/logr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	clusterapi "sigs.k8s.io/cluster-api/api/v1alpha3"
-
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -35,8 +34,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-
-	infra "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
 )
 
 // MetalStackClusterReconciler reconciles a MetalStackCluster object
@@ -134,7 +131,7 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	ip, err := r.controlPlaneIP(metalCluster)
 	if err != nil {
 		switch err.(type) {
-		case *MachineNotFound, *IPNotAllocated: // todo: Do we really need these two types? Check the logs.
+		case *errMachineNotFound, *IPNotAllocated: // todo: Do we really need these two types? Check the logs.
 			logger.Info(err.Error() + ": requeueing")
 			return requeue, nil
 		default:
@@ -200,14 +197,10 @@ func (r *MetalStackClusterReconciler) allocateNetwork(metalCluster *infra.MetalS
 // todo: Implement?
 // The IP is internal at the moment, which can be replaced by explicitly allocated IP at the creation of the control plane.
 func (r *MetalStackClusterReconciler) controlPlaneIP(metalCluster *infra.MetalStackCluster) (string, error) {
-	if metalCluster == nil {
-		return "", errors.New("pointer to MetalStackCluster not allowed to be nil")
+	if metalCluster.Spec.ProjectID == nil {
+		return "", newErrSpecNotSet("ProjectID")
 	}
-
-	tags := []string{
-		tag.ClusterID + "=" + metalCluster.Name,
-		clusterapi.MachineControlPlaneLabelName + "=true",
-	}
+	tags := metalCluster.ControlPlaneTags()
 	mm, err := r.MetalStackClient.MachineFind(&metalgo.MachineFindRequest{
 		AllocationProject: metalCluster.Spec.ProjectID,
 		Tags:              tags,
@@ -216,15 +209,14 @@ func (r *MetalStackClusterReconciler) controlPlaneIP(metalCluster *infra.MetalSt
 		return "", err
 	}
 	if mm == nil {
-		return "", &MachineNotFound{fmt.Sprintf("machine with the project ID %v and the tags %v not found", *metalCluster.Spec.ProjectID, tags)}
+		return "", newErrMachineNotFound(*metalCluster.Spec.ProjectID, tags)
 	}
 
 	// todo: Consider high availabilty case.
 	if len(mm.Machines) != 1 {
-		return "", &MachineNotFound{fmt.Sprintf("%v machine(s) found", len(mm.Machines))}
+		return "", &errMachineNotFound{fmt.Sprintf("%v machine(s) found", len(mm.Machines))}
 	}
 	m := mm.Machines[0]
-
 	if m.Allocation == nil || len(m.Allocation.Networks) == 0 || len(m.Allocation.Networks[0].Ips) == 0 || m.Allocation.Networks[0].Ips[0] == "" {
 		return "", &IPNotAllocated{"IP address not allocate"}
 	}
@@ -251,7 +243,7 @@ func (r *MetalStackClusterReconciler) createFirewall(metalCluster *infra.MetalSt
 	if metalCluster.Spec.ProjectID == nil {
 		return newErrSpecNotSet("ProjectID")
 	}
-	req := &metalgo.FirewallCreateRequest{
+	_, err := r.MetalStackClient.FirewallCreate(&metalgo.FirewallCreateRequest{
 		MachineCreateRequest: metalgo.MachineCreateRequest{
 			Description:   metalCluster.Name + " created by Cluster API provider MetalStack",
 			Name:          metalCluster.Name,
@@ -265,18 +257,20 @@ func (r *MetalStackClusterReconciler) createFirewall(metalCluster *infra.MetalSt
 			UserData:      "",
 			Tags:          []string{},
 		},
-	}
-	_, err := r.MetalStackClient.FirewallCreate(req)
+	})
 	return err
 }
 
-// MachineNotFound error representing that the requested machine was not yet found
-type MachineNotFound struct {
+// errMachineNotFound error representing that the requested machine was not yet found
+type errMachineNotFound struct {
 	s string
 }
 
-func (e *MachineNotFound) Error() string {
+func (e *errMachineNotFound) Error() string {
 	return e.s
+}
+func newErrMachineNotFound(projectID string, tags []string) *errMachineNotFound {
+	return &errMachineNotFound{fmt.Sprintf("machine with the project ID %v and the tags %v not found", projectID, tags)}
 }
 
 // IPNotAllocated error representing that the requested machine does not have an IP yet assigned

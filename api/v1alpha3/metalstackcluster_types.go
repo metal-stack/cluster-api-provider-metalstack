@@ -17,8 +17,10 @@ limitations under the License.
 package v1alpha3
 
 import (
+	"github.com/metal-stack/metal-lib/pkg/tag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/cluster-api/api/v1alpha3"
+	clusterapi "sigs.k8s.io/cluster-api/api/v1alpha3"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -71,6 +73,13 @@ type MetalStackCluster struct {
 
 	Spec   MetalStackClusterSpec   `json:"spec,omitempty"`
 	Status MetalStackClusterStatus `json:"status,omitempty"`
+}
+
+func (cluster *MetalStackCluster) ControlPlaneTags() []string {
+	return []string{
+		tag.ClusterID + "=" + cluster.Name,
+		clusterapi.MachineControlPlaneLabelName + "=true",
+	}
 }
 
 // +kubebuilder:object:root=true

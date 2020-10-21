@@ -38,15 +38,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-// todo: duplicate
-func NewAndReadyScheme() *runtime.Scheme {
-	scheme := runtime.NewScheme()
-	_ = clientgoscheme.AddToScheme(scheme)
-	_ = clusterapi.AddToScheme(scheme)
-	_ = infra.AddToScheme(scheme)
-	return scheme
-}
-
 var _ = Describe("MetalStackClusterReconciler", func() {
 	// Set up gomock Controller for each test case.
 	gmckController := &gmck.Controller{}
@@ -60,31 +51,29 @@ var _ = Describe("MetalStackClusterReconciler", func() {
 	AfterEach(func() {
 		gmckController.Finish()
 	})
-
+	forwardingErr := "should forward the returned error from the lower-level API"
+	theErr := errors.New("this error going to be returned by the tested func")
 	Describe("allocateNetwork", func() {
-		entries := []TableEntry{}
-		for _, s := range []string{"Partition", "ProjectID"} {
-			entries = append(entries, Entry(newErrSpecNotSet(s).Error(), s))
-		}
 		DescribeTable(
-			fmt.Sprintf("returning the typed error `%v`", reflect.TypeOf(errSpecNotSet{}).String()),
+			reflect.TypeOf(errSpecNotSet{}).String(),
 			func(s string) {
 				cluster := newTestCluster()
-
-				// Unset a field.
-				v := reflect.ValueOf(&cluster.Spec).Elem().FieldByName(s)
-				v.Set(reflect.Zero(v.Type()))
+				unsetPointeeField(&cluster.Spec, s)
 
 				// Run the target func.
 				_, err := newTestReconciler(mClient).allocateNetwork(cluster)
 				Expect(err).To(Equal(newErrSpecNotSet(s)))
 			},
-			entries...,
+			func() []TableEntry {
+				entries := []TableEntry{}
+				for _, s := range []string{"Partition", "ProjectID"} {
+					entries = append(entries, Entry(toTestDescr(newErrSpecNotSet(s)), s))
+				}
+				return entries
+			}()...,
 		)
-
-		It("should forward the returned error from the lower-level API", func() {
+		It(forwardingErr, func() {
 			// Set the returned error.
-			theErr := errors.New("this error going to be returned by the tested func")
 			mClient.EXPECT().NetworkAllocate(gmck.Any()).Return(nil, theErr)
 			r := newTestReconciler(mClient)
 
@@ -92,7 +81,6 @@ var _ = Describe("MetalStackClusterReconciler", func() {
 			_, err := r.allocateNetwork(newTestCluster())
 			Expect(err).To(Equal(theErr))
 		})
-
 		It("should return the project ID", func() {
 			expectedID := "this ID going to be returned by the tested func"
 
@@ -108,20 +96,33 @@ var _ = Describe("MetalStackClusterReconciler", func() {
 			Expect(id).To(Equal(&expectedID))
 		})
 	})
-
-	Describe("createFirewall", func() {
-		entries := []TableEntry{}
-		for _, s := range []string{
-			"Firewall.DefaultNetworkID",
-			"Firewall.Image",
-			"Firewall.Size",
-			"Partition",
-			"PrivateNetworkID",
-			"ProjectID"} {
-			entries = append(entries, Entry(newErrSpecNotSet(s).Error(), s))
+	Describe("controlPlaneIP", func() {
+		{
+			field := "ProjectID"
+			It(toTestDescr(newErrSpecNotSet(field)), func() {
+				cluster := newTestCluster()
+				unsetPointeeField(&cluster.Spec, field)
+				_, err := newTestReconciler(mClient).controlPlaneIP(cluster)
+				Expect(err).To(Equal(newErrSpecNotSet(field)))
+			})
 		}
+		It(forwardingErr, func() {
+			mClient.EXPECT().MachineFind(gmck.Any()).Return(nil, theErr)
+			ip, err := newTestReconciler(mClient).controlPlaneIP(newTestCluster())
+			Expect(ip).To(Equal(""))
+			Expect(err).To(Equal(theErr))
+		})
+		It(fmt.Sprintf("should return `%v`", reflect.TypeOf(errMachineNotFound{}).String()), func() {
+			mClient.EXPECT().MachineFind(gmck.Any()).Return(nil, nil)
+			cluster := newTestCluster()
+			ip, err := newTestReconciler(mClient).controlPlaneIP(cluster)
+			Expect(ip).To(Equal(""))
+			Expect(err).To(Equal(newErrMachineNotFound(*cluster.Spec.ProjectID, cluster.ControlPlaneTags())))
+		})
+	})
+	Describe("createFirewall", func() {
 		DescribeTable(
-			fmt.Sprintf("returning the typed error `%v`", reflect.TypeOf(errSpecNotSet{}).String()),
+			reflect.TypeOf(errSpecNotSet{}).String(),
 			func(s string) {
 				cluster := newTestCluster()
 
@@ -138,12 +139,22 @@ var _ = Describe("MetalStackClusterReconciler", func() {
 				err := newTestReconciler(mClient).createFirewall(cluster)
 				Expect(err).To(Equal(newErrSpecNotSet(s)))
 			},
-			entries...,
+			func() []TableEntry {
+				entries := []TableEntry{}
+				for _, s := range []string{
+					"Firewall.DefaultNetworkID",
+					"Firewall.Image",
+					"Firewall.Size",
+					"Partition",
+					"PrivateNetworkID",
+					"ProjectID"} {
+					entries = append(entries, Entry(toTestDescr(newErrSpecNotSet(s)), s))
+				}
+				return entries
+			}()...,
 		)
-
-		It("should forward the returned error from the lower-level API", func() {
+		It(forwardingErr, func() {
 			// Set the returned error.
-			theErr := errors.New("this error going to be returned by the tested func")
 			mClient.EXPECT().FirewallCreate(gmck.Any()).Return(nil, theErr)
 			r := newTestReconciler(mClient)
 
@@ -154,6 +165,17 @@ var _ = Describe("MetalStackClusterReconciler", func() {
 	})
 })
 
+// todo: duplicate
+func newAndReadyScheme() *runtime.Scheme {
+	scheme := runtime.NewScheme()
+	_ = clientgoscheme.AddToScheme(scheme)
+	_ = clusterapi.AddToScheme(scheme)
+	_ = infra.AddToScheme(scheme)
+	return scheme
+}
+func toTestDescr(e *errSpecNotSet) string {
+	return fmt.Sprintf("should contain the message `%v`", e)
+}
 func newTestCluster() *infra.MetalStackCluster {
 	cluster := &infra.MetalStackCluster{}
 
@@ -191,11 +213,14 @@ func newTestCluster() *infra.MetalStackCluster {
 	}(ss)
 	return cluster
 }
-
 func newTestReconciler(mClient MetalStackClient) *MetalStackClusterReconciler {
 	return &MetalStackClusterReconciler{
-		Client:           fake.NewFakeClientWithScheme(NewAndReadyScheme()),
+		Client:           fake.NewFakeClientWithScheme(newAndReadyScheme()),
 		Log:              zap.New(zap.UseDevMode(true)),
 		MetalStackClient: mClient,
 	}
+}
+func unsetPointeeField(i interface{}, name string) {
+	v := reflect.ValueOf(i).Elem().FieldByName(name)
+	v.Set(reflect.Zero(v.Type()))
 }
