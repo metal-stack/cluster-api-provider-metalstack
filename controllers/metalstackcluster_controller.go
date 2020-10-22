@@ -131,7 +131,7 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	ip, err := r.controlPlaneIP(metalCluster)
 	if err != nil {
 		switch err.(type) {
-		case *errMachineNotFound, *IPNotAllocated: // todo: Do we really need these two types? Check the logs.
+		case *errMachineNotFound, *errIPNotAllocated: // todo: Do we really need these two types? Check the logs.
 			logger.Info(err.Error() + ": requeueing")
 			return requeue, nil
 		default:
@@ -212,13 +212,13 @@ func (r *MetalStackClusterReconciler) controlPlaneIP(metalCluster *infra.MetalSt
 		return "", newErrMachineNotFound(*metalCluster.Spec.ProjectID, tags)
 	}
 
-	// todo: Consider high availabilty case.
+	// todo: Consider high availabilty case and test it.
 	if len(mm.Machines) != 1 {
 		return "", &errMachineNotFound{fmt.Sprintf("%v machine(s) found", len(mm.Machines))}
 	}
 	m := mm.Machines[0]
 	if m.Allocation == nil || len(m.Allocation.Networks) == 0 || len(m.Allocation.Networks[0].Ips) == 0 || m.Allocation.Networks[0].Ips[0] == "" {
-		return "", &IPNotAllocated{"IP address not allocate"}
+		return "", &errIPNotAllocated{"IP address not allocated"}
 	}
 	return m.Allocation.Networks[0].Ips[0], nil
 }
@@ -273,11 +273,11 @@ func newErrMachineNotFound(projectID string, tags []string) *errMachineNotFound 
 	return &errMachineNotFound{fmt.Sprintf("machine with the project ID %v and the tags %v not found", projectID, tags)}
 }
 
-// IPNotAllocated error representing that the requested machine does not have an IP yet assigned
-type IPNotAllocated struct {
+// errIPNotAllocated error representing that the requested machine does not have an IP yet assigned
+type errIPNotAllocated struct {
 	s string
 }
 
-func (e *IPNotAllocated) Error() string {
+func (e *errIPNotAllocated) Error() string {
 	return e.s
 }

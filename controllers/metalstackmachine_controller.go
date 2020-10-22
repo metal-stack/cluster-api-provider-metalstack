@@ -160,7 +160,7 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 
 	raw, err := r.getRawMachineOrCreate(logger, rsrc)
 	if err != nil {
-		if errors.Cause(err) == failedToCreateMachine {
+		if errors.Cause(err) == errFailedToCreateMachine {
 			return requeue, nil
 		}
 		logger.Info(err.Error())
@@ -200,7 +200,7 @@ func (r *MetalStackMachineReconciler) deleteMachine(ctx context.Context, logger 
 	return ctrl.Result{}, nil
 }
 
-var failedToCreateMachine = errors.New("failed to create a metal-stack/metal-go machine")
+var errFailedToCreateMachine = errors.New("failed to create a metal-stack/metal-go machine")
 
 func (r *MetalStackMachineReconciler) getRawMachineOrCreate(logger logr.Logger, rsrc *resource) (*models.V1MachineResponse, error) {
 	id, err := rsrc.metalMachine.Spec.ParsedProviderID()
@@ -211,7 +211,7 @@ func (r *MetalStackMachineReconciler) getRawMachineOrCreate(logger logr.Logger, 
 			if err != nil {
 				// todo: When to unset?
 				rsrc.metalMachine.Status.SetFailure(err.Error(), clustererr.CreateMachineError)
-				return nil, errors.Wrap(failedToCreateMachine, err.Error())
+				return nil, errors.Wrap(errFailedToCreateMachine, err.Error())
 			}
 			rsrc.metalMachine.Spec.ProviderID = resp.Machine.ID
 			return resp.Machine, nil

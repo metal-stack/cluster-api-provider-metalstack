@@ -18,7 +18,6 @@ package v1alpha3
 
 import (
 	"errors"
-	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -77,7 +76,7 @@ func (spec *MetalStackMachineSpec) ParsedProviderID() (string, error) {
 }
 
 func (spec *MetalStackMachineSpec) SetProviderID(ID string) {
-	spec.ProjectID = pointer.StringPtr(fmt.Sprintf("metalstack://%v", ID))
+	spec.ProjectID = pointer.StringPtr("metalstack://" + ID)
 }
 
 // MetalStackMachineStatus defines the observed state of MetalStackMachine
