@@ -22,15 +22,15 @@ import (
 	"strings"
 
 	gmck "github.com/golang/mock/gomock"
-	"github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
+	// "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
 	infra "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
 	"github.com/metal-stack/cluster-api-provider-metalstack/controllers/mocks"
-	metalgo "github.com/metal-stack/metal-go"
+	// metalgo "github.com/metal-stack/metal-go"
 	. "github.com/onsi/ginkgo"
 
 	// . "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-	"k8s.io/utils/pointer"
+	// "k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -62,7 +62,7 @@ var _ = Describe(typeOf(MetalStackClusterReconciler{}), func() {
 	// 	It("should", func() {
 	// 		mClient.EXPECT().MachineCreate(gmck.Any()).Return(
 	// 			&metalgo.MachineCreateResponse{
-					
+
 	// 			}
 	// 		)
 	// 	})

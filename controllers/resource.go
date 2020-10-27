@@ -44,7 +44,6 @@ func newResource(
 		metalMachine: metalM,
 	}
 }
-
 func (rsrc *resource) machineCreationTags() []string {
 	tags := append([]string{
 		"cluster-api-provider-metalstack:machine-uid=" + uuid.New().String(),

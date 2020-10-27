@@ -43,6 +43,9 @@ type MetalStackClusterReconciler struct {
 	MetalStackClient
 }
 
+// todo: Find a solution from the platform.
+var isFirewallReady = false
+
 func NewMetalStackClusterReconciler(metalClient MetalStackClient, mgr manager.Manager) *MetalStackClusterReconciler {
 	return &MetalStackClusterReconciler{
 		Client:           mgr.GetClient(),
@@ -115,7 +118,7 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	}
 
 	// Create firewall.
-	if !metalCluster.Status.FirewallReady {
+	if !metalCluster.Status.FirewallReady && !isFirewallReady {
 		err = r.createFirewall(metalCluster)
 		if err != nil {
 			logger.Info(err.Error() + ": requeueing")
@@ -123,6 +126,7 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		}
 		logger.Info("firewall created")
 		metalCluster.Status.FirewallReady = true
+		isFirewallReady = true
 	}
 
 	metalCluster.Status.Ready = true

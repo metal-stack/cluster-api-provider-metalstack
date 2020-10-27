@@ -27,6 +27,7 @@ import (
 
 	core "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	cluster "sigs.k8s.io/cluster-api/api/v1alpha3"
 	clustererr "sigs.k8s.io/cluster-api/errors"
 	"sigs.k8s.io/cluster-api/util"
@@ -53,6 +54,7 @@ type MetalStackMachineReconciler struct {
 	MetalStackClient
 }
 
+// todo: Remove the dependency on manager in this package.
 func NewMetalStackMachineReconciler(metalClient MetalStackClient, mgr manager.Manager) *MetalStackMachineReconciler {
 	return &MetalStackMachineReconciler{
 		Client:           mgr.GetClient(),
@@ -161,6 +163,7 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	raw, err := r.getRawMachineOrCreate(logger, rsrc)
 	if err != nil {
 		if errors.Cause(err) == errFailedToCreateMachine {
+			logger.Info(err.Error())
 			return requeue, nil
 		}
 		logger.Info(err.Error())
@@ -183,6 +186,31 @@ func (r *MetalStackMachineReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
+func (r *MetalStackMachineReconciler) bootstrapData(rsrc *resource) ([]byte, error) {
+	secretName := rsrc.machine.Spec.Bootstrap.DataSecretName
+	if secretName == nil {
+		return nil, errors.New("the owner Machine's Spec.Bootstrap.DataSecretName nil")
+	}
+
+	secret := new(core.Secret)
+	if err := r.Client.Get(
+		context.TODO(),
+		types.NamespacedName{
+			Namespace: rsrc.metalMachine.Namespace,
+			Name:      *secretName,
+		},
+		secret,
+	); err != nil {
+		return nil, err
+	}
+
+	value, ok := secret.Data["value"]
+	if !ok {
+		return nil, errors.New("key `value` of the map `Data` of the bootstrap data missing")
+	}
+
+	return value, nil
+}
 func (r *MetalStackMachineReconciler) deleteMachine(ctx context.Context, logger logr.Logger, rsrc *resource) (ctrl.Result, error) {
 	logger.Info("the MetalStackMachine being deleted")
 
@@ -224,12 +252,13 @@ func (r *MetalStackMachineReconciler) getRawMachineOrCreate(logger logr.Logger, 
 	}
 	return resp.Machine, nil
 }
-
 func (r *MetalStackMachineReconciler) newRequestToCreateMachine(rsrc *resource) *metalgo.MachineCreateRequest {
 	name := rsrc.metalMachine.Name
 	networks := toNetworks(*rsrc.metalCluster.Spec.PrivateNetworkID)
-	// todo: Add the logic of UserData.
-
+	userData, err := r.bootstrapData(rsrc)
+	if err != nil {
+		return nil
+	}
 	return &metalgo.MachineCreateRequest{
 		Hostname:  name,
 		Image:     rsrc.metalMachine.Spec.Image,
@@ -239,17 +268,15 @@ func (r *MetalStackMachineReconciler) newRequestToCreateMachine(rsrc *resource) 
 		Project:   *rsrc.metalCluster.Spec.ProjectID,
 		Size:      rsrc.metalMachine.Spec.MachineType,
 		Tags:      rsrc.machineCreationTags(),
-		UserData:  "",
+		UserData:  string(userData),
 	}
 }
-
 func (r *MetalStackMachineReconciler) setMachineStatus(rsrc *resource, rawMachine *models.V1MachineResponse) {
 	// todo: Shift to machine creation.
 	rsrc.metalMachine.Spec.SetProviderID(*rawMachine.ID)
 	rsrc.metalMachine.Status.Liveliness = rawMachine.Liveliness
 	rsrc.metalMachine.Status.Addresses = toNodeAddrs(rawMachine)
 }
-
 func toNodeAddrs(machine *models.V1MachineResponse) []core.NodeAddress {
 	addrs := []core.NodeAddress{}
 	for _, n := range machine.Allocation.Networks {
