@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/go-logr/logr"
 	metalgo "github.com/metal-stack/metal-go"
@@ -69,7 +70,7 @@ func NewMetalStackMachineReconciler(metalClient MetalStackClient, mgr manager.Ma
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, err error) {
-	logger := r.Log.WithName("MetalStackMachine").WithValues("namespace", req.Namespace, "name", req.Name)
+	logger := r.Log.WithValues("namespace", req.Namespace, "name", req.Name)
 	ctx := context.Background()
 
 	// Fetch the MetalStackMachine.
@@ -91,7 +92,7 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		logger.Info("no OwnerReference of the MetalStackMachine has the Kind Machine")
 		return ctrl.Result{}, nil
 	}
-	logger = logger.WithName("Machine").WithValues("name", machine.Name)
+	// logger = logger.WithName("Machine").WithValues("name", machine.Name)
 
 	// Fetch the Cluster.
 	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, machine.ObjectMeta)
@@ -100,7 +101,7 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		// todo: Return err or nil?
 		return ctrl.Result{}, nil
 	}
-	logger = logger.WithName("Cluster").WithValues("name", cluster.Name)
+	// logger = logger.WithName("Cluster").WithValues("name", cluster.Name)
 
 	// Return if the retrieved objects are paused.
 	if util.IsPaused(cluster, metalMachine) {
@@ -118,7 +119,7 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		logger.Info(err.Error())
 		return ctrl.Result{}, nil
 	}
-	logger = logger.WithName("MetalStackCluster").WithValues("name", metalCluster.Name)
+	// logger = logger.WithName("MetalStackCluster").WithValues("name", metalCluster.Name)
 
 	rsrc := newResource(cluster, machine, metalCluster, metalMachine)
 
@@ -155,11 +156,12 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		return ctrl.Result{}, nil
 	}
 
-	if !rsrc.machine.Status.BootstrapReady {
-		logger.Info("bootstrap provider not ready")
-		return ctrl.Result{}, nil
-	}
+	// if !rsrc.machine.Status.BootstrapReady {
+	// 	logger.Info("bootstrap provider not ready")
+	// 	return ctrl.Result{}, nil
+	// }
 
+	// todo: Clear up the logic.
 	raw, err := r.getRawMachineOrCreate(logger, rsrc)
 	if err != nil {
 		if errors.Cause(err) == errFailedToCreateMachine {
@@ -167,7 +169,7 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 			return requeue, nil
 		}
 		logger.Info(err.Error())
-		return ctrl.Result{}, nil
+		return requeue, nil
 	}
 	r.setMachineStatus(rsrc, raw)
 
@@ -189,7 +191,7 @@ func (r *MetalStackMachineReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *MetalStackMachineReconciler) bootstrapData(rsrc *resource) ([]byte, error) {
 	secretName := rsrc.machine.Spec.Bootstrap.DataSecretName
 	if secretName == nil {
-		return nil, errors.New("the owner Machine's Spec.Bootstrap.DataSecretName nil")
+		return nil, errors.New("owner Machine's Spec.Bootstrap.DataSecretName being nil")
 	}
 
 	secret := new(core.Secret)
@@ -235,13 +237,18 @@ func (r *MetalStackMachineReconciler) getRawMachineOrCreate(logger logr.Logger, 
 	if err != nil {
 		if err == infra.ProviderIDNotSet {
 			logger.Info(err.Error())
-			resp, err := r.MetalStackClient.MachineCreate(r.newRequestToCreateMachine(rsrc))
+			req, err := r.newRequestToCreateMachine(rsrc)
+			if err != nil {
+				return nil, err
+			}
+			resp, err := r.MetalStackClient.MachineCreate(req)
 			if err != nil {
 				// todo: When to unset?
 				rsrc.metalMachine.Status.SetFailure(err.Error(), clustererr.CreateMachineError)
 				return nil, errors.Wrap(errFailedToCreateMachine, err.Error())
 			}
-			rsrc.metalMachine.Spec.ProviderID = resp.Machine.ID
+			// todo: Remove.
+			// rsrc.metalMachine.Spec.ProviderID = resp.Machine.ID
 			return resp.Machine, nil
 		}
 		return nil, err
@@ -252,12 +259,13 @@ func (r *MetalStackMachineReconciler) getRawMachineOrCreate(logger logr.Logger, 
 	}
 	return resp.Machine, nil
 }
-func (r *MetalStackMachineReconciler) newRequestToCreateMachine(rsrc *resource) *metalgo.MachineCreateRequest {
+func (r *MetalStackMachineReconciler) newRequestToCreateMachine(rsrc *resource) (*metalgo.MachineCreateRequest, error) {
 	name := rsrc.metalMachine.Name
 	networks := toNetworks(*rsrc.metalCluster.Spec.PrivateNetworkID)
 	userData, err := r.bootstrapData(rsrc)
+	log.Println("userData: ", string(userData))
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	return &metalgo.MachineCreateRequest{
 		Hostname:  name,
@@ -268,8 +276,8 @@ func (r *MetalStackMachineReconciler) newRequestToCreateMachine(rsrc *resource) 
 		Project:   *rsrc.metalCluster.Spec.ProjectID,
 		Size:      rsrc.metalMachine.Spec.MachineType,
 		Tags:      rsrc.machineCreationTags(),
-		UserData:  string(userData),
-	}
+		UserData:  "", //string(userData),
+	}, nil
 }
 func (r *MetalStackMachineReconciler) setMachineStatus(rsrc *resource, rawMachine *models.V1MachineResponse) {
 	// todo: Shift to machine creation.
