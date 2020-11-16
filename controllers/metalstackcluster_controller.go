@@ -25,6 +25,7 @@ import (
 	metalgo "github.com/metal-stack/metal-go"
 	"github.com/metal-stack/metal-lib/pkg/tag"
 	"github.com/pkg/errors"
+	"github.com/spf13/viper"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	clusterapi "sigs.k8s.io/cluster-api/api/v1alpha3"
 	"sigs.k8s.io/cluster-api/util"
@@ -131,20 +132,33 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 
 	metalCluster.Status.Ready = true
 
-	// Set ControlPlaneEndpoint of the MetalStackCluster.
-	ip, err := r.controlPlaneIP(metalCluster)
+	// Allocate the IP of the api-server
+	ipResp, err := r.IPAllocate(&metalgo.IPAllocateRequest{
+		Description: "",
+		Name:        metalCluster.Name + "api-server-IP",
+		Networkid:   "internet-vagrant-lab",
+		Projectid:   *metalCluster.Spec.ProjectID,
+		IPAddress:   "",
+		Type:        "",
+		Tags:        []string{},
+	})
 	if err != nil {
-		switch err.(type) {
-		case *errMachineNotFound, *errIPNotAllocated: // todo: Do we really need these two types? Check the logs.
-			logger.Info(err.Error() + ": requeueing")
-			return requeue, nil
-		default:
-			logger.Error(err, "failed to get control plane IP")
-			return ctrl.Result{}, err
-		}
+		return ctrl.Result{}, fmt.Errorf("failed to allocate API-server-IP: ", err)
 	}
+	// // Set ControlPlaneEndpoint of the MetalStackCluster.
+	// ip, err := r.controlPlaneIP(metalCluster)
+	// if err != nil {
+	// 	switch err.(type) {
+	// 	case *errMachineNotFound, *errIPNotAllocated: // todo: Do we really need these two types? Check the logs.
+	// 		logger.Info(err.Error() + ": requeueing")
+	// 		return requeue, nil
+	// 	default:
+	// 		logger.Error(err, "failed to get control plane IP")
+	// 		return ctrl.Result{}, err
+	// 	}
+	// }
 	metalCluster.Spec.ControlPlaneEndpoint = clusterapi.APIEndpoint{
-		Host: ip,
+		Host: *ipResp.IP.Ipaddress,
 		Port: 6443,
 	}
 
