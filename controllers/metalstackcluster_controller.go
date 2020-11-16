@@ -130,8 +130,6 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		isFirewallReady = true
 	}
 
-	metalCluster.Status.Ready = true
-
 	// Allocate the IP of the api-server
 	ipResp, err := r.IPAllocate(&metalgo.IPAllocateRequest{
 		Description: "",
@@ -145,22 +143,11 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to allocate API-server-IP: ", err)
 	}
-	// // Set ControlPlaneEndpoint of the MetalStackCluster.
-	// ip, err := r.controlPlaneIP(metalCluster)
-	// if err != nil {
-	// 	switch err.(type) {
-	// 	case *errMachineNotFound, *errIPNotAllocated: // todo: Do we really need these two types? Check the logs.
-	// 		logger.Info(err.Error() + ": requeueing")
-	// 		return requeue, nil
-	// 	default:
-	// 		logger.Error(err, "failed to get control plane IP")
-	// 		return ctrl.Result{}, err
-	// 	}
-	// }
 	metalCluster.Spec.ControlPlaneEndpoint = clusterapi.APIEndpoint{
 		Host: *ipResp.IP.Ipaddress,
 		Port: 6443,
 	}
+	metalCluster.Status.Ready = true
 
 	return ctrl.Result{}, nil
 }
