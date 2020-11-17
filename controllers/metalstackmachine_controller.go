@@ -161,6 +161,11 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	// 	return ctrl.Result{}, nil
 	// }
 
+	if rsrc.machine.Spec.Bootstrap.DataSecretName == nil {
+		logger.Info("bootstrap not ready yet")
+		return ctrl.Result{}, nil
+	}
+
 	// todo: Clear up the logic.
 	raw, err := r.getRawMachineOrCreate(logger, rsrc)
 	if err != nil {
@@ -194,7 +199,7 @@ func (r *MetalStackMachineReconciler) bootstrapData(rsrc *resource) ([]byte, err
 		return nil, errors.New("owner Machine's Spec.Bootstrap.DataSecretName being nil")
 	}
 
-	secret := new(core.Secret)
+	secret := &core.Secret{}
 	if err := r.Client.Get(
 		context.TODO(),
 		types.NamespacedName{
@@ -270,13 +275,14 @@ func (r *MetalStackMachineReconciler) newRequestToCreateMachine(rsrc *resource) 
 	return &metalgo.MachineCreateRequest{
 		Hostname:  name,
 		Image:     rsrc.metalMachine.Spec.Image,
+		IPs:       []string{rsrc.metalCluster.Spec.ControlPlaneEndpoint.Host},
 		Name:      name,
 		Networks:  networks,
 		Partition: *rsrc.metalCluster.Spec.Partition,
 		Project:   *rsrc.metalCluster.Spec.ProjectID,
 		Size:      rsrc.metalMachine.Spec.MachineType,
 		Tags:      rsrc.machineCreationTags(),
-		UserData:  "", //string(userData),
+		UserData:  string(userData),
 	}, nil
 }
 func (r *MetalStackMachineReconciler) setMachineStatus(rsrc *resource, rawMachine *models.V1MachineResponse) {
