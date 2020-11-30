@@ -48,6 +48,21 @@ func (mr *MockMetalStackClientMockRecorder) FirewallCreate(arg0 interface{}) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FirewallCreate", reflect.TypeOf((*MockMetalStackClient)(nil).FirewallCreate), arg0)
 }
 
+// IPAllocate mocks base method
+func (m *MockMetalStackClient) IPAllocate(arg0 *metalgo.IPAllocateRequest) (*metalgo.IPDetailResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IPAllocate", arg0)
+	ret0, _ := ret[0].(*metalgo.IPDetailResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IPAllocate indicates an expected call of IPAllocate
+func (mr *MockMetalStackClientMockRecorder) IPAllocate(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IPAllocate", reflect.TypeOf((*MockMetalStackClient)(nil).IPAllocate), arg0)
+}
+
 // MachineCreate mocks base method
 func (m *MockMetalStackClient) MachineCreate(arg0 *metalgo.MachineCreateRequest) (*metalgo.MachineCreateResponse, error) {
 	m.ctrl.T.Helper()

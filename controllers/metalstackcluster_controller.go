@@ -25,7 +25,6 @@ import (
 	metalgo "github.com/metal-stack/metal-go"
 	"github.com/metal-stack/metal-lib/pkg/tag"
 	"github.com/pkg/errors"
-	"github.com/spf13/viper"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	clusterapi "sigs.k8s.io/cluster-api/api/v1alpha3"
 	"sigs.k8s.io/cluster-api/util"
@@ -71,8 +70,6 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		}
 		return ctrl.Result{}, err
 	}
-
-	logger = logger.WithName(metalCluster.APIVersion)
 
 	// Fetch the Cluster.
 	cluster, err := util.GetOwnerCluster(ctx, r.Client, metalCluster.ObjectMeta)
@@ -131,23 +128,26 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	}
 
 	// Allocate the IP of the api-server
-	ipResp, err := r.IPAllocate(&metalgo.IPAllocateRequest{
-		Description: "",
-		Name:        metalCluster.Name + "api-server-IP",
-		Networkid:   "internet-vagrant-lab",
-		Projectid:   *metalCluster.Spec.ProjectID,
-		IPAddress:   "",
-		Type:        "",
-		Tags:        []string{},
-	})
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to allocate API-server-IP: ", err)
+	if metalCluster.Spec.ControlPlaneEndpoint.Host == "" {
+		ipResp, err := r.IPAllocate(&metalgo.IPAllocateRequest{
+			Description: "",
+			Name:        metalCluster.Name + "api-server-IP",
+			Networkid:   "internet-vagrant-lab",
+			Projectid:   *metalCluster.Spec.ProjectID,
+			IPAddress:   "",
+			Type:        "",
+			Tags:        []string{},
+		})
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to allocate API-server-IP: %v", err)
+		}
+		metalCluster.Spec.ControlPlaneEndpoint = clusterapi.APIEndpoint{
+			Host: *ipResp.IP.Ipaddress,
+			Port: 6443,
+		}
+		logger.Info("", "API-server-IP", metalCluster.Spec.ControlPlaneEndpoint.Host)
+		metalCluster.Status.Ready = true
 	}
-	metalCluster.Spec.ControlPlaneEndpoint = clusterapi.APIEndpoint{
-		Host: *ipResp.IP.Ipaddress,
-		Port: 6443,
-	}
-	metalCluster.Status.Ready = true
 
 	return ctrl.Result{}, nil
 }

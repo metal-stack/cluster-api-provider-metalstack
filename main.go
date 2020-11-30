@@ -22,7 +22,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -56,7 +55,6 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
 
-	// todo: Mock the client for tests.
 	metalClient, err := metalgo.NewDriver(os.Getenv("METALCTL_URL"), "", os.Getenv("METALCTL_HMAC"))
 	if err != nil {
 		setupLog.Error(err, "unable to get `metal-stack/metal-go`client")
@@ -64,7 +62,7 @@ func main() {
 	}
 	setupLog.Info("metalstack client connected")
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), *NewManagerOptions(metricsAddr, enableLeaderElection))
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), *newManagerOptions(metricsAddr, enableLeaderElection))
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
@@ -88,7 +86,7 @@ func main() {
 	}
 }
 
-func NewAndReadyScheme() *runtime.Scheme {
+func newAndReadyScheme() *runtime.Scheme {
 	scheme := runtime.NewScheme()
 	_ = clientgoscheme.AddToScheme(scheme)
 	_ = clusterapi.AddToScheme(scheme)
@@ -96,18 +94,18 @@ func NewAndReadyScheme() *runtime.Scheme {
 	return scheme
 }
 
-func NewManagerOptions(metricsAddr string, enableLeaderElection bool) *ctrl.Options {
+func newManagerOptions(metricsAddr string, enableLeaderElection bool) *ctrl.Options {
 	// Machine and cluster operations can create enough events to trigger the event recorder spam filter
 	// Setting the burst size higher ensures all events will be recorded and submitted to the API
-	broadcaster := record.NewBroadcasterWithCorrelatorOptions(record.CorrelatorOptions{
-		BurstSize: 100,
-	})
+	// broadcaster := record.NewBroadcasterWithCorrelatorOptions(record.CorrelatorOptions{
+	// 	BurstSize: 100,
+	// })
 	return &ctrl.Options{
-		Scheme:             NewAndReadyScheme(),
+		Scheme:             newAndReadyScheme(),
 		MetricsBindAddress: metricsAddr,
 		Port:               9443,
-		EventBroadcaster:   broadcaster,
-		LeaderElection:     enableLeaderElection,
-		LeaderElectionID:   "cad3ba79.cluster.x-k8s.io", // todo: What is this?
+		// EventBroadcaster:   broadcaster,
+		LeaderElection:   enableLeaderElection,
+		LeaderElectionID: "cad3ba79.cluster.x-k8s.io", // todo: What is this?
 	}
 }

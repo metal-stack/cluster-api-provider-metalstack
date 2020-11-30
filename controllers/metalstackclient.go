@@ -16,11 +16,14 @@ limitations under the License.
 
 package controllers
 
-import metalgo "github.com/metal-stack/metal-go"
+import (
+	metalgo "github.com/metal-stack/metal-go"
+)
 
 // go:generate mockgen -destination=mocks/mock_metalstackclient.go -package=mocks . MetalStackClient
 type MetalStackClient interface {
 	FirewallCreate(fcr *metalgo.FirewallCreateRequest) (*metalgo.FirewallCreateResponse, error)
+	IPAllocate(iar *metalgo.IPAllocateRequest) (*metalgo.IPDetailResponse, error)
 	MachineCreate(mcr *metalgo.MachineCreateRequest) (*metalgo.MachineCreateResponse, error)
 	MachineDelete(machineID string) (*metalgo.MachineDeleteResponse, error)
 	MachineFind(mfr *metalgo.MachineFindRequest) (*metalgo.MachineListResponse, error)

@@ -5,22 +5,25 @@ metadata:
   name: "${CLUSTER_NAME}-control-plane1-config"
 spec:
   preKubeadmCommands:
-    - swapoff -a
-    - apt-get -y update
-    - DEBIAN_FRONTEND=noninteractive apt-get install -y apt-transport-https curl
+    - echo "waiting for the network"
+    - sleep 60
+    - echo "preKubeadmCommands run"
+    - sudo apt-get update && sudo apt-get install -y apt-transport-https curl
     - curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
-    - echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" > /etc/apt/sources.list.d/kubernetes.list
-    - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-    - apt-key fingerprint 0EBFCD88
-    - add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-    - apt-get update -y
-    - apt-get install -y ca-certificates socat jq ebtables apt-transport-https cloud-utils prips docker-ce docker-ce-cli containerd.io kubelet kubeadm kubectl
-    - systemctl daemon-reload
-    - systemctl enable docker
-    - systemctl start docker
+    - |
+      cat<<EOF | sudo tee /etc/apt/sources.list.d/kubernetes.list
+        deb https://apt.kubernetes.io/ kubernetes-xenial main
+      EOF
+    - sudo apt-get update
+    - sudo apt-get install -y kubelet=1.18.9-00 kubectl=1.18.9-00
+    - sudo apt-mark hold kubelet kubectl
+    - |
+      kubeadm() {
+        docker run -it -v /tmp/kubeadm.yaml:/tmp/kubeadm-tmp.yaml wise2c/kubeadm-version:v1.18.9 kubeadm "$@"
+      }
+    - kubeadm config migrate --old-config /tmp/kubeadm-tmp.yaml --new-config /tmp/kubeadm.yaml
+    - echo "preKubeadmCommands finished"
   postKubeadmCommands:
-    - "kubectl --kubeconfig /etc/kubernetes/admin.conf create secret generic -n kube-system metalstack-cloud-config --from-literal=cloud-sa.json='{\"apiKey\": \"{{ .apiKey }}\",\"projectID\": \"${PROJECT_ID}\"}'"
-    - "kubectl apply --kubeconfig /etc/kubernetes/admin.conf -f https://raw.githubusercontent.com/metalstack/metalstack-ccm/master/deploy/releases/v1.0.0/deployment.yaml"
   initConfiguration:
     nodeRegistration:
       kubeletExtraArgs:
@@ -83,7 +86,7 @@ spec:
   partition: "${PARTITION}"
   machineType: "${MASTER_NODE_TYPE}"
   sshKeys:
-  - "${SSH_KEY}"
+    - "${SSH_KEY}"
   tags: []
 ---
 apiVersion: cluster.x-k8s.io/v1alpha3
@@ -129,7 +132,7 @@ spec:
       machineType: "${WORKER_NODE_TYPE}"
       partition: "${PARTITION}"
       sshKeys:
-      - "${SSH_KEY}"
+        - "${SSH_KEY}"
       tags: []
 ---
 kind: KubeadmConfigTemplate
@@ -140,19 +143,6 @@ spec:
   template:
     spec:
       preKubeadmCommands:
-        - swapoff -a
-        - apt-get -y update
-        - DEBIAN_FRONTEND=noninteractive apt-get install -y apt-transport-https curl
-        - curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
-        - echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" > /etc/apt/sources.list.d/kubernetes.list
-        - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-        - apt-key fingerprint 0EBFCD88
-        - add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-        - apt-get update -y
-        - apt-get install -y ca-certificates socat jq ebtables apt-transport-https cloud-utils prips docker-ce docker-ce-cli containerd.io kubelet kubeadm kubectl
-        - systemctl daemon-reload
-        - systemctl enable docker
-        - systemctl start docker
       joinConfiguration:
         nodeRegistration:
           kubeletExtraArgs:

@@ -76,7 +76,7 @@ func (spec *MetalStackMachineSpec) ParsedProviderID() (string, error) {
 }
 
 func (spec *MetalStackMachineSpec) SetProviderID(ID string) {
-	spec.ProjectID = pointer.StringPtr("metalstack://" + ID)
+	spec.ProviderID = pointer.StringPtr("metalstack://" + ID)
 }
 
 // MetalStackMachineStatus defines the observed state of MetalStackMachine
