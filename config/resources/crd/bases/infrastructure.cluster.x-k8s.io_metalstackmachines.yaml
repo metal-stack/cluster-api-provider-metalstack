@@ -90,7 +90,7 @@ spec:
           - partition
           type: object
         status:
-          description: MetalStackMachineStatus defines the observed state of MetalStackMachine
+          description: 'todo: Ideally most of the status provided by `metal-API` should be shown here. todo: Implement the logic to updating the status. MetalStackMachineStatus defines the observed state of MetalStackMachine'
           properties:
             addresses:
               description: Addresses contains the MetalStack machine associated addresses.
