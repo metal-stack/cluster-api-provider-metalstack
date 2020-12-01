@@ -79,6 +79,8 @@ func (spec *MetalStackMachineSpec) SetProviderID(ID string) {
 	spec.ProviderID = pointer.StringPtr("metalstack://" + ID)
 }
 
+// todo: Ideally most of the status provided by `metal-API` should be shown here.
+// todo: Implement the logic to updating the status.
 // MetalStackMachineStatus defines the observed state of MetalStackMachine
 type MetalStackMachineStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster

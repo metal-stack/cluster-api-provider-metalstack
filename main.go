@@ -33,13 +33,6 @@ import (
 	// +kubebuilder:scaffold:imports
 )
 
-const (
-	apiTokenVarName = "METAL_API_TOKEN"
-	apiKeyVarName   = "METALCTL_HMAC"
-	apiURLVarName   = "METALCTL_URL"
-	clientName      = "CAPMST-v1alpha3"
-)
-
 var setupLog = ctrl.Log.WithName("setup")
 
 func main() {
@@ -55,6 +48,7 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
 
+	// Create the `metal-API` client.
 	metalClient, err := metalgo.NewDriver(os.Getenv("METALCTL_URL"), "", os.Getenv("METALCTL_HMAC"))
 	if err != nil {
 		setupLog.Error(err, "unable to get `metal-stack/metal-go`client")

@@ -12,6 +12,7 @@ require (
 	github.com/onsi/ginkgo v1.14.2
 	github.com/onsi/gomega v1.10.3
 	github.com/pkg/errors v0.9.1
+	github.com/prometheus/common v0.10.0
 	github.com/spf13/viper v1.7.0
 	k8s.io/api v0.17.12
 	k8s.io/apimachinery v0.17.12

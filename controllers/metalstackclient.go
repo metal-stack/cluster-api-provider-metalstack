@@ -20,7 +20,9 @@ import (
 	metalgo "github.com/metal-stack/metal-go"
 )
 
-// go:generate mockgen -destination=mocks/mock_metalstackclient.go -package=mocks . MetalStackClient
+// MetalStackClient is the interface of the client for the interaction with `metal-API`
+// On the next line, there's no space between `//` and `go`. It must be `//go:generate`.
+//go:generate mockgen -destination=mocks/mock_metalstackclient.go -package=mocks . MetalStackClient
 type MetalStackClient interface {
 	FirewallCreate(fcr *metalgo.FirewallCreateRequest) (*metalgo.FirewallCreateResponse, error)
 	IPAllocate(iar *metalgo.IPAllocateRequest) (*metalgo.IPDetailResponse, error)

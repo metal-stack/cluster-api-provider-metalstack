@@ -96,9 +96,7 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	// Fetch the Cluster.
 	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, machine.ObjectMeta)
 	if err != nil {
-		logger.Info(err.Error())
-		// todo: Return err or nil?
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, err
 	}
 
 	// Return if the retrieved objects are paused.
@@ -120,7 +118,6 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 
 	rsrc := newResource(cluster, machine, metalCluster, metalMachine)
 
-	// todo: See if the updates of API resources can be made explicitly.
 	// Persist any change of the MetalStackMachine.
 	h, err := patch.NewHelper(rsrc.metalMachine, r.Client)
 	if err != nil {
@@ -150,7 +147,7 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 
 	if !rsrc.cluster.Status.InfrastructureReady {
 		logger.Info("firewall not ready")
-		return ctrl.Result{}, nil
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	if rsrc.machine.Spec.Bootstrap.DataSecretName == nil {
@@ -158,15 +155,9 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		return ctrl.Result{}, nil
 	}
 
-	// todo: Clear up the logic.
 	raw, err := r.getRawMachineOrCreate(logger, rsrc)
 	if err != nil {
-		if errors.Cause(err) == errFailedToCreateMachine {
-			logger.Info(err.Error())
-			return requeue, nil
-		}
-		logger.Info(err.Error())
-		return requeue, nil
+		return ctrl.Result{}, err
 	}
 	r.setMachineStatus(rsrc, raw)
 
@@ -227,8 +218,6 @@ func (r *MetalStackMachineReconciler) deleteMachine(ctx context.Context, logger 
 	return ctrl.Result{}, nil
 }
 
-var errFailedToCreateMachine = errors.New("failed to create a metal-stack/metal-go machine")
-
 func (r *MetalStackMachineReconciler) getRawMachineOrCreate(logger logr.Logger, rsrc *resource) (*models.V1MachineResponse, error) {
 	id, err := rsrc.metalMachine.Spec.ParsedProviderID()
 	if err != nil {
@@ -242,7 +231,7 @@ func (r *MetalStackMachineReconciler) getRawMachineOrCreate(logger logr.Logger, 
 			if err != nil {
 				// todo: When to unset?
 				rsrc.metalMachine.Status.SetFailure(err.Error(), clustererr.CreateMachineError)
-				return nil, errors.Wrap(errFailedToCreateMachine, err.Error())
+				return nil, err
 			}
 			return resp.Machine, nil
 		}

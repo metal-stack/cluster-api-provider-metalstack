@@ -25,6 +25,7 @@ import (
 	metalgo "github.com/metal-stack/metal-go"
 	"github.com/metal-stack/metal-lib/pkg/tag"
 	"github.com/pkg/errors"
+	"github.com/prometheus/common/log"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	clusterapi "sigs.k8s.io/cluster-api/api/v1alpha3"
 	"sigs.k8s.io/cluster-api/util"
@@ -42,9 +43,6 @@ type MetalStackClusterReconciler struct {
 	Log logr.Logger
 	MetalStackClient
 }
-
-// todo: Find a solution from the platform.
-var isFirewallReady = false
 
 func NewMetalStackClusterReconciler(metalClient MetalStackClient, mgr manager.Manager) *MetalStackClusterReconciler {
 	return &MetalStackClusterReconciler{
@@ -116,7 +114,7 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	}
 
 	// Create firewall.
-	if !metalCluster.Status.FirewallReady && !isFirewallReady {
+	if !metalCluster.Status.FirewallReady /* && !isFirewallReady */ {
 		err = r.createFirewall(metalCluster)
 		if err != nil {
 			logger.Info(err.Error() + ": requeueing")
@@ -124,7 +122,14 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		}
 		logger.Info("firewall created")
 		metalCluster.Status.FirewallReady = true
-		isFirewallReady = true
+
+		// `FirewallReady` should be updated immediately, so
+		if err := r.Status().Update(ctx, metalCluster); err != nil {
+			logger.Error(err, "error while updating the status `FirewallReady`")
+			return ctrl.Result{}, err
+		}
+		log.Info("status `FirewallReady` updated successfully")
+		// isFirewallReady = true
 	}
 
 	// Allocate the IP of the api-server
@@ -146,8 +151,8 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 			Port: 6443,
 		}
 		logger.Info("", "API-server-IP", metalCluster.Spec.ControlPlaneEndpoint.Host)
-		metalCluster.Status.Ready = true
 	}
+	metalCluster.Status.Ready = true
 
 	return ctrl.Result{}, nil
 }
@@ -161,20 +166,6 @@ func (r *MetalStackClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				ToRequests: util.ClusterToInfrastructureMapFunc(infra.GroupVersion.WithKind("MetalStackCluster")),
 			}).
 		Complete(r)
-}
-
-type errSpecNotSet struct {
-	msg string
-}
-
-func (e *errSpecNotSet) Error() string {
-	return e.msg
-}
-
-func newErrSpecNotSet(s string) *errSpecNotSet {
-	return &errSpecNotSet{
-		msg: s + " not set",
-	}
 }
 
 func (r *MetalStackClusterReconciler) allocateNetwork(metalCluster *infra.MetalStackCluster) (*string, error) {
@@ -199,8 +190,7 @@ func (r *MetalStackClusterReconciler) allocateNetwork(metalCluster *infra.MetalS
 	return resp.Network.ID, nil
 }
 
-// todo: Implement?
-// The IP is internal at the moment, which can be replaced by explicitly allocated IP at the creation of the control plane.
+// todo: Not used.
 func (r *MetalStackClusterReconciler) controlPlaneIP(metalCluster *infra.MetalStackCluster) (string, error) {
 	if metalCluster.Spec.ProjectID == nil {
 		return "", newErrSpecNotSet("ProjectID")
@@ -228,7 +218,7 @@ func (r *MetalStackClusterReconciler) controlPlaneIP(metalCluster *infra.MetalSt
 	return m.Allocation.Networks[0].Ips[0], nil
 }
 
-// todo: Ask metal-API to find out the external network IP (partition id empty -> destinationprefix: 0.0.0.0/0)
+// todo: Ask metal-API for an available external network IP (partition id empty -> destinationprefix: 0.0.0.0/0)
 func (r *MetalStackClusterReconciler) createFirewall(metalCluster *infra.MetalStackCluster) error {
 	if metalCluster.Spec.Firewall.DefaultNetworkID == nil {
 		return newErrSpecNotSet("Firewall.DefaultNetworkID")
@@ -266,6 +256,15 @@ func (r *MetalStackClusterReconciler) createFirewall(metalCluster *infra.MetalSt
 	return err
 }
 
+// errIPNotAllocated error representing that the requested machine does not have an IP yet assigned
+type errIPNotAllocated struct {
+	s string
+}
+
+func (e *errIPNotAllocated) Error() string {
+	return e.s
+}
+
 // errMachineNotFound error representing that the requested machine was not yet found
 type errMachineNotFound struct {
 	s string
@@ -278,11 +277,16 @@ func newErrMachineNotFound(projectID string, tags []string) *errMachineNotFound 
 	return &errMachineNotFound{fmt.Sprintf("machine with the project ID %v and the tags %v not found", projectID, tags)}
 }
 
-// errIPNotAllocated error representing that the requested machine does not have an IP yet assigned
-type errIPNotAllocated struct {
-	s string
+type errSpecNotSet struct {
+	msg string
 }
 
-func (e *errIPNotAllocated) Error() string {
-	return e.s
+func (e *errSpecNotSet) Error() string {
+	return e.msg
+}
+
+func newErrSpecNotSet(s string) *errSpecNotSet {
+	return &errSpecNotSet{
+		msg: s + " not set",
+	}
 }

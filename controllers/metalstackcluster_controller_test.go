@@ -191,7 +191,7 @@ var _ = Describe("MetalStackClusterReconciler", func() {
 	})
 })
 
-// todo: duplicate
+// todo: Remove the duplicated logic.
 func newAndReadyScheme() *apimachineryruntime.Scheme {
 	scheme := apimachineryruntime.NewScheme()
 	_ = clientgoscheme.AddToScheme(scheme)

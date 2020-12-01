@@ -23,7 +23,7 @@ spec:
       }
     - kubeadm config migrate --old-config /tmp/kubeadm-tmp.yaml --new-config /tmp/kubeadm.yaml
     - echo "preKubeadmCommands finished"
-  postKubeadmCommands:
+  postKubeadmCommands: []
   initConfiguration:
     nodeRegistration:
       kubeletExtraArgs:
@@ -142,7 +142,7 @@ metadata:
 spec:
   template:
     spec:
-      preKubeadmCommands:
+      preKubeadmCommands: []
       joinConfiguration:
         nodeRegistration:
           kubeletExtraArgs:
