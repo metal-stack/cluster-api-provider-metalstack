@@ -307,7 +307,7 @@ $(CONTROLLER_GEN):
 
 ## generate a cluster using clusterctl and setting defaults
 cluster:
-	./scripts/generate-cluster.sh
+	RELEASE_VERSION=$(RELEASE_VERSION) ./scripts/generate-cluster.sh
 
 $(RELEASE_DIR) $(RELEASE_BASE):
 	mkdir -p $@
