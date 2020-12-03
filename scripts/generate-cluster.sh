@@ -20,7 +20,7 @@ CLUSTERCTL=${CLUSTERCTL:-clusterctl}
 
 # might want to use a specific config URL
 CONFIG_URL=${CONFIG_URL:-""}
-CONFIG_OPT=${CONFIG_OPT:-"--config=out/managerless/infrastructure-metalstack/clusterctl-v0.3.0.yaml"}
+CONFIG_OPT=${CONFIG_OPT:-"--config=out/managerless/infrastructure-metalstack/clusterctl-${RELEASE_VERSION}.yaml"}
 if [ -n "$CONFIG_URL" ]; then
 	CONFIG_OPT="--config ${CONFIG_URL}"
 fi
