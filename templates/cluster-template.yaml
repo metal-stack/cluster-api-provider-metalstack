@@ -1,38 +1,59 @@
-# this is a temporary mock
-kind: KubeadmConfig
-apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
+kind: KubeadmControlPlane
+apiVersion: controlplane.cluster.x-k8s.io/v1alpha3
 metadata:
-  name: "${CLUSTER_NAME}-control-plane1-config"
+  name: "${CLUSTER_NAME}-control-plane"
 spec:
-  preKubeadmCommands:
-    - echo "waiting for the network"
-    - sleep 60
-    - echo "preKubeadmCommands run"
-    - sudo apt-get update && sudo apt-get install -y apt-transport-https curl
-    - curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
-    - |
-      cat<<EOF | sudo tee /etc/apt/sources.list.d/kubernetes.list
-        deb https://apt.kubernetes.io/ kubernetes-xenial main
-      EOF
-    - sudo apt-get update
-    - sudo apt-get install -y kubelet=1.18.9-00 kubectl=1.18.9-00
-    - sudo apt-mark hold kubelet kubectl
-    - docker run -d --name=wise2ckubeadm -v /tmp/kubeadm.yaml:/tmp/kubeadm-tmp.yaml wise2c/kubeadm-version:v1.18.9 sleep 1d
-    - |
-      kubeadm() {
-        docker exec -i wise2ckubeadm kubeadm "$@"
-      }
-    - kubeadm config migrate --old-config /tmp/kubeadm-tmp.yaml --new-config /tmp/kubeadm.yaml
-    - echo "preKubeadmCommands finished"
-  postKubeadmCommands: []
-  initConfiguration:
-    nodeRegistration:
-      kubeletExtraArgs:
-        cloud-provider: external
-  clusterConfiguration:
-    controllerManager:
-      extraArgs:
-        enable-hostpath-provisioner: "true"
+  version: ${KUBERNETES_VERSION}
+  replicas: ${CONTROL_PLANE_MACHINE_COUNT}
+  infrastructureTemplate:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
+    kind: MetalStackMachineTemplate
+    name: "${CLUSTER_NAME}-control-plane"
+  kubeadmConfigSpec:
+    initConfiguration:
+      nodeRegistration:
+        kubeletExtraArgs:
+          cloud-provider: external
+    clusterConfiguration:
+      apiServer:
+        extraArgs:
+          cloud-provider: external
+      controllerManager:
+        extraArgs:
+          cloud-provider: external
+    joinConfiguration:
+      nodeRegistration:
+        kubeletExtraArgs:
+          cloud-provider: external
+    postKubeadmCommands:
+    preKubeadmCommands:
+      - echo "waiting for the network"
+      - sleep 60
+      - echo "preKubeadmCommands run"
+      - sudo apt-get update && sudo apt-get install -y apt-transport-https curl
+      - curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+      - |
+        cat<<EOF | sudo tee /etc/apt/sources.list.d/kubernetes.list
+            deb https://apt.kubernetes.io/ kubernetes-xenial main
+        EOF
+      - sudo apt-get update
+      - sudo apt-get install -y kubelet=1.18.9-00 kubectl=1.18.9-00
+      - sudo apt-mark hold kubelet kubectl
+      - echo "preKubeadmCommands finished"
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
+kind: MetalStackMachineTemplate
+metadata:
+  name: "${CLUSTER_NAME}-control-plane"
+spec:
+  template:
+    spec:
+      OS: "${NODE_OS:=ubuntu_18_04}"
+      billingCycle: hourly
+      machineType: "${CONTROLPLANE_NODE_TYPE}"
+      sshKeys:
+        - "${SSH_KEY}"
+      tags: []
 ---
 apiVersion: cluster.x-k8s.io/v1alpha3
 kind: Cluster
@@ -41,54 +62,27 @@ metadata:
 spec:
   clusterNetwork:
     pods:
-      cidrBlocks: ["${POD_CIDR}"]
+      cidrBlocks:
+        - ${POD_CIDR:=192.168.0.0/16}
+    services:
+      cidrBlocks:
+        - ${SERVICE_CIDR:=172.26.0.0/16}
   infrastructureRef:
     apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
     kind: MetalStackCluster
     name: "${CLUSTER_NAME}"
+  controlPlaneRef:
+    apiVersion: controlplane.cluster.x-k8s.io/v1alpha3
+    kind: KubeadmControlPlane
+    name: "${CLUSTER_NAME}-control-plane"
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
 kind: MetalStackCluster
 metadata:
   name: "${CLUSTER_NAME}"
 spec:
-  firewall:
-    defaultNetworkID: internet-vagrant-lab
-    image: "firewall-ubuntu-2.0"
-    size: "v1-small-x86"
-  partition: "${PARTITION}"
   projectID: "${PROJECT_ID}"
----
-apiVersion: cluster.x-k8s.io/v1alpha3
-kind: Machine
-metadata:
-  name: "${CLUSTER_NAME}-master-0"
-  labels:
-    cluster.x-k8s.io/cluster-name: ${CLUSTER_NAME}
-    cluster.x-k8s.io/control-plane: "true"
-spec:
-  clusterName: "${CLUSTER_NAME}"
-  bootstrap:
-    configRef:
-      kind: KubeadmConfig
-      apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
-      name: "${CLUSTER_NAME}-control-plane1-config"
-  infrastructureRef:
-    apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
-    kind: MetalStackMachine
-    name: "${CLUSTER_NAME}-master-0"
----
-apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
-kind: MetalStackMachine
-metadata:
-  name: "${CLUSTER_NAME}-master-0"
-spec:
-  image: "${NODE_IMAGE}"
-  partition: "${PARTITION}"
-  machineType: "${MASTER_NODE_TYPE}"
-  sshKeys:
-    - "${SSH_KEY}"
-  tags: []
+  facility: "${FACILITY}"
 ---
 apiVersion: cluster.x-k8s.io/v1alpha3
 kind: MachineDeployment
@@ -129,9 +123,9 @@ metadata:
 spec:
   template:
     spec:
-      image: "${NODE_IMAGE}"
+      OS: "${NODE_OS:=ubuntu_18_04}"
+      billingCycle: hourly
       machineType: "${WORKER_NODE_TYPE}"
-      partition: "${PARTITION}"
       sshKeys:
         - "${SSH_KEY}"
       tags: []
@@ -143,7 +137,7 @@ metadata:
 spec:
   template:
     spec:
-      preKubeadmCommands: []
+      preKubeadmCommands:
       joinConfiguration:
         nodeRegistration:
           kubeletExtraArgs:
