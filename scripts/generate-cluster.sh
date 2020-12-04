@@ -32,7 +32,7 @@ DEFAULT_POD_CIDR="172.25.0.0/16"
 DEFAULT_SERVICE_CIDR="172.26.0.0/16"
 DEFAULT_MASTER_NODE_TYPE="v1-small-x86"
 DEFAULT_WORKER_NODE_TYPE="v1-small-x86"
-DEFAULT_NODE_IMAGE="ubuntu-20.04"
+DEFAULT_NODE_IMAGE="ubuntu-cloud-init-20.04"
 
 # check required environment variables
 errstring=""

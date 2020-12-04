@@ -17,9 +17,10 @@ spec:
     - sudo apt-get update
     - sudo apt-get install -y kubelet=1.18.9-00 kubectl=1.18.9-00
     - sudo apt-mark hold kubelet kubectl
+    - docker run -d --name=wise2ckubeadm -v /tmp/kubeadm.yaml:/tmp/kubeadm-tmp.yaml wise2c/kubeadm-version:v1.18.9 sleep 1d
     - |
       kubeadm() {
-        docker run -it -v /tmp/kubeadm.yaml:/tmp/kubeadm-tmp.yaml wise2c/kubeadm-version:v1.18.9 kubeadm "$@"
+        docker exec -i wise2ckubeadm kubeadm "$@"
       }
     - kubeadm config migrate --old-config /tmp/kubeadm-tmp.yaml --new-config /tmp/kubeadm.yaml
     - echo "preKubeadmCommands finished"
