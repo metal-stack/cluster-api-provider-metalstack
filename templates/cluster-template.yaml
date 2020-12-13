@@ -9,19 +9,14 @@ spec:
     - sleep 60
     - echo "preKubeadmCommands run"
     - sudo apt-get update && sudo apt-get install -y apt-transport-https curl
-    - curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
-    - |
-      cat<<EOF | sudo tee /etc/apt/sources.list.d/kubernetes.list
-        deb https://apt.kubernetes.io/ kubernetes-xenial main
-      EOF
+    - curl -sS https://packages.cloud.google.com/apt/doc/apt-key.gpg -o key
+    - echo $(wc key)
+    - sudo apt-key add key
+    - sudo rm key
+    - echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list
     - sudo apt-get update
-    - sudo apt-get install -y kubelet=1.18.9-00 kubectl=1.18.9-00
-    - sudo apt-mark hold kubelet kubectl
-    - |
-      kubeadm() {
-        docker run -it -v /tmp/kubeadm.yaml:/tmp/kubeadm-tmp.yaml wise2c/kubeadm-version:v1.18.9 kubeadm "$@"
-      }
-    - kubeadm config migrate --old-config /tmp/kubeadm-tmp.yaml --new-config /tmp/kubeadm.yaml
+    - sudo apt-get install -y kubelet=1.18.9-00 kubeadm=1.18.9-00 kubectl=1.18.9-00
+    - sudo apt-mark hold kubelet kubeadm kubectl
     - echo "preKubeadmCommands finished"
   postKubeadmCommands: []
   initConfiguration:

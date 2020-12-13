@@ -18,7 +18,7 @@ package controllers
 
 import (
 	"github.com/google/uuid"
-	infra "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
+	api "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
 	"github.com/metal-stack/metal-lib/pkg/tag"
 	cluster "sigs.k8s.io/cluster-api/api/v1alpha3"
 	"sigs.k8s.io/cluster-api/util"
@@ -27,15 +27,15 @@ import (
 type resource struct {
 	cluster      *cluster.Cluster
 	machine      *cluster.Machine
-	metalCluster *infra.MetalStackCluster
-	metalMachine *infra.MetalStackMachine
+	metalCluster *api.MetalStackCluster
+	metalMachine *api.MetalStackMachine
 }
 
 func newResource(
 	cl *cluster.Cluster,
 	m *cluster.Machine,
-	metalCl *infra.MetalStackCluster,
-	metalM *infra.MetalStackMachine,
+	metalCl *api.MetalStackCluster,
+	metalM *api.MetalStackMachine,
 ) *resource {
 	return &resource{
 		cluster:      cl,
