@@ -56,6 +56,17 @@ func NewMetalStackClusterReconciler(metalClient MetalStackClient, mgr manager.Ma
 // +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=metalstackclusters/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=cluster.x-k8s.io,resources=clusters;clusters/status,verbs=get;list;watch
 
+func (r *MetalStackClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&infra.MetalStackCluster{}).
+		Watches(
+			&source.Kind{Type: &clusterapi.Cluster{}},
+			&handler.EnqueueRequestsFromMapFunc{
+				ToRequests: util.ClusterToInfrastructureMapFunc(infra.GroupVersion.WithKind("MetalStackCluster")),
+			}).
+		Complete(r)
+}
+
 func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, err error) {
 	ctx := context.Background()
 	logger := r.Log.WithValues("MetalStackCluster", req.NamespacedName)
@@ -155,17 +166,6 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	metalCluster.Status.Ready = true
 
 	return ctrl.Result{}, nil
-}
-
-func (r *MetalStackClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&infra.MetalStackCluster{}).
-		Watches(
-			&source.Kind{Type: &clusterapi.Cluster{}},
-			&handler.EnqueueRequestsFromMapFunc{
-				ToRequests: util.ClusterToInfrastructureMapFunc(infra.GroupVersion.WithKind("MetalStackCluster")),
-			}).
-		Complete(r)
 }
 
 func (r *MetalStackClusterReconciler) allocateNetwork(metalCluster *infra.MetalStackCluster) (*string, error) {
