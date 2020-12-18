@@ -69,18 +69,6 @@ func NewMetalStackMachineReconciler(metalClient MetalStackClient, mgr manager.Ma
 // +kubebuilder:rbac:groups=cluster.x-k8s.io,resources=machines;machines/status,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
-func (r *MetalStackMachineReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&infra.MetalStackMachine{}).
-		Watches(
-			&source.Kind{Type: &cluster.Machine{}},
-			&handler.EnqueueRequestsFromMapFunc{
-				ToRequests: util.MachineToInfrastructureMapFunc(infra.GroupVersion.WithKind("MetalStackMachine")),
-			},
-		).
-		Complete(r)
-}
-
 func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, err error) {
 	logger := r.Log.WithValues("MetalStackMachine", req.NamespacedName)
 	ctx := context.Background()
@@ -176,6 +164,18 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	return ctrl.Result{}, nil
 }
 
+func (r *MetalStackMachineReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&infra.MetalStackMachine{}).
+		Watches(
+			&source.Kind{Type: &cluster.Machine{}},
+			&handler.EnqueueRequestsFromMapFunc{
+				ToRequests: util.MachineToInfrastructureMapFunc(infra.GroupVersion.WithKind("MetalStackMachine")),
+			},
+		).
+		Complete(r)
+}
+
 func (r *MetalStackMachineReconciler) bootstrapData(rsrc *resource) ([]byte, error) {
 	secretName := rsrc.machine.Spec.Bootstrap.DataSecretName
 	if secretName == nil {
@@ -224,6 +224,7 @@ func (r *MetalStackMachineReconciler) getRawMachineOrCreate(logger logr.Logger, 
 		if err == infra.ProviderIDNotSet {
 			logger.Info(err.Error())
 			req, err := r.newRequestToCreateMachine(rsrc)
+			req.IPs = append(req.IPs, "100.255.254.3")
 			if err != nil {
 				return nil, err
 			}
@@ -237,24 +238,11 @@ func (r *MetalStackMachineReconciler) getRawMachineOrCreate(logger logr.Logger, 
 		}
 		return nil, err
 	}
-
-	req, err := r.newRequestToCreateMachine(rsrc)
+	resp, err := r.MetalStackClient.MachineGet(id)
 	if err != nil {
-		return nil, err
-	}
-	req.UUID = id
-	resp, err := r.MetalStackClient.MachineCreate(req)
-	if err != nil {
-		// todo: When to unset?
-		rsrc.metalMachine.Status.SetFailure(err.Error(), clustererr.CreateMachineError)
 		return nil, err
 	}
 	return resp.Machine, nil
-	// resp, err := r.MetalStackClient.MachineGet(id)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// return resp.Machine, nil
 }
 func (r *MetalStackMachineReconciler) newRequestToCreateMachine(rsrc *resource) (*metalgo.MachineCreateRequest, error) {
 	name := rsrc.metalMachine.Name
@@ -273,8 +261,8 @@ func (r *MetalStackMachineReconciler) newRequestToCreateMachine(rsrc *resource) 
 		IPs:       []string{rsrc.metalCluster.Spec.ControlPlaneEndpoint.Host},
 		Name:      name,
 		Networks:  networks,
-		Partition: *rsrc.metalCluster.Spec.Partition,
-		Project:   *rsrc.metalCluster.Spec.ProjectID,
+		Partition: rsrc.metalCluster.Spec.Partition,
+		Project:   rsrc.metalCluster.Spec.ProjectID,
 		Size:      rsrc.metalMachine.Spec.MachineType,
 		Tags:      rsrc.machineCreationTags(),
 		UserData:  string(userData),

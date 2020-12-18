@@ -39,9 +39,6 @@ var (
 	MetalStackResourceStatusOff = MetalStackResourceStatus("off")
 )
 
-// Tags defines a slice of tags.
-type Tags []string
-
 // MetalStackMachineTemplateResource describes the data needed to create am MetalStackMachine from a template
 type MetalStackMachineTemplateResource struct {
 	// Spec is the specification of the desired behavior of the machine.

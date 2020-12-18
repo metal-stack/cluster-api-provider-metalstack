@@ -34,31 +34,23 @@ type MetalStackMachineSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
+	// OS image
 	Image string `json:"image"`
 
-	// +optional
-	NetworkIDs []string `json:"networkIDs"`
-	Partition  *string  `json:"partition"`
+	// Machine type(currently specifies only size)
+	MachineType string `json:"machineType"`
 
-	// ID of the machine. This field is required by Cluster API.
+	// ID of Metal Stack machine
 	// +optional
-	ProjectID *string `json:"projectID,omitempty"`
-	// +optional
-	ProviderID *string `json:"providerID"`
-	// +optional
-	Type *string `json:"type"`
+	ProviderID *string `json:"providerID,omitempty"`
 
-	MachineType string   `json:"machineType"`
-	SSHKeys     []string `json:"sshKeys,omitempty"`
-
-	// HardwareReservationID is the unique machine hardware reservation ID or `next-available` to
-	// automatically let the MetalStack api determine one.
+	// public SSH keys for machine
 	// +optional
-	HardwareReservationID string `json:"hardwareReservationID,omitempty"`
+	SSHKeys []string `json:"sshKeys,omitempty"`
 
-	// Tags is an optional set of tags to add to MetalStack resources managed by the MetalStack provider.
+	// Set of tags to add to Metal Stack machine
 	// +optional
-	Tags Tags `json:"tags,omitempty"`
+	Tags []string `json:"tags,omitempty"`
 }
 
 var ProviderIDNotSet = errors.New("ProviderID of the MetalStackMachineSpec not set")
@@ -138,10 +130,6 @@ type MetalStackMachineStatus struct {
 	// +optional
 	Ready bool `json:"ready"`
 }
-
-// func (st *MetalStackMachineStatus) Erroneous() bool {
-// 	return st.ErrorMessage != nil || st.ErrorReason != nil
-// }
 
 func (st *MetalStackMachineStatus) Failed() bool {
 	return st.FailureMessage != nil || st.FailureReason != nil

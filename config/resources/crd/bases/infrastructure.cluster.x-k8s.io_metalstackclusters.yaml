@@ -22,10 +22,14 @@ spec:
       description: MetalStackCluster is the Schema for the MetalStackclusters API
       properties:
         apiVersion:
-          description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
           type: string
         kind:
-          description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
           type: string
         metadata:
           type: object
@@ -33,7 +37,8 @@ spec:
           description: MetalStackClusterSpec defines the desired state of MetalStackCluster
           properties:
             controlPlaneEndpoint:
-              description: ControlPlaneEndpoint represents the endpoint used to communicate with the control plane.
+              description: ControlPlaneEndpoint represents the endpoint used to communicate
+                with the control plane.
               properties:
                 host:
                   description: The hostname on which the API server is serving.
@@ -47,6 +52,7 @@ spec:
               - port
               type: object
             firewall:
+              description: Firewall is cluster's firewall config
               properties:
                 defaultNetworkID:
                   type: string
@@ -60,14 +66,22 @@ spec:
                   type: array
               type: object
             partition:
-              description: Partition is the physical location where the cluster will be created
+              description: Partition is the physical location where the cluster will
+                be created
               type: string
             privateNetworkID:
-              description: PrivateNetworkID is the id if the network which connects the machine together
+              description: PrivateNetworkID is the id if the network which connects
+                the machine together
               type: string
             projectID:
-              description: ProjectID is th projectID of MetalStackCluster. Edit MetalStackCluster_types.go to remove/update
+              description: ProjectID is the projectID of the project in which K8s
+                cluster should be deployed
               type: string
+          required:
+          - controlPlaneEndpoint
+          - firewall
+          - partition
+          - projectID
           type: object
         status:
           description: MetalStackClusterStatus defines the observed state of MetalStackCluster
