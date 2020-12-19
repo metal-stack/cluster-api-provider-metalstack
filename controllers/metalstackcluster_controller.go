@@ -149,7 +149,7 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 			Description: "",
 			Name:        metalCluster.Name + "api-server-IP",
 			Networkid:   "internet-vagrant-lab",
-			Projectid:   *metalCluster.Spec.ProjectID,
+			Projectid:   metalCluster.Spec.ProjectID,
 			IPAddress:   "",
 			Type:        "",
 			Tags:        []string{},
@@ -169,20 +169,12 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 }
 
 func (r *MetalStackClusterReconciler) allocateNetwork(metalCluster *infra.MetalStackCluster) (*string, error) {
-	if metalCluster.Spec.Partition == nil {
-		return nil, newErrSpecNotSet("Partition")
-	}
-
-	if metalCluster.Spec.ProjectID == nil {
-		return nil, newErrSpecNotSet("ProjectID")
-	}
-
 	resp, err := r.MetalStackClient.NetworkAllocate(&metalgo.NetworkAllocateRequest{
 		Description: metalCluster.Name,
 		Labels:      map[string]string{tag.ClusterID: metalCluster.Name},
-		Name:        *metalCluster.Spec.Partition,
-		PartitionID: *metalCluster.Spec.Partition,
-		ProjectID:   *metalCluster.Spec.ProjectID,
+		Name:        metalCluster.Spec.Partition,
+		PartitionID: metalCluster.Spec.Partition,
+		ProjectID:   metalCluster.Spec.ProjectID,
 	})
 	if err != nil {
 		return nil, err
@@ -192,19 +184,16 @@ func (r *MetalStackClusterReconciler) allocateNetwork(metalCluster *infra.MetalS
 
 // todo: Not used.
 func (r *MetalStackClusterReconciler) controlPlaneIP(metalCluster *infra.MetalStackCluster) (string, error) {
-	if metalCluster.Spec.ProjectID == nil {
-		return "", newErrSpecNotSet("ProjectID")
-	}
 	tags := metalCluster.ControlPlaneTags()
 	mm, err := r.MetalStackClient.MachineFind(&metalgo.MachineFindRequest{
-		AllocationProject: metalCluster.Spec.ProjectID,
+		AllocationProject: &metalCluster.Spec.ProjectID,
 		Tags:              tags,
 	})
 	if err != nil {
 		return "", err
 	}
 	if mm == nil {
-		return "", newErrMachineNotFound(*metalCluster.Spec.ProjectID, tags)
+		return "", newErrMachineNotFound(metalCluster.Spec.ProjectID, tags)
 	}
 
 	// todo: Consider high availabilty case and test it.
@@ -229,23 +218,18 @@ func (r *MetalStackClusterReconciler) createFirewall(metalCluster *infra.MetalSt
 	if metalCluster.Spec.Firewall.Size == nil {
 		return newErrSpecNotSet("Firewall.Size")
 	}
-	if metalCluster.Spec.Partition == nil {
-		return newErrSpecNotSet("Partition")
-	}
 	if metalCluster.Spec.PrivateNetworkID == nil {
 		return newErrSpecNotSet("PrivateNetworkID")
 	}
-	if metalCluster.Spec.ProjectID == nil {
-		return newErrSpecNotSet("ProjectID")
-	}
+
 	_, err := r.MetalStackClient.FirewallCreate(&metalgo.FirewallCreateRequest{
 		MachineCreateRequest: metalgo.MachineCreateRequest{
 			Description:   metalCluster.Name + " created by Cluster API provider MetalStack",
 			Name:          metalCluster.Name,
 			Hostname:      metalCluster.Name + "-firewall",
 			Size:          *metalCluster.Spec.Firewall.Size,
-			Project:       *metalCluster.Spec.ProjectID,
-			Partition:     *metalCluster.Spec.Partition,
+			Project:       metalCluster.Spec.ProjectID,
+			Partition:     metalCluster.Spec.Partition,
 			Image:         *metalCluster.Spec.Firewall.Image,
 			SSHPublicKeys: metalCluster.Spec.Firewall.SSHKeys,
 			Networks:      toNetworks(*metalCluster.Spec.Firewall.DefaultNetworkID, *metalCluster.Spec.PrivateNetworkID),
