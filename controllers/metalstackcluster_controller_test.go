@@ -60,7 +60,7 @@ var _ = Describe("MetalStackClusterReconciler", func() {
 			r := newTestClusterReconciler(mClient)
 
 			// Run the target func.
-			_, err := r.allocateNetwork(newTestCluster())
+			err := r.allocateNetwork(newTestCluster())
 			Expect(err).To(Equal(theErr))
 		})
 		It("should return the project ID", func() {
@@ -76,9 +76,10 @@ var _ = Describe("MetalStackClusterReconciler", func() {
 				nil,
 			)
 			r := newTestClusterReconciler(mClient)
-			id, err := r.allocateNetwork(newTestCluster())
+			testCluster := newTestCluster()
+			err := r.allocateNetwork(testCluster)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(id).To(Equal(&expectedID))
+			Expect(testCluster.Spec.PrivateNetworkID).To(Equal(&expectedID))
 		})
 	})
 	Describe("controlPlaneIP", func() {

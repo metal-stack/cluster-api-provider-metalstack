@@ -155,7 +155,7 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		return ctrl.Result{}, nil
 	}
 
-	raw, err := r.getRawMachineOrCreate(logger, rsrc)
+	raw, err := r.getRawMachineOrCreate(ctx, logger, rsrc)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -176,7 +176,7 @@ func (r *MetalStackMachineReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *MetalStackMachineReconciler) bootstrapData(rsrc *resource) ([]byte, error) {
+func (r *MetalStackMachineReconciler) bootstrapData(ctx context.Context, rsrc *resource) ([]byte, error) {
 	secretName := rsrc.machine.Spec.Bootstrap.DataSecretName
 	if secretName == nil {
 		return nil, errors.New("owner Machine's Spec.Bootstrap.DataSecretName being nil")
@@ -184,7 +184,7 @@ func (r *MetalStackMachineReconciler) bootstrapData(rsrc *resource) ([]byte, err
 
 	secret := &core.Secret{}
 	if err := r.Client.Get(
-		context.TODO(),
+		ctx,
 		types.NamespacedName{
 			Namespace: rsrc.metalMachine.Namespace,
 			Name:      *secretName,
@@ -206,11 +206,11 @@ func (r *MetalStackMachineReconciler) deleteMachine(ctx context.Context, logger 
 
 	id, err := rsrc.metalMachine.Spec.ParsedProviderID()
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, fmt.Errorf("parse provider ID: %w", err)
 	}
 
 	if _, err = r.MetalStackClient.MachineDelete(id); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to delete the MetalStackMachine %v: %v", rsrc.metalMachine.Name, err)
+		return ctrl.Result{}, fmt.Errorf("failed to delete the MetalStackMachine %v: %w", rsrc.metalMachine.Name, err)
 	}
 
 	controllerutil.RemoveFinalizer(rsrc.metalMachine, MachineFinalizer)
@@ -218,15 +218,14 @@ func (r *MetalStackMachineReconciler) deleteMachine(ctx context.Context, logger 
 	return ctrl.Result{}, nil
 }
 
-func (r *MetalStackMachineReconciler) getRawMachineOrCreate(logger logr.Logger, rsrc *resource) (*models.V1MachineResponse, error) {
+func (r *MetalStackMachineReconciler) getRawMachineOrCreate(ctx context.Context, logger logr.Logger, rsrc *resource) (*models.V1MachineResponse, error) {
 	id, err := rsrc.metalMachine.Spec.ParsedProviderID()
 	if err != nil {
 		if err == infra.ProviderIDNotSet {
 			logger.Info(err.Error())
-			req, err := r.newRequestToCreateMachine(rsrc)
-			req.IPs = append(req.IPs, "100.255.254.3")
+			req, err := r.newRequestToCreateMachine(ctx, rsrc)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("new createMachine request: %w", err)
 			}
 			resp, err := r.MetalStackClient.MachineCreate(req)
 			if err != nil {
@@ -244,14 +243,14 @@ func (r *MetalStackMachineReconciler) getRawMachineOrCreate(logger logr.Logger, 
 	}
 	return resp.Machine, nil
 }
-func (r *MetalStackMachineReconciler) newRequestToCreateMachine(rsrc *resource) (*metalgo.MachineCreateRequest, error) {
+func (r *MetalStackMachineReconciler) newRequestToCreateMachine(ctx context.Context, rsrc *resource) (*metalgo.MachineCreateRequest, error) {
 	name := rsrc.metalMachine.Name
 	networks := toNetworks(*rsrc.metalCluster.Spec.Firewall.DefaultNetworkID, *rsrc.metalCluster.Spec.PrivateNetworkID)
-	userData, err := r.bootstrapData(rsrc)
+	userData, err := r.bootstrapData(ctx, rsrc)
 	// todo: Remove this
 	log.Println("userData: ", string(userData))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get bootstrap data: %w", err)
 	}
 	// todo: Remove this
 	log.Printf("creating a machine with IP: %v", rsrc.metalCluster.Spec.ControlPlaneEndpoint.Host)

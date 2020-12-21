@@ -86,12 +86,18 @@ spec:
         status:
           description: MetalStackClusterStatus defines the observed state of MetalStackCluster
           properties:
+            controlPlaneIPAllocated:
+              description: ControlPlaneIPAllocated denotes that IP for Control Plane
+                was allocated successfully.
+              type: boolean
             firewallReady:
               description: 'todo: Consider CR Firewall.'
               type: boolean
             ready:
               description: Ready denotes that the cluster (infrastructure) is ready.
               type: boolean
+          required:
+          - controlPlaneIPAllocated
           type: object
       type: object
   version: v1alpha3

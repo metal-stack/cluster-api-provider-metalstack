@@ -53,7 +53,7 @@ metadata:
   name: "${CLUSTER_NAME}"
 spec:
   controlPlaneEndpoint:
-    host: "100.255.254.3"
+    host: "100.255.254.1"
     port: 6443
   firewall:
     defaultNetworkID: internet-vagrant-lab
@@ -87,12 +87,8 @@ metadata:
   name: "${CLUSTER_NAME}-master-0"
 spec:
   image: "${NODE_IMAGE}"
-  providerID: metalstack://e0ab02d2-27cd-5a5e-8efc-080ba80cf258
-  partition: "${PARTITION}"
   machineType: "${MASTER_NODE_TYPE}"
-  sshKeys:
-    - "${SSH_KEY}"
-  tags: []
+  partition: "${PARTITION}"
 ---
 apiVersion: cluster.x-k8s.io/v1alpha3
 kind: MachineDeployment

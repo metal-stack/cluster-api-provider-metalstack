@@ -57,6 +57,9 @@ type MetalStackClusterStatus struct {
 	// +optional
 	Ready bool `json:"ready"`
 
+	// ControlPlaneIPAllocated denotes that IP for Control Plane was allocated successfully.
+	ControlPlaneIPAllocated bool `json:"controlPlaneIPAllocated"`
+
 	// todo: Consider CR Firewall.
 	// +optional
 	FirewallReady bool `json:"firewallReady,omitempty"`
