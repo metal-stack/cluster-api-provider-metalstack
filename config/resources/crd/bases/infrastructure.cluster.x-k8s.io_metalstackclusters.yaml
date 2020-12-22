@@ -70,8 +70,9 @@ spec:
                 be created
               type: string
             privateNetworkID:
-              description: PrivateNetworkID is the id if the network which connects
-                the machine together
+              description: PrivateNetworkID is the id of the network which connects
+                machines together. Shouldn't be filled manually in manifest. MetalStackCluster
+                controller will allocate network and set it's ID in this field.
               type: string
             projectID:
               description: ProjectID is the projectID of the project in which K8s
@@ -103,11 +104,16 @@ spec:
             firewallReady:
               description: 'todo: Consider CR Firewall.'
               type: boolean
+            privateNetworkAllocated:
+              description: PrivateNetworkAllocated denotes that network was allocated
+                successfully.
+              type: boolean
             ready:
               description: Ready denotes that the cluster (infrastructure) is ready.
               type: boolean
           required:
           - controlPlaneIPAllocated
+          - privateNetworkAllocated
           type: object
       type: object
   version: v1alpha3

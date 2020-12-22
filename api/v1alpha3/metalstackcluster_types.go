@@ -44,7 +44,8 @@ type MetalStackClusterSpec struct {
 	// Firewall is cluster's firewall config
 	Firewall Firewall `json:"firewall"`
 
-	// PrivateNetworkID is the id if the network which connects the machine together
+	// PrivateNetworkID is the id of the network which connects machines together. Shouldn't be filled manually in manifest.
+	// MetalStackCluster controller will allocate network and set it's ID in this field.
 	// +optional
 	PrivateNetworkID *string `json:"privateNetworkID,omitempty"`
 }
@@ -60,6 +61,9 @@ type MetalStackClusterStatus struct {
 
 	// ControlPlaneIPAllocated denotes that IP for Control Plane was allocated successfully.
 	ControlPlaneIPAllocated bool `json:"controlPlaneIPAllocated"`
+
+	// PrivateNetworkAllocated denotes that network was allocated successfully.
+	PrivateNetworkAllocated bool `json:"privateNetworkAllocated"`
 
 	// todo: Consider CR Firewall.
 	// +optional

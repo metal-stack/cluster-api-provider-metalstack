@@ -25,6 +25,7 @@ import (
 	// "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
 	infra "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
 	"github.com/metal-stack/cluster-api-provider-metalstack/controllers/mocks"
+
 	// metalgo "github.com/metal-stack/metal-go"
 	. "github.com/onsi/ginkgo"
 
@@ -36,7 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-var _ = Describe(typeOf(MetalStackClusterReconciler{}), func() {
+var _ = Describe("MetalStackMachineReconciler", func() {
 	// Set up gomock Controller for each test case.
 	gmckController := new(gmck.Controller)
 
