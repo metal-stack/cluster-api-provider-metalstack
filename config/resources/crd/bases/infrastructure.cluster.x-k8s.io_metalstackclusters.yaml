@@ -90,6 +90,16 @@ spec:
               description: ControlPlaneIPAllocated denotes that IP for Control Plane
                 was allocated successfully.
               type: boolean
+            failureMessage:
+              description: FailureMessage indicates there is a fatal problem reconciling
+                the provider’s infrastructure. Meant to be a more descriptive value
+                than failureReason
+              type: string
+            failureReason:
+              description: FailureReason indicates there is a fatal problem reconciling
+                the provider’s infrastructure. Meant to be suitable for programmatic
+                interpretation
+              type: string
             firewallReady:
               description: 'todo: Consider CR Firewall.'
               type: boolean

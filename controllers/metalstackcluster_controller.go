@@ -26,7 +26,9 @@ import (
 	"github.com/metal-stack/metal-lib/pkg/tag"
 	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/utils/pointer"
 	clusterapi "sigs.k8s.io/cluster-api/api/v1alpha3"
+	capierrors "sigs.k8s.io/cluster-api/errors"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -67,7 +69,7 @@ func (r *MetalStackClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, err error) {
-	logger := r.Log.WithValues("MetalStackCluster", req.NamespacedName)
+	logger := r.Log.WithValues("metal-stack cluster", req.NamespacedName)
 	ctx := context.Background()
 
 	// Fetch the MetalStackCluster.
@@ -79,33 +81,36 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		return ctrl.Result{}, fmt.Errorf("fetch MetalStackCluster: %w", err)
 	}
 
-	// Fetch the Cluster.
-	cluster, err := util.GetOwnerCluster(ctx, r.Client, metalCluster.ObjectMeta)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("get owner cluster: %w", err)
-	}
-	if cluster == nil {
-		logger.Info("OwnerCluster not set: requeueing")
-		return requeue, nil
-	}
-	if util.IsPaused(cluster, metalCluster) {
-		logger.Info("MetalStackCluster or its OwnerCluster paused: reconciliation stopped")
-		return ctrl.Result{}, nil
-	}
-
-	// Persist any change of the MetalStackCluster.
+	// Persist any changes to MetalStackCluster.
 	h, err := patch.NewHelper(metalCluster, r.Client)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("patch cluster: %w", err)
+		return ctrl.Result{}, fmt.Errorf("init patch helper: %w", err)
 	}
 	defer func() {
 		if e := h.Patch(ctx, metalCluster); e != nil {
 			if err != nil {
 				err = errors.Wrap(e, err.Error())
 			}
-			err = e
+			err = fmt.Errorf("patch: %w", e)
 		}
 	}()
+
+	// Fetch the Cluster.
+	cluster, err := util.GetOwnerCluster(ctx, r.Client, metalCluster.ObjectMeta)
+	if err != nil {
+		clusterErr := capierrors.InvalidConfigurationClusterError
+		metalCluster.Status.FailureReason = &clusterErr
+		metalCluster.Status.FailureMessage = pointer.StringPtr("Unable to get OwnerCluster")
+		return ctrl.Result{}, fmt.Errorf("get OwnerCluster: %w", err)
+	}
+	if cluster == nil {
+		logger.Info("Waiting for cluster controller to set OwnerRef to MetalStackCluster")
+		return requeue, nil
+	}
+	if util.IsPaused(cluster, metalCluster) {
+		logger.Info("reconcilation is paused for this object")
+		return requeue, nil
+	}
 
 	// Allocate network.
 	if metalCluster.Spec.PrivateNetworkID == nil {
@@ -136,11 +141,7 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		logger.Info("firewall created")
 		metalCluster.Status.FirewallReady = true
 
-		// `FirewallReady` should be updated immediately, so
-		if err := r.Client.Status().Update(ctx, metalCluster); err != nil {
-			logger.Error(err, "error while updating the status `FirewallReady`")
-			return ctrl.Result{}, fmt.Errorf("status update: %w", err)
-		}
+		return ctrl.Result{}, nil
 	}
 
 	metalCluster.Status.Ready = true
