@@ -21,6 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/cluster-api/api/v1alpha3"
 	clusterapi "sigs.k8s.io/cluster-api/api/v1alpha3"
+	capierrors "sigs.k8s.io/cluster-api/errors"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -63,6 +64,16 @@ type MetalStackClusterStatus struct {
 	// todo: Consider CR Firewall.
 	// +optional
 	FirewallReady bool `json:"firewallReady,omitempty"`
+
+	// FailureReason indicates there is a fatal problem reconciling the provider’s infrastructure.
+	// Meant to be suitable for programmatic interpretation
+	// +optional
+	FailureReason *capierrors.ClusterStatusError `json:"failureReason,omitempty"`
+
+	// FailureMessage indicates there is a fatal problem reconciling the provider’s infrastructure.
+	// Meant to be a more descriptive value than failureReason
+	// +optional
+	FailureMessage *string `json:"failureMessage,omitempty"`
 }
 
 // +kubebuilder:subresource:status
