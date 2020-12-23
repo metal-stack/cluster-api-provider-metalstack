@@ -4,27 +4,28 @@ apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
 metadata:
   name: "${CLUSTER_NAME}-control-plane1-config"
 spec:
-  preKubeadmCommands:
-    - echo "waiting for the network"
-    - sleep 60
-    - echo "preKubeadmCommands run"
-    - sudo apt-get update && sudo apt-get install -y apt-transport-https curl
-    - curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
-    - |
-      cat<<EOF | sudo tee /etc/apt/sources.list.d/kubernetes.list
-        deb https://apt.kubernetes.io/ kubernetes-xenial main
-      EOF
-    - sudo apt-get update
-    - sudo apt-get install -y kubelet=1.18.9-00 kubectl=1.18.9-00
-    - sudo apt-mark hold kubelet kubectl
-    - |
-      kubeadm() {
-        docker run -it -v /tmp/kubeadm.yaml:/tmp/kubeadm-tmp.yaml wise2c/kubeadm-version:v1.18.9 kubeadm "$@"
-      }
-    - kubeadm config migrate --old-config /tmp/kubeadm-tmp.yaml --new-config /tmp/kubeadm.yaml
-    - echo "preKubeadmCommands finished"
-  postKubeadmCommands: []
+ preKubeadmCommands:
+  - echo "waiting for the network"
+  - sleep 150
+  - echo "preKubeadmCommands run"
+  - sudo apt-get update && sudo apt-get install -y apt-transport-https curl
+  - curl -sS https://packages.cloud.google.com/apt/doc/apt-key.gpg -o key
+  - echo $(wc key)
+  - sudo apt-key add key
+  - sudo rm key
+  - echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+  - sudo apt-get update
+  - sudo apt-get install -y kubelet=1.18.9-00 kubeadm=1.18.9-00 kubectl=1.18.9-00
+  - sudo apt-mark hold kubelet kubeadm kubectl
+  - kubeadm config migrate --old-config /tmp/kubeadm.yaml --new-config /tmp/new_kubeadm.yaml
+  - sudo rm /tmp/kubeadm.yaml && sudo mv /tmp/new_kubeadm.yaml /tmp/kubeadm.yaml
+  - echo "preKubeadmCommands finished"
+  postKubeadmCommands: 
+  - sudo kubeadm init --config=/tmp/kubeadm.yaml --ignore-preflight-errors=NumCPU
   initConfiguration:
+    localAPIEndpoint:
+      advertiseAddress: "100.255.254.1"
+      bindPort: 6443
     nodeRegistration:
       kubeletExtraArgs:
         cloud-provider: external
@@ -51,6 +52,9 @@ kind: MetalStackCluster
 metadata:
   name: "${CLUSTER_NAME}"
 spec:
+  controlPlaneEndpoint:
+    host: "100.255.254.1"
+    port: 6443
   firewall:
     defaultNetworkID: internet-vagrant-lab
     image: "firewall-ubuntu-2.0"
@@ -83,11 +87,8 @@ metadata:
   name: "${CLUSTER_NAME}-master-0"
 spec:
   image: "${NODE_IMAGE}"
-  partition: "${PARTITION}"
   machineType: "${MASTER_NODE_TYPE}"
-  sshKeys:
-    - "${SSH_KEY}"
-  tags: []
+  partition: "${PARTITION}"
 ---
 apiVersion: cluster.x-k8s.io/v1alpha3
 kind: MachineDeployment

@@ -32,21 +32,20 @@ type MetalStackClusterSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// ControlPlaneEndpoint represents the endpoint used to communicate with the control plane.
-	// +optional
 	ControlPlaneEndpoint v1alpha3.APIEndpoint `json:"controlPlaneEndpoint"`
 
-	// +optional
-	Firewall *Firewall `json:"firewall,omitempty"`
+	// ProjectID is the projectID of the project in which K8s cluster should be deployed
+	ProjectID string `json:"projectID"`
 
 	// Partition is the physical location where the cluster will be created
-	Partition *string `json:"partition,omitempty"`
+	Partition string `json:"partition"`
+
+	// Firewall is cluster's firewall config
+	Firewall Firewall `json:"firewall"`
 
 	// PrivateNetworkID is the id if the network which connects the machine together
 	// +optional
 	PrivateNetworkID *string `json:"privateNetworkID,omitempty"`
-
-	// ProjectID is th projectID of MetalStackCluster. Edit MetalStackCluster_types.go to remove/update
-	ProjectID *string `json:"projectID,omitempty"`
 }
 
 // MetalStackClusterStatus defines the observed state of MetalStackCluster
@@ -57,6 +56,9 @@ type MetalStackClusterStatus struct {
 	// Ready denotes that the cluster (infrastructure) is ready.
 	// +optional
 	Ready bool `json:"ready"`
+
+	// ControlPlaneIPAllocated denotes that IP for Control Plane was allocated successfully.
+	ControlPlaneIPAllocated bool `json:"controlPlaneIPAllocated"`
 
 	// todo: Consider CR Firewall.
 	// +optional

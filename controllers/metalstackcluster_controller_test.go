@@ -53,25 +53,14 @@ var _ = Describe("MetalStackClusterReconciler", func() {
 	forwardingErr := "should forward the returned error from the lower-level API"
 	theErr := errors.New("this error going to be returned by the tested func")
 	Describe("allocateNetwork", func() {
-		DescribeTable(
-			typeOf(errSpecNotSet{}),
-			func(s string) {
-				cluster := newTestCluster()
-				unsetPointeeField(&cluster.Spec, s)
 
-				// Run the target func.
-				_, err := newTestClusterReconciler(mClient).allocateNetwork(cluster)
-				Expect(err).To(Equal(newErrSpecNotSet(s)))
-			},
-			toEntriesForErrSpecNotSet("Partition", "ProjectID")...,
-		)
 		It(forwardingErr, func() {
 			// Set the returned error.
 			mClient.EXPECT().NetworkAllocate(gmck.Any()).Return(nil, theErr)
 			r := newTestClusterReconciler(mClient)
 
 			// Run the target func.
-			_, err := r.allocateNetwork(newTestCluster())
+			err := r.allocateNetwork(newTestCluster())
 			Expect(err).To(Equal(theErr))
 		})
 		It("should return the project ID", func() {
@@ -87,21 +76,13 @@ var _ = Describe("MetalStackClusterReconciler", func() {
 				nil,
 			)
 			r := newTestClusterReconciler(mClient)
-			id, err := r.allocateNetwork(newTestCluster())
+			testCluster := newTestCluster()
+			err := r.allocateNetwork(testCluster)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(id).To(Equal(&expectedID))
+			Expect(testCluster.Spec.PrivateNetworkID).To(Equal(&expectedID))
 		})
 	})
 	Describe("controlPlaneIP", func() {
-		{
-			field := "ProjectID"
-			It(toTestDescr(newErrSpecNotSet(field)), func() {
-				cluster := newTestCluster()
-				unsetPointeeField(&cluster.Spec, field)
-				_, err := newTestClusterReconciler(mClient).controlPlaneIP(cluster)
-				Expect(err).To(Equal(newErrSpecNotSet(field)))
-			})
-		}
 		It(forwardingErr, func() {
 			mClient.EXPECT().MachineFind(gmck.Any()).Return(nil, theErr)
 			ip, err := newTestClusterReconciler(mClient).controlPlaneIP(newTestCluster())
@@ -113,7 +94,7 @@ var _ = Describe("MetalStackClusterReconciler", func() {
 			cluster := newTestCluster()
 			ip, err := newTestClusterReconciler(mClient).controlPlaneIP(cluster)
 			Expect(ip).To(Equal(""))
-			Expect(err).To(Equal(newErrMachineNotFound(*cluster.Spec.ProjectID, cluster.ControlPlaneTags())))
+			Expect(err).To(Equal(newErrMachineNotFound(cluster.Spec.ProjectID, cluster.ControlPlaneTags())))
 		})
 		DescribeTable(
 			typeOf(errIPNotAllocated{}),
@@ -161,13 +142,10 @@ var _ = Describe("MetalStackClusterReconciler", func() {
 				cluster := newTestCluster()
 
 				// Unset a field.
-				v := reflect.Value{}
-				if parsed := strings.Split(s, "."); len(parsed) == 1 {
-					v = reflect.ValueOf(&cluster.Spec).Elem().FieldByName(s)
-				} else {
-					v = reflect.ValueOf(cluster.Spec.Firewall).Elem().FieldByName(parsed[len(parsed)-1])
+				if parsed := strings.Split(s, "."); len(parsed) == 2 {
+					v := reflect.ValueOf(&cluster.Spec.Firewall).Elem().FieldByName(strings.Split(s, ".")[1])
+					v.Set(reflect.Zero(v.Type()))
 				}
-				v.Set(reflect.Zero(v.Type()))
 
 				// Run the target func.
 				err := newTestClusterReconciler(mClient).createFirewall(cluster)
@@ -177,9 +155,6 @@ var _ = Describe("MetalStackClusterReconciler", func() {
 				"Firewall.DefaultNetworkID",
 				"Firewall.Image",
 				"Firewall.Size",
-				"Partition",
-				"PrivateNetworkID",
-				"ProjectID",
 			)...,
 		)
 		It(forwardingErr, func() {
@@ -219,12 +194,13 @@ func newTestCluster() *infra.MetalStackCluster {
 		case 1: // Name
 			reflect.ValueOf(cluster).Elem().FieldByName(last).Set(reflect.ValueOf(newStr))
 		case 2: // fields in Spec
-			reflect.ValueOf(&cluster.Spec).Elem().FieldByName(last).Set(reflect.ValueOf(&newStr))
-		case 3: // fields in Firewall
-			if cluster.Spec.Firewall == nil {
-				cluster.Spec.Firewall = &infra.Firewall{}
+			if last == "PrivateNetworkID" {
+				reflect.ValueOf(&cluster.Spec).Elem().FieldByName(last).Set(reflect.ValueOf(&newStr))
+			} else {
+				reflect.ValueOf(&cluster.Spec).Elem().FieldByName(last).Set(reflect.ValueOf(newStr))
 			}
-			reflect.ValueOf(cluster.Spec.Firewall).Elem().FieldByName(last).Set(reflect.ValueOf(&newStr))
+		case 3: // fields in Firewall
+			reflect.ValueOf(&cluster.Spec.Firewall).Elem().FieldByName(last).Set(reflect.ValueOf(&newStr))
 		default:
 			return new(infra.MetalStackCluster)
 		}

@@ -45,52 +45,47 @@ spec:
       description: MetalStackMachine is the Schema for the metalstackmachines API
       properties:
         apiVersion:
-          description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
           type: string
         kind:
-          description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
           type: string
         metadata:
           type: object
         spec:
           description: MetalStackMachineSpec defines the desired state of MetalStackMachine
           properties:
-            hardwareReservationID:
-              description: HardwareReservationID is the unique machine hardware reservation ID or `next-available` to automatically let the MetalStack api determine one.
-              type: string
             image:
+              description: OS image
               type: string
             machineType:
-              type: string
-            networkIDs:
-              items:
-                type: string
-              type: array
-            partition:
-              type: string
-            projectID:
-              description: ID of the machine. This field is required by Cluster API.
+              description: Machine type(currently specifies only size)
               type: string
             providerID:
+              description: ID of Metal Stack machine
               type: string
             sshKeys:
+              description: public SSH keys for machine
               items:
                 type: string
               type: array
             tags:
-              description: Tags is an optional set of tags to add to MetalStack resources managed by the MetalStack provider.
+              description: Set of tags to add to Metal Stack machine
               items:
                 type: string
               type: array
-            type:
-              type: string
           required:
           - image
           - machineType
-          - partition
           type: object
         status:
-          description: 'todo: Ideally most of the status provided by `metal-API` should be shown here. todo: Implement the logic to updating the status. MetalStackMachineStatus defines the observed state of MetalStackMachine'
+          description: 'todo: Ideally most of the status provided by `metal-API` should
+            be shown here. todo: Implement the logic to updating the status. MetalStackMachineStatus
+            defines the observed state of MetalStackMachine'
           properties:
             addresses:
               description: Addresses contains the MetalStack machine associated addresses.
@@ -101,7 +96,8 @@ spec:
                     description: The node address.
                     type: string
                   type:
-                    description: Node address type, one of Hostname, ExternalIP or InternalIP.
+                    description: Node address type, one of Hostname, ExternalIP or
+                      InternalIP.
                     type: string
                 required:
                 - address
@@ -111,18 +107,34 @@ spec:
             allocated:
               type: boolean
             errorMessage:
-              description: "ErrorMessage will be set in the event that there is a terminal problem reconciling the Machine and will contain a more verbose string suitable for logging and human consumption. \n This field should not be set for transitive errors that a controller faces that are expected to be fixed automatically over time (like service outages), but instead indicate that something is fundamentally wrong with the Machine's spec or the configuration of the controller, and that manual intervention is required. Examples of terminal errors would be invalid combinations of settings in the spec, values that are unsupported by the controller, or the responsible controller itself being critically misconfigured. \n Any transient errors that occur during the reconciliation of Machines can be added as events to the Machine object and/or logged in the controller's output."
+              description: "ErrorMessage will be set in the event that there is a
+                terminal problem reconciling the Machine and will contain a more verbose
+                string suitable for logging and human consumption. \n This field should
+                not be set for transitive errors that a controller faces that are
+                expected to be fixed automatically over time (like service outages),
+                but instead indicate that something is fundamentally wrong with the
+                Machine's spec or the configuration of the controller, and that manual
+                intervention is required. Examples of terminal errors would be invalid
+                combinations of settings in the spec, values that are unsupported
+                by the controller, or the responsible controller itself being critically
+                misconfigured. \n Any transient errors that occur during the reconciliation
+                of Machines can be added as events to the Machine object and/or logged
+                in the controller's output."
               type: string
             errorReason:
-              description: Any transient errors that occur during the reconciliation of Machines can be added as events to the Machine object and/or logged in the controller's output.
+              description: Any transient errors that occur during the reconciliation
+                of Machines can be added as events to the Machine object and/or logged
+                in the controller's output.
               type: string
             failureMessage:
               type: string
             failureReason:
-              description: Constants aren't automatically generated for unversioned packages. Instead share the same constant for all versioned packages
+              description: Constants aren't automatically generated for unversioned
+                packages. Instead share the same constant for all versioned packages
               type: string
             instanceStatus:
-              description: InstanceStatus is the status of the MetalStack machine instance for this machine.
+              description: InstanceStatus is the status of the MetalStack machine
+                instance for this machine.
               type: string
             liveliness:
               type: string
