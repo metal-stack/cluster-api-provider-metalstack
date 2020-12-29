@@ -26,9 +26,7 @@ import (
 	"github.com/metal-stack/metal-go/api/models"
 	"github.com/pkg/errors"
 
-	core "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
 	cluster "sigs.k8s.io/cluster-api/api/v1alpha3"
 	clustererr "sigs.k8s.io/cluster-api/errors"
 	"sigs.k8s.io/cluster-api/util"
@@ -40,19 +38,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	infra "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
+	api "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
 )
 
 const (
-	// MachineFinalizer is the finalizer for MetalStackMachine.
-	MachineFinalizer = "metalstackmachine.infrastructure.cluster.x-k8s.io"
+	// MetalStackMachineFinalizer is the finalizer for MetalStackMachine.
+	MetalStackMachineFinalizer = "metalstackmachine.infrastructure.cluster.x-k8s.io"
 )
 
 // MetalStackMachineReconciler reconciles a MetalStackMachine object
 type MetalStackMachineReconciler struct {
-	client.Client
-	Log logr.Logger
-	MetalStackClient
+	Client           client.Client
+	Log              logr.Logger
+	MetalStackClient MetalStackClient
 }
 
 // todo: Remove the dependency on manager in this package.
@@ -69,62 +67,45 @@ func NewMetalStackMachineReconciler(metalClient MetalStackClient, mgr manager.Ma
 // +kubebuilder:rbac:groups=cluster.x-k8s.io,resources=machines;machines/status,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
-func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, err error) {
-	logger := r.Log.WithValues("MetalStackMachine", req.NamespacedName)
-	ctx := context.Background()
+func (r *MetalStackMachineReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&api.MetalStackMachine{}).
+		Watches(
+			&source.Kind{Type: &cluster.Machine{}},
+			&handler.EnqueueRequestsFromMapFunc{
+				ToRequests: util.MachineToInfrastructureMapFunc(api.GroupVersion.WithKind("MetalStackMachine")),
+			},
+		).
+		Complete(r)
+}
 
-	// Fetch the MetalStackMachine.
-	metalMachine := &infra.MetalStackMachine{}
-	if err := r.Get(ctx, req.NamespacedName, metalMachine); err != nil {
+// Reconcile reconciles MetalStackMachine resource
+func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, err error) {
+	ctx := context.Background()
+	logger := r.Log.WithValues("MetalStackMachine", req.NamespacedName)
+
+	logger.Info("Starting MetalStackMachine reconcilation")
+
+	resources, err := fetchMetalStackMachineResources(ctx, logger, r.Client, req.NamespacedName)
+	if err != nil {
 		if apierrors.IsNotFound(err) {
-			logger.Info(err.Error())
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
 	}
 
-	// Fetch the Machine.
-	machine, err := util.GetOwnerMachine(ctx, r.Client, metalMachine.ObjectMeta)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	if machine == nil {
-		logger.Info("no OwnerReference of the MetalStackMachine has the Kind Machine")
-		return ctrl.Result{}, nil
+	// Check resources readiness
+	if !resources.isReady() {
+		return requeueInstantly, nil
 	}
 
-	// Fetch the Cluster.
-	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, machine.ObjectMeta)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	// Return if the retrieved objects are paused.
-	if util.IsPaused(cluster, metalMachine) {
-		logger.Info("the Cluster is paused or the MetalStackMachine has the `paused` annotation")
-		return ctrl.Result{}, nil
-	}
-
-	// Fetch the MetalStackCluster.
-	k := client.ObjectKey{
-		Namespace: metalMachine.Namespace,
-		Name:      cluster.Spec.InfrastructureRef.Name,
-	}
-	metalCluster := &infra.MetalStackCluster{}
-	if err := r.Get(ctx, k, metalCluster); err != nil {
-		logger.Info(err.Error())
-		return ctrl.Result{}, nil
-	}
-
-	rsrc := newResource(cluster, machine, metalCluster, metalMachine)
-
-	// Persist any change of the MetalStackMachine.
-	h, err := patch.NewHelper(rsrc.metalMachine, r.Client)
+	// Persist any change to MetalStackMachine
+	h, err := patch.NewHelper(resources.metalMachine, r.Client)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 	defer func() {
-		if e := h.Patch(ctx, rsrc.metalMachine); e != nil {
+		if e := h.Patch(ctx, resources.metalMachine); e != nil {
 			if err != nil {
 				err = errors.Wrap(e, err.Error())
 			}
@@ -132,158 +113,105 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		}
 	}()
 
-	if !rsrc.metalMachine.ObjectMeta.DeletionTimestamp.IsZero() {
-		return r.deleteMachine(ctx, logger, rsrc)
+	// Check if need to delete MetalStackMachine
+	if !resources.isDeletionTimestampZero() {
+		return r.reconcileDelete(ctx, resources)
 	}
 
-	// todo: Check if the failure still holds after some time.
-	// todo: Check the logic of failure. It should be Idempotent.
-	if rsrc.metalMachine.Status.Failed() {
-		logger.Info("Status of the MetalStackMachine showing failure")
-		return ctrl.Result{}, nil
-	}
+	controllerutil.AddFinalizer(resources.metalMachine, MetalStackMachineFinalizer)
 
-	controllerutil.AddFinalizer(rsrc.metalMachine, MachineFinalizer)
-
-	if !rsrc.cluster.Status.InfrastructureReady {
-		logger.Info("firewall not ready")
-		return ctrl.Result{Requeue: true}, nil
-	}
-
-	if rsrc.machine.Spec.Bootstrap.DataSecretName == nil {
-		logger.Info("bootstrap not ready yet")
-		return ctrl.Result{}, nil
-	}
-
-	raw, err := r.getRawMachineOrCreate(ctx, logger, rsrc)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	r.setMachineStatus(rsrc, raw)
-
-	return ctrl.Result{}, nil
+	return r.reconcile(ctx, resources)
 }
 
-func (r *MetalStackMachineReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&infra.MetalStackMachine{}).
-		Watches(
-			&source.Kind{Type: &cluster.Machine{}},
-			&handler.EnqueueRequestsFromMapFunc{
-				ToRequests: util.MachineToInfrastructureMapFunc(infra.GroupVersion.WithKind("MetalStackMachine")),
-			},
-		).
-		Complete(r)
-}
+// reconcileDelete reconciles MetalStackMachine Delete event
+func (r *MetalStackMachineReconciler) reconcileDelete(ctx context.Context, resources *metalStackMachineResources) (ctrl.Result, error) {
+	resources.logger.Info("Trying to delete MetalStackMachine")
 
-func (r *MetalStackMachineReconciler) bootstrapData(ctx context.Context, rsrc *resource) ([]byte, error) {
-	secretName := rsrc.machine.Spec.Bootstrap.DataSecretName
-	if secretName == nil {
-		return nil, errors.New("owner Machine's Spec.Bootstrap.DataSecretName being nil")
-	}
-
-	secret := &core.Secret{}
-	if err := r.Client.Get(
-		ctx,
-		types.NamespacedName{
-			Namespace: rsrc.metalMachine.Namespace,
-			Name:      *secretName,
-		},
-		secret,
-	); err != nil {
-		return nil, err
-	}
-
-	value, ok := secret.Data["value"]
-	if !ok {
-		return nil, errors.New("key `value` of the map `Data` of the bootstrap data missing")
-	}
-
-	return value, nil
-}
-func (r *MetalStackMachineReconciler) deleteMachine(ctx context.Context, logger logr.Logger, rsrc *resource) (ctrl.Result, error) {
-	logger.Info("the MetalStackMachine being deleted")
-
-	id, err := rsrc.metalMachine.Spec.ParsedProviderID()
+	id, err := resources.metalMachine.Spec.ParsedProviderID()
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("parse provider ID: %w", err)
 	}
 
 	if _, err = r.MetalStackClient.MachineDelete(id); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to delete the MetalStackMachine %v: %w", rsrc.metalMachine.Name, err)
+		return ctrl.Result{}, fmt.Errorf("failed to delete the MetalStackMachine %s: %w", resources.metalMachine.Name, err)
 	}
 
-	controllerutil.RemoveFinalizer(rsrc.metalMachine, MachineFinalizer)
+	controllerutil.RemoveFinalizer(resources.metalMachine, MetalStackMachineFinalizer)
+
+	resources.logger.Info("Successfully deleted MetalStackMachine")
 
 	return ctrl.Result{}, nil
 }
 
-func (r *MetalStackMachineReconciler) getRawMachineOrCreate(ctx context.Context, logger logr.Logger, rsrc *resource) (*models.V1MachineResponse, error) {
-	id, err := rsrc.metalMachine.Spec.ParsedProviderID()
+// reconcile reconciles MetalStackMachine Create/Update events
+func (r *MetalStackMachineReconciler) reconcile(ctx context.Context, resources *metalStackMachineResources) (ctrl.Result, error) {
+	rawMachine, err := r.getRawMachineOrCreate(ctx, resources)
 	if err != nil {
-		if err == infra.ProviderIDNotSet {
-			logger.Info(err.Error())
-			req, err := r.newRequestToCreateMachine(ctx, rsrc)
+		return ctrl.Result{}, err
+	}
+	resources.updateMetalMachineStatus(rawMachine)
+
+	return ctrl.Result{}, nil
+}
+
+func (r *MetalStackMachineReconciler) getRawMachineOrCreate(ctx context.Context, resources *metalStackMachineResources) (*models.V1MachineResponse, error) {
+	id, err := resources.metalMachine.Spec.ParsedProviderID()
+	if err != nil {
+		if err == api.ProviderIDNotSet {
+			req, err := r.newRequestToCreateMachine(ctx, resources)
 			if err != nil {
 				return nil, fmt.Errorf("new createMachine request: %w", err)
 			}
+
 			resp, err := r.MetalStackClient.MachineCreate(req)
 			if err != nil {
 				// todo: When to unset?
-				rsrc.metalMachine.Status.SetFailure(err.Error(), clustererr.CreateMachineError)
+				resources.metalMachine.Status.SetFailure(err.Error(), clustererr.CreateMachineError)
 				return nil, err
 			}
+
 			return resp.Machine, nil
 		}
+
 		return nil, err
 	}
+
 	resp, err := r.MetalStackClient.MachineGet(id)
 	if err != nil {
 		return nil, err
 	}
+
 	return resp.Machine, nil
 }
-func (r *MetalStackMachineReconciler) newRequestToCreateMachine(ctx context.Context, rsrc *resource) (*metalgo.MachineCreateRequest, error) {
-	name := rsrc.metalMachine.Name
-	networks := toNetworks(*rsrc.metalCluster.Spec.Firewall.DefaultNetworkID, *rsrc.metalCluster.Spec.PrivateNetworkID)
-	userData, err := r.bootstrapData(ctx, rsrc)
+
+func (r *MetalStackMachineReconciler) newRequestToCreateMachine(ctx context.Context, resources *metalStackMachineResources) (*metalgo.MachineCreateRequest, error) {
+	name := resources.metalMachine.Name
+	networks := toNetworks(*resources.metalCluster.Spec.Firewall.DefaultNetworkID, *resources.metalCluster.Spec.PrivateNetworkID)
+	userData, err := resources.getBootstrapData(ctx)
 	// todo: Remove this
 	log.Println("userData: ", string(userData))
 	if err != nil {
 		return nil, fmt.Errorf("get bootstrap data: %w", err)
 	}
-	// todo: Remove this
-	log.Printf("creating a machine with IP: %v", rsrc.metalCluster.Spec.ControlPlaneEndpoint.Host)
-	return &metalgo.MachineCreateRequest{
+
+	config := &metalgo.MachineCreateRequest{
 		Hostname:  name,
-		Image:     rsrc.metalMachine.Spec.Image,
-		IPs:       []string{rsrc.metalCluster.Spec.ControlPlaneEndpoint.Host},
+		Image:     resources.metalMachine.Spec.Image,
 		Name:      name,
 		Networks:  networks,
-		Partition: rsrc.metalCluster.Spec.Partition,
-		Project:   rsrc.metalCluster.Spec.ProjectID,
-		Size:      rsrc.metalMachine.Spec.MachineType,
-		Tags:      rsrc.machineCreationTags(),
+		Partition: resources.metalCluster.Spec.Partition,
+		Project:   resources.metalCluster.Spec.ProjectID,
+		Size:      resources.metalMachine.Spec.MachineType,
+		Tags:      resources.getTagsForRawMachine(),
 		UserData:  string(userData),
-	}, nil
-}
-func (r *MetalStackMachineReconciler) setMachineStatus(rsrc *resource, rawMachine *models.V1MachineResponse) {
-	// todo: Shoul each status be updated separately?
-	rsrc.metalMachine.Spec.SetProviderID(*rawMachine.ID)
-	rsrc.metalMachine.Status.Liveliness = rawMachine.Liveliness
-	rsrc.metalMachine.Status.Addresses = toNodeAddrs(rawMachine)
-}
-func toNodeAddrs(machine *models.V1MachineResponse) []core.NodeAddress {
-	addrs := []core.NodeAddress{}
-	for _, n := range machine.Allocation.Networks {
-		t := core.NodeExternalIP
-		if *n.Private {
-			t = core.NodeInternalIP
-		}
-		addrs = append(addrs, core.NodeAddress{
-			Type:    t,
-			Address: n.Ips[0],
-		})
 	}
-	return addrs
+
+	if resources.isControlPlane() {
+		resources.logger.Info("Creating ControlPlane node")
+		config.IPs = []string{resources.metalCluster.Spec.ControlPlaneEndpoint.Host}
+	} else {
+		resources.logger.Info("Creating worker node")
+	}
+
+	return config, nil
 }

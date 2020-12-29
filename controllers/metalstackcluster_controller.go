@@ -68,9 +68,12 @@ func (r *MetalStackClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
+// Reconcile reconciles MetalStackCluster resource
 func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, err error) {
-	logger := r.Log.WithValues("metal-stack cluster", req.NamespacedName)
 	ctx := context.Background()
+	logger := r.Log.WithValues("MetalStackCluster", req.NamespacedName)
+
+	logger.Info("Starting MetalStackCluster reconcilation")
 
 	// Fetch the MetalStackCluster.
 	metalCluster := &infra.MetalStackCluster{}
@@ -105,29 +108,31 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	}
 	if cluster == nil {
 		logger.Info("Waiting for cluster controller to set OwnerRef to MetalStackCluster")
-		return requeue, nil
+		return requeueWithDelay, nil
 	}
 	if util.IsPaused(cluster, metalCluster) {
 		logger.Info("reconcilation is paused for this object")
-		return requeue, nil
+		return requeueWithDelay, nil
 	}
 
 	// Allocate network.
 	if metalCluster.Spec.PrivateNetworkID == nil {
 		if err := r.allocateNetwork(metalCluster); err != nil {
 			logger.Info(err.Error() + ": requeueing")
-			return requeue, nil
+			return requeueWithDelay, nil
 		}
-
 	}
 
 	// Allocate IP for API server
 	if !metalCluster.Status.ControlPlaneIPAllocated {
 		if err := r.allocateControlPlaneIP(metalCluster); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to allocate API-server IP: %w", err)
+			clusterErr := capierrors.InvalidConfigurationClusterError
+			metalCluster.Status.FailureReason = &clusterErr
+			metalCluster.Status.FailureMessage = pointer.StringPtr("Failed to allocate Control Plane IP")
+			return ctrl.Result{}, fmt.Errorf("failed to allocate Control Plane IP: %w", err)
 		}
 
-		logger.Info("", "API-server IP", metalCluster.Spec.ControlPlaneEndpoint.Host)
+		logger.Info(fmt.Sprintf("Control Plane IP %s allocated", metalCluster.Spec.ControlPlaneEndpoint.Host))
 		metalCluster.Status.ControlPlaneIPAllocated = true
 	}
 
@@ -136,9 +141,9 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		err = r.createFirewall(metalCluster)
 		if err != nil {
 			logger.Info(err.Error() + ": requeueing")
-			return requeue, nil
+			return requeueWithDelay, nil
 		}
-		logger.Info("firewall created")
+		logger.Info("Cluster firewall is created")
 		metalCluster.Status.FirewallReady = true
 
 		return ctrl.Result{}, nil

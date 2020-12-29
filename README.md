@@ -28,3 +28,15 @@ watch metalctl machine ls
 watch kubectl get cluster
 # "Provisioned" should be observed eventually
 ```
+
+You can now join any number of control-plane nodes by copying certificate authorities and 
+service account keys on each node and then running the following as root:
+   kubeadm join 100.255.254.3:6443 \
+        --token w3w158.716hh9d4tgtxoqd4 \
+        --discovery-token-ca-cert-hash sha256:6813135efc2524d4f609e60c7d33feab8f561044eb226c053ca2b3f60c6432b3 \
+        --control-plane
+
+Then you can join any number of worker nodes by running the following on each as root:
+    kubeadm join 100.255.254.3:6443 \
+        --token w3w158.716hh9d4tgtxoqd4 \
+        --discovery-token-ca-cert-hash sha256:6813135efc2524d4f609e60c7d33feab8f561044eb226c053ca2b3f60c6432b3

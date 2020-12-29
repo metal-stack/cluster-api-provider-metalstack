@@ -23,7 +23,10 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-var requeue = ctrl.Result{Requeue: true, RequeueAfter: 30 * time.Second}
+var (
+	requeueInstantly = ctrl.Result{Requeue: true}
+	requeueWithDelay = ctrl.Result{Requeue: true, RequeueAfter: 30 * time.Second}
+)
 
 func toNetworks(ss ...string) (networks []metalgo.MachineAllocationNetwork) {
 	for _, s := range ss {

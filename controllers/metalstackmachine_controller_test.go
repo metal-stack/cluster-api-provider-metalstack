@@ -21,10 +21,13 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/go-logr/logr"
 	gmck "github.com/golang/mock/gomock"
+
 	// "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
 	infra "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
 	"github.com/metal-stack/cluster-api-provider-metalstack/controllers/mocks"
+
 	// metalgo "github.com/metal-stack/metal-go"
 	. "github.com/onsi/ginkgo"
 
@@ -53,7 +56,7 @@ var _ = Describe(typeOf(MetalStackClusterReconciler{}), func() {
 		It("should succeed", func() {
 			mClient.EXPECT().MachineDelete(gmck.Any()).Return(nil, nil)
 			r := newTestMachineReconciler(mClient)
-			result, err := r.deleteMachine(context.TODO(), r.Log, newTestResource())
+			result, err := r.reconcileDelete(context.TODO(), newTestMetalStackMachineResources(r.Log, newTestMachine()))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result).To(Equal(ctrl.Result{}))
 		})
@@ -93,16 +96,18 @@ func newTestMachine() *infra.MetalStackMachine {
 	}
 	return machine
 }
+
+func newTestMetalStackMachineResources(logger logr.Logger, metalMachine *infra.MetalStackMachine) *metalStackMachineResources {
+	return &metalStackMachineResources{
+		logger:       logger,
+		metalMachine: metalMachine,
+	}
+}
+
 func newTestMachineReconciler(mClient MetalStackClient) *MetalStackMachineReconciler {
 	return &MetalStackMachineReconciler{
 		Client:           fake.NewFakeClientWithScheme(newAndReadyScheme()),
 		Log:              zap.New(zap.UseDevMode(true)),
 		MetalStackClient: mClient,
-	}
-}
-func newTestResource() *resource {
-	return &resource{
-		metalCluster: newTestCluster(),
-		metalMachine: newTestMachine(),
 	}
 }
