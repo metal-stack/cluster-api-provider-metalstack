@@ -20,15 +20,17 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/go-logr/logr"
 	metalgo "github.com/metal-stack/metal-go"
-	"github.com/metal-stack/metal-go/api/models"
 	"github.com/pkg/errors"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	cluster "sigs.k8s.io/cluster-api/api/v1alpha3"
-	clustererr "sigs.k8s.io/cluster-api/errors"
+	capiremote "sigs.k8s.io/cluster-api/controllers/remote"
+	capierr "sigs.k8s.io/cluster-api/errors"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -50,16 +52,26 @@ const (
 type MetalStackMachineReconciler struct {
 	Client           client.Client
 	Log              logr.Logger
+	ClusterTracker   *capiremote.ClusterCacheTracker
 	MetalStackClient MetalStackClient
 }
 
 // todo: Remove the dependency on manager in this package.
-func NewMetalStackMachineReconciler(metalClient MetalStackClient, mgr manager.Manager) *MetalStackMachineReconciler {
+func NewMetalStackMachineReconciler(metalClient MetalStackClient, mgr manager.Manager) (reconciler *MetalStackMachineReconciler, err error) {
+	clusterTracker, err := capiremote.NewClusterCacheTracker(
+		ctrl.Log.WithName("remote").WithName("ClusterCacheTracker"),
+		mgr,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to init ClusterTracker: %w", err)
+	}
+
 	return &MetalStackMachineReconciler{
 		Client:           mgr.GetClient(),
 		Log:              ctrl.Log.WithName("controllers").WithName("MetalStackMachine"),
+		ClusterTracker:   clusterTracker,
 		MetalStackClient: metalClient,
-	}
+	}, nil
 }
 
 // +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=metalstackmachines,verbs=get;list;watch;create;update;patch;delete
@@ -145,43 +157,48 @@ func (r *MetalStackMachineReconciler) reconcileDelete(ctx context.Context, resou
 
 // reconcile reconciles MetalStackMachine Create/Update events
 func (r *MetalStackMachineReconciler) reconcile(ctx context.Context, resources *metalStackMachineResources) (ctrl.Result, error) {
-	rawMachine, err := r.getRawMachineOrCreate(ctx, resources)
+	err := r.createRawMachineIfNotExists(ctx, resources)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	resources.updateMetalMachineStatus(rawMachine)
 
+	ok, err := r.setNodeProviderID(ctx, resources)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if !ok {
+		resources.logger.Info("Node not ready yet")
+		return requeueWithDelay, nil
+	}
+
+	resources.metalMachine.Status.Ready = true
 	return ctrl.Result{}, nil
 }
 
-func (r *MetalStackMachineReconciler) getRawMachineOrCreate(ctx context.Context, resources *metalStackMachineResources) (*models.V1MachineResponse, error) {
-	id, err := resources.metalMachine.Spec.ParsedProviderID()
+func (r *MetalStackMachineReconciler) createRawMachineIfNotExists(ctx context.Context, resources *metalStackMachineResources) error {
+	_, err := resources.metalMachine.Spec.ParsedProviderID()
 	if err != nil {
 		if err == api.ProviderIDNotSet {
 			req, err := r.newRequestToCreateMachine(ctx, resources)
 			if err != nil {
-				return nil, fmt.Errorf("new createMachine request: %w", err)
+				return fmt.Errorf("new createMachine request: %w", err)
 			}
 
 			resp, err := r.MetalStackClient.MachineCreate(req)
 			if err != nil {
 				// todo: When to unset?
-				resources.metalMachine.Status.SetFailure(err.Error(), clustererr.CreateMachineError)
-				return nil, err
+				resources.metalMachine.Status.SetFailure(err.Error(), capierr.CreateMachineError)
+				return err
 			}
 
-			return resp.Machine, nil
+			resources.setProviderID(resp.Machine)
+			return nil
 		}
 
-		return nil, err
+		return err
 	}
 
-	resp, err := r.MetalStackClient.MachineGet(id)
-	if err != nil {
-		return nil, err
-	}
-
-	return resp.Machine, nil
+	return nil
 }
 
 func (r *MetalStackMachineReconciler) newRequestToCreateMachine(ctx context.Context, resources *metalStackMachineResources) (*metalgo.MachineCreateRequest, error) {
@@ -214,4 +231,59 @@ func (r *MetalStackMachineReconciler) newRequestToCreateMachine(ctx context.Cont
 	}
 
 	return config, nil
+}
+
+func (r *MetalStackMachineReconciler) setNodeProviderID(ctx context.Context, resources *metalStackMachineResources) (ok bool, err error) {
+	providerID := resources.getProviderID()
+	if providerID == nil {
+		return false, fmt.Errorf("providerID is nil")
+	}
+
+	remoteClient, err := r.ClusterTracker.GetClient(ctx, util.ObjectKey(resources.cluster))
+	if err != nil {
+		return false, nil
+	}
+
+	node, err := getNode(ctx, remoteClient, *providerID)
+	if err != nil {
+		return false, fmt.Errorf("get node: %w", err)
+	}
+	if node == nil {
+		return false, nil
+	}
+
+	node.Spec.ProviderID = *providerID
+
+	// Persist change to Node
+	h, err := patch.NewHelper(node, remoteClient)
+	if err != nil {
+		return false, err
+	}
+
+	if err = h.Patch(ctx, node); err != nil {
+		return false, fmt.Errorf("Failed to update the target node: %w", err)
+	}
+
+	return true, nil
+}
+
+func getNode(ctx context.Context, remoteClient client.Client, providerID string) (node *corev1.Node, err error) {
+	nodeList := corev1.NodeList{}
+	for {
+		if err := remoteClient.List(ctx, &nodeList, client.Continue(nodeList.Continue)); err != nil {
+			return nil, err
+		}
+
+		for _, node := range nodeList.Items {
+			if strings.Contains(providerID, node.Status.NodeInfo.SystemUUID) {
+				return &node, nil
+			}
+		}
+
+		if nodeList.Continue == "" {
+			break
+		}
+	}
+
+	return nil, nil
 }

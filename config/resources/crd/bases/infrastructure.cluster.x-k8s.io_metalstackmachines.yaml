@@ -104,8 +104,6 @@ spec:
                 - type
                 type: object
               type: array
-            allocated:
-              type: boolean
             errorMessage:
               description: "ErrorMessage will be set in the event that there is a
                 terminal problem reconciling the Machine and will contain a more verbose
@@ -135,8 +133,6 @@ spec:
             instanceStatus:
               description: InstanceStatus is the status of the MetalStack machine
                 instance for this machine.
-              type: string
-            liveliness:
               type: string
             lldp:
               type: boolean

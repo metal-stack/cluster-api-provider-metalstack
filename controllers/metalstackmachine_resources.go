@@ -163,12 +163,15 @@ func (r *metalStackMachineResources) getTagsForRawMachine() (tags []string) {
 	return
 }
 
-// updateMetalMachineStatus updates MetalStackMachine status
-func (r *metalStackMachineResources) updateMetalMachineStatus(rawMachine *models.V1MachineResponse) {
-	// todo: Should each status be updated separately?
+// setProviderID sets ID of raw metal stack machine
+func (r *metalStackMachineResources) setProviderID(rawMachine *models.V1MachineResponse) {
 	r.metalMachine.Spec.SetProviderID(*rawMachine.ID)
-	r.metalMachine.Status.Liveliness = rawMachine.Liveliness
 	r.metalMachine.Status.Addresses = toNodeAddrs(rawMachine)
+}
+
+// getProviderID returns ID of raw metal stack machine
+func (r *metalStackMachineResources) getProviderID() *string {
+	return r.metalMachine.Spec.ProviderID
 }
 
 func toNodeAddrs(machine *models.V1MachineResponse) []core.NodeAddress {

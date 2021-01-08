@@ -66,8 +66,14 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "MetalStackCluster")
 		os.Exit(1)
 	}
-	if err = controllers.NewMetalStackMachineReconciler(metalClient, mgr).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "MetalStackMachine")
+
+	metalStackMachineReconciler, err := controllers.NewMetalStackMachineReconciler(metalClient, mgr)
+	if err != nil {
+		setupLog.Error(err, "unable to init controller", "controller", "MetalStackMachine")
+		os.Exit(1)
+	}
+	if err := metalStackMachineReconciler.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to setup controller", "controller", "MetalStackMachine")
 		os.Exit(1)
 	}
 
