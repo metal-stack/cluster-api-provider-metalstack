@@ -126,10 +126,8 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	// Allocate IP for API server
 	if !metalCluster.Status.ControlPlaneIPAllocated {
 		if err := r.allocateControlPlaneIP(metalCluster); err != nil {
-			clusterErr := capierrors.InvalidConfigurationClusterError
-			metalCluster.Status.FailureReason = &clusterErr
-			metalCluster.Status.FailureMessage = pointer.StringPtr("Failed to allocate Control Plane IP")
-			return ctrl.Result{}, fmt.Errorf("failed to allocate Control Plane IP: %w", err)
+			logger.Info(fmt.Sprintf("Failed to allocate Control Plane IP %s", metalCluster.Spec.ControlPlaneEndpoint.Host))
+			return requeueInstantly, nil
 		}
 
 		logger.Info(fmt.Sprintf("Control Plane IP %s allocated", metalCluster.Spec.ControlPlaneEndpoint.Host))
@@ -145,8 +143,6 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		}
 		logger.Info("Cluster firewall is created")
 		metalCluster.Status.FirewallReady = true
-
-		return ctrl.Result{}, nil
 	}
 
 	metalCluster.Status.Ready = true

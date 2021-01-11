@@ -58,6 +58,10 @@ func fetchMetalStackMachineResources(
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve MetalStackMachine's owner machine: %w", err)
 	}
+	if machine == nil {
+		logger.Info("Waiting for Machine Controller to set OwnerRef on MetalStackMachine")
+		return nil, nil
+	}
 
 	cluster, err := util.GetClusterFromMetadata(ctx, k8sClient, machine.ObjectMeta)
 	if err != nil {

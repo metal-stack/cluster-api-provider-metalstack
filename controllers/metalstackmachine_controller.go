@@ -105,6 +105,9 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		}
 		return ctrl.Result{}, err
 	}
+	if resources == nil {
+		return ctrl.Result{}, nil
+	}
 
 	// Check resources readiness
 	if !resources.isReady() {
@@ -157,6 +160,10 @@ func (r *MetalStackMachineReconciler) reconcileDelete(ctx context.Context, resou
 
 // reconcile reconciles MetalStackMachine Create/Update events
 func (r *MetalStackMachineReconciler) reconcile(ctx context.Context, resources *metalStackMachineResources) (ctrl.Result, error) {
+	if resources.metalMachine.Status.Ready {
+		return ctrl.Result{}, nil
+	}
+
 	err := r.createRawMachineIfNotExists(ctx, resources)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -249,16 +256,18 @@ func (r *MetalStackMachineReconciler) setNodeProviderID(ctx context.Context, res
 		return false, fmt.Errorf("get node: %w", err)
 	}
 	if node == nil {
+		resources.logger.Info(fmt.Sprintf("Didn't found node with providerID: %s", *providerID))
 		return false, nil
 	}
-
-	node.Spec.ProviderID = *providerID
 
 	// Persist change to Node
 	h, err := patch.NewHelper(node, remoteClient)
 	if err != nil {
 		return false, err
 	}
+
+	node.Spec.ProviderID = *providerID
+	resources.logger.Info(fmt.Sprintf("Set node's providerID: %s", *providerID))
 
 	if err = h.Patch(ctx, node); err != nil {
 		return false, fmt.Errorf("Failed to update the target node: %w", err)
