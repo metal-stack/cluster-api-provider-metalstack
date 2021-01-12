@@ -171,6 +171,7 @@ func (r *metalStackMachineResources) getTagsForRawMachine() (tags []string) {
 func (r *metalStackMachineResources) setProviderID(rawMachine *models.V1MachineResponse) {
 	r.metalMachine.Spec.SetProviderID(*rawMachine.ID)
 	r.metalMachine.Status.Addresses = toNodeAddrs(rawMachine)
+	r.metalMachine.Status.MachineCreated = true
 }
 
 // getProviderID returns ID of raw metal stack machine

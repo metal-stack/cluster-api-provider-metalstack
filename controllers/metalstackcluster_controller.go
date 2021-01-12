@@ -221,21 +221,29 @@ func (r *MetalStackClusterReconciler) createFirewall(metalCluster *infra.MetalSt
 		return newErrSpecNotSet("PrivateNetworkID")
 	}
 
+	machineCreateReq := metalgo.MachineCreateRequest{
+		Description:   metalCluster.Name + " created by Cluster API provider MetalStack",
+		Name:          metalCluster.Name,
+		Hostname:      metalCluster.Name + "-firewall",
+		Size:          *metalCluster.Spec.Firewall.Size,
+		Project:       metalCluster.Spec.ProjectID,
+		Partition:     metalCluster.Spec.Partition,
+		Image:         *metalCluster.Spec.Firewall.Image,
+		SSHPublicKeys: metalCluster.Spec.Firewall.SSHKeys,
+		Networks:      toNetworks(*metalCluster.Spec.Firewall.DefaultNetworkID, *metalCluster.Spec.PrivateNetworkID),
+		UserData:      "",
+		Tags:          []string{},
+	}
+
+	// Set machine ID if it's set in firewall config
+	if pid, err := metalCluster.Spec.Firewall.ParsedProviderID(); err == nil {
+		machineCreateReq.UUID = pid
+	}
+
 	_, err := r.MetalStackClient.FirewallCreate(&metalgo.FirewallCreateRequest{
-		MachineCreateRequest: metalgo.MachineCreateRequest{
-			Description:   metalCluster.Name + " created by Cluster API provider MetalStack",
-			Name:          metalCluster.Name,
-			Hostname:      metalCluster.Name + "-firewall",
-			Size:          *metalCluster.Spec.Firewall.Size,
-			Project:       metalCluster.Spec.ProjectID,
-			Partition:     metalCluster.Spec.Partition,
-			Image:         *metalCluster.Spec.Firewall.Image,
-			SSHPublicKeys: metalCluster.Spec.Firewall.SSHKeys,
-			Networks:      toNetworks(*metalCluster.Spec.Firewall.DefaultNetworkID, *metalCluster.Spec.PrivateNetworkID),
-			UserData:      "",
-			Tags:          []string{},
-		},
+		MachineCreateRequest: machineCreateReq,
 	})
+
 	return err
 }
 

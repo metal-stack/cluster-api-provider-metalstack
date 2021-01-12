@@ -16,6 +16,8 @@ limitations under the License.
 
 package v1alpha3
 
+import "sigs.k8s.io/cluster-api/controllers/noderefutil"
+
 type Firewall struct {
 	// +optional
 	DefaultNetworkID *string `json:"defaultNetworkID,omitempty"`
@@ -23,9 +25,25 @@ type Firewall struct {
 	// +optional
 	Image *string `json:"image,omitempty"`
 
+	// ProviderID sepecifies ID of machine on which firewall should be deployed
+	// +optional
+	ProviderID *string `json:"providerID,omitempty"`
+
 	// +optional
 	Size *string `json:"size,omitempty"`
 
 	// +optional
 	SSHKeys []string `json:"sshKeys,omitempty"`
+}
+
+func (spec *Firewall) ParsedProviderID() (string, error) {
+	unparsed := spec.ProviderID
+	if unparsed == nil {
+		return "", ProviderIDNotSet
+	}
+	parsed, err := noderefutil.NewProviderID(*unparsed)
+	if err != nil {
+		return "", err
+	}
+	return parsed.ID(), nil
 }

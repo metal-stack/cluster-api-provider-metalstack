@@ -57,6 +57,8 @@ spec:
                 defaultNetworkID:
                   type: string
                 image:
+                  description: ProviderID sepecifies ID of machine on which firewall
+                    should be deployed
                   type: string
                 size:
                   type: string

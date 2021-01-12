@@ -106,7 +106,7 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		return ctrl.Result{}, err
 	}
 	if resources == nil {
-		return ctrl.Result{}, nil
+		return requeueInstantly, nil
 	}
 
 	// Check resources readiness
@@ -164,9 +164,11 @@ func (r *MetalStackMachineReconciler) reconcile(ctx context.Context, resources *
 		return ctrl.Result{}, nil
 	}
 
-	err := r.createRawMachineIfNotExists(ctx, resources)
-	if err != nil {
-		return ctrl.Result{}, err
+	if !resources.metalMachine.Status.MachineCreated {
+		err := r.createRawMachineIfNotExists(ctx, resources)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	ok, err := r.setNodeProviderID(ctx, resources)
@@ -183,28 +185,19 @@ func (r *MetalStackMachineReconciler) reconcile(ctx context.Context, resources *
 }
 
 func (r *MetalStackMachineReconciler) createRawMachineIfNotExists(ctx context.Context, resources *metalStackMachineResources) error {
-	_, err := resources.metalMachine.Spec.ParsedProviderID()
+	req, err := r.newRequestToCreateMachine(ctx, resources)
 	if err != nil {
-		if err == api.ProviderIDNotSet {
-			req, err := r.newRequestToCreateMachine(ctx, resources)
-			if err != nil {
-				return fmt.Errorf("new createMachine request: %w", err)
-			}
+		return fmt.Errorf("new createMachine request: %w", err)
+	}
 
-			resp, err := r.MetalStackClient.MachineCreate(req)
-			if err != nil {
-				// todo: When to unset?
-				resources.metalMachine.Status.SetFailure(err.Error(), capierr.CreateMachineError)
-				return err
-			}
-
-			resources.setProviderID(resp.Machine)
-			return nil
-		}
-
+	resp, err := r.MetalStackClient.MachineCreate(req)
+	if err != nil {
+		// todo: When to unset?
+		resources.metalMachine.Status.SetFailure(err.Error(), capierr.CreateMachineError)
 		return err
 	}
 
+	resources.setProviderID(resp.Machine)
 	return nil
 }
 
@@ -228,6 +221,11 @@ func (r *MetalStackMachineReconciler) newRequestToCreateMachine(ctx context.Cont
 		Size:      resources.metalMachine.Spec.MachineType,
 		Tags:      resources.getTagsForRawMachine(),
 		UserData:  string(userData),
+	}
+
+	// If ProviderID is provided set it in request
+	if pid, err := resources.metalMachine.Spec.ParsedProviderID(); err == nil {
+		config.UUID = pid
 	}
 
 	if resources.isControlPlane() {

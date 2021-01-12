@@ -136,9 +136,15 @@ spec:
               type: string
             lldp:
               type: boolean
+            machineCreated:
+              description: MachineCreated is true when raw metal-stack machine was
+                created.
+              type: boolean
             ready:
               description: Ready is true when the provider resource is ready.
               type: boolean
+          required:
+          - machineCreated
           type: object
       type: object
   version: v1alpha3
