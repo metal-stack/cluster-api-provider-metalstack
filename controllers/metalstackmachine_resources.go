@@ -27,8 +27,7 @@ import (
 	"github.com/metal-stack/metal-lib/pkg/tag"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	cluster "sigs.k8s.io/cluster-api/api/v1alpha3"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
+	capiv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -37,8 +36,8 @@ type metalStackMachineResources struct {
 	logger logr.Logger
 	client client.Client
 
-	cluster      *clusterv1.Cluster
-	machine      *clusterv1.Machine
+	cluster      *capiv1.Cluster
+	machine      *capiv1.Machine
 	metalCluster *api.MetalStackCluster
 	metalMachine *api.MetalStackMachine
 }
@@ -63,9 +62,20 @@ func fetchMetalStackMachineResources(
 		return nil, nil
 	}
 
+	// todo: Check if the failure still holds after some time.
+	// todo: Check the logic of failure. It should be Idempotent.
+	if metalMachine.Status.Failed() {
+		logger.Info("MetalStackMachine is failing")
+		return nil, nil
+	}
+
 	cluster, err := util.GetClusterFromMetadata(ctx, k8sClient, machine.ObjectMeta)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve Cluster resource: %w", err)
+	}
+	if cluster == nil {
+		logger.Info(fmt.Sprintf("Machine not associated with a cluster using the label %s: <name of cluster>", capiv1.ClusterLabelName))
+		return nil, nil
 	}
 
 	metalClusterNamespacedName := types.NamespacedName{
@@ -90,18 +100,6 @@ func fetchMetalStackMachineResources(
 
 // isReady checks if all resources are ready
 func (r *metalStackMachineResources) isReady() bool {
-	if util.IsPaused(r.cluster, r.metalMachine) {
-		r.logger.Info("Cluster or MetalStackMachine is paused")
-		return false
-	}
-
-	// todo: Check if the failure still holds after some time.
-	// todo: Check the logic of failure. It should be Idempotent.
-	if r.metalMachine.Status.Failed() {
-		r.logger.Info("MetalStackMachine is failing")
-		return false
-	}
-
 	if !r.cluster.Status.InfrastructureReady {
 		r.logger.Info("Cluster infrastructure isn't ready yet")
 		return false
@@ -159,9 +157,9 @@ func (r *metalStackMachineResources) getTagsForRawMachine() (tags []string) {
 	)
 
 	if r.isControlPlane() {
-		tags = append(tags, cluster.MachineControlPlaneLabelName+"=true")
+		tags = append(tags, capiv1.MachineControlPlaneLabelName+"=true")
 	} else {
-		tags = append(tags, cluster.MachineControlPlaneLabelName+"=false")
+		tags = append(tags, capiv1.MachineControlPlaneLabelName+"=false")
 	}
 
 	return

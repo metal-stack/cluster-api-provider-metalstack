@@ -28,7 +28,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	cluster "sigs.k8s.io/cluster-api/api/v1alpha3"
+	capiv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	capiremote "sigs.k8s.io/cluster-api/controllers/remote"
 	capierr "sigs.k8s.io/cluster-api/errors"
 	"sigs.k8s.io/cluster-api/util"
@@ -83,7 +83,7 @@ func (r *MetalStackMachineReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&api.MetalStackMachine{}).
 		Watches(
-			&source.Kind{Type: &cluster.Machine{}},
+			&source.Kind{Type: &capiv1.Machine{}},
 			&handler.EnqueueRequestsFromMapFunc{
 				ToRequests: util.MachineToInfrastructureMapFunc(api.GroupVersion.WithKind("MetalStackMachine")),
 			},
@@ -106,12 +106,19 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		return ctrl.Result{}, err
 	}
 	if resources == nil {
-		return requeueInstantly, nil
+		return ctrl.Result{}, nil
 	}
+
+	controllerutil.AddFinalizer(resources.metalMachine, MetalStackMachineFinalizer)
 
 	// Check resources readiness
 	if !resources.isReady() {
-		return requeueInstantly, nil
+		return ctrl.Result{}, nil
+	}
+
+	if util.IsPaused(resources.cluster, resources.metalMachine) {
+		resources.logger.Info("Cluster or MetalStackMachine is paused")
+		return requeueWithDelay, nil
 	}
 
 	// Persist any change to MetalStackMachine
@@ -132,8 +139,6 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	if !resources.isDeletionTimestampZero() {
 		return r.reconcileDelete(ctx, resources)
 	}
-
-	controllerutil.AddFinalizer(resources.metalMachine, MetalStackMachineFinalizer)
 
 	return r.reconcile(ctx, resources)
 }
