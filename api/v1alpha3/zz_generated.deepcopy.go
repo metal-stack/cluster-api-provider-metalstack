@@ -39,6 +39,11 @@ func (in *Firewall) DeepCopyInto(out *Firewall) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.ProviderID != nil {
+		in, out := &in.ProviderID, &out.ProviderID
+		*out = new(string)
+		**out = **in
+	}
 	if in.Size != nil {
 		in, out := &in.Size, &out.Size
 		*out = new(string)
@@ -287,11 +292,6 @@ func (in *MetalStackMachineStatus) DeepCopyInto(out *MetalStackMachineStatus) {
 	if in.InstanceStatus != nil {
 		in, out := &in.InstanceStatus, &out.InstanceStatus
 		*out = new(MetalStackResourceStatus)
-		**out = **in
-	}
-	if in.Liveliness != nil {
-		in, out := &in.Liveliness, &out.Liveliness
-		*out = new(string)
 		**out = **in
 	}
 }

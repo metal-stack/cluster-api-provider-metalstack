@@ -68,9 +68,12 @@ func (r *MetalStackClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
+// Reconcile reconciles MetalStackCluster resource
 func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, err error) {
-	logger := r.Log.WithValues("metal-stack cluster", req.NamespacedName)
 	ctx := context.Background()
+	logger := r.Log.WithValues("MetalStackCluster", req.NamespacedName)
+
+	logger.Info("Starting MetalStackCluster reconcilation")
 
 	// Fetch the MetalStackCluster.
 	metalCluster := &infra.MetalStackCluster{}
@@ -105,29 +108,29 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	}
 	if cluster == nil {
 		logger.Info("Waiting for cluster controller to set OwnerRef to MetalStackCluster")
-		return requeue, nil
+		return requeueWithDelay, nil
 	}
 	if util.IsPaused(cluster, metalCluster) {
 		logger.Info("reconcilation is paused for this object")
-		return requeue, nil
+		return requeueWithDelay, nil
 	}
 
 	// Allocate network.
 	if metalCluster.Spec.PrivateNetworkID == nil {
 		if err := r.allocateNetwork(metalCluster); err != nil {
 			logger.Info(err.Error() + ": requeueing")
-			return requeue, nil
+			return requeueWithDelay, nil
 		}
-
 	}
 
 	// Allocate IP for API server
 	if !metalCluster.Status.ControlPlaneIPAllocated {
 		if err := r.allocateControlPlaneIP(metalCluster); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to allocate API-server IP: %w", err)
+			logger.Info(fmt.Sprintf("Failed to allocate Control Plane IP %s", metalCluster.Spec.ControlPlaneEndpoint.Host))
+			return requeueInstantly, nil
 		}
 
-		logger.Info("", "API-server IP", metalCluster.Spec.ControlPlaneEndpoint.Host)
+		logger.Info(fmt.Sprintf("Control Plane IP %s allocated", metalCluster.Spec.ControlPlaneEndpoint.Host))
 		metalCluster.Status.ControlPlaneIPAllocated = true
 	}
 
@@ -136,12 +139,10 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		err = r.createFirewall(metalCluster)
 		if err != nil {
 			logger.Info(err.Error() + ": requeueing")
-			return requeue, nil
+			return requeueWithDelay, nil
 		}
-		logger.Info("firewall created")
+		logger.Info("Cluster firewall is created")
 		metalCluster.Status.FirewallReady = true
-
-		return ctrl.Result{}, nil
 	}
 
 	metalCluster.Status.Ready = true
@@ -220,21 +221,29 @@ func (r *MetalStackClusterReconciler) createFirewall(metalCluster *infra.MetalSt
 		return newErrSpecNotSet("PrivateNetworkID")
 	}
 
+	machineCreateReq := metalgo.MachineCreateRequest{
+		Description:   metalCluster.Name + " created by Cluster API provider MetalStack",
+		Name:          metalCluster.Name,
+		Hostname:      metalCluster.Name + "-firewall",
+		Size:          *metalCluster.Spec.Firewall.Size,
+		Project:       metalCluster.Spec.ProjectID,
+		Partition:     metalCluster.Spec.Partition,
+		Image:         *metalCluster.Spec.Firewall.Image,
+		SSHPublicKeys: metalCluster.Spec.Firewall.SSHKeys,
+		Networks:      toNetworks(*metalCluster.Spec.Firewall.DefaultNetworkID, *metalCluster.Spec.PrivateNetworkID),
+		UserData:      "",
+		Tags:          []string{},
+	}
+
+	// Set machine ID if it's set in firewall config
+	if pid, err := metalCluster.Spec.Firewall.ParsedProviderID(); err == nil {
+		machineCreateReq.UUID = pid
+	}
+
 	_, err := r.MetalStackClient.FirewallCreate(&metalgo.FirewallCreateRequest{
-		MachineCreateRequest: metalgo.MachineCreateRequest{
-			Description:   metalCluster.Name + " created by Cluster API provider MetalStack",
-			Name:          metalCluster.Name,
-			Hostname:      metalCluster.Name + "-firewall",
-			Size:          *metalCluster.Spec.Firewall.Size,
-			Project:       metalCluster.Spec.ProjectID,
-			Partition:     metalCluster.Spec.Partition,
-			Image:         *metalCluster.Spec.Firewall.Image,
-			SSHPublicKeys: metalCluster.Spec.Firewall.SSHKeys,
-			Networks:      toNetworks(*metalCluster.Spec.Firewall.DefaultNetworkID, *metalCluster.Spec.PrivateNetworkID),
-			UserData:      "",
-			Tags:          []string{},
-		},
+		MachineCreateRequest: machineCreateReq,
 	})
+
 	return err
 }
 

@@ -1,30 +1,15 @@
-# Cluster API Provider MetalStack
+# Cluster API Provider for metal-stack
 
-```
-cd /path/to/mini-lab
-make
-eval $(make dev-env)
-make route
-# Execute the output of the previous command.
-make fwrules
-# Execute the output of the previous command.
-cd /path/to/cluster-api-provider-metalstack
-make crds
-make kustomize
-make managerless
+Infrastructure provider for Kubernetes [Cluster API](https://cluster-api.sigs.k8s.io/) project, that allows you to deploy and manage Kubernetes cluster on [metal-stack](https://metal-stack.io/).
 
-sed -i "s/cluster-api-provider-metalstack-controller-manager-metrics-service/cap-metalstack-controller-manager-metrics-service/g" out/managerless/infrastructure-metalstack/v0.3.0/infrastructure-components.yaml
-clusterctl init --config=out/managerless/infrastructure-metalstack/clusterctl-v0.3.0.yaml --infrastructure=metalstack -v3
-make cluster
+## Compatibility with Cluster API versions
+TODO
 
-kubectl apply -f ./out/cluster.yaml
-make manager && ./bin/manager-linux-amd64
+## How to deploy metal-stack provider
+TODO
 
-# in another terminal
-watch metalctl machine ls
-# "Phoned Home" should be observed eventually
+## metal-stack provider API
+TODO
 
-# in another terminal
-watch kubectl get cluster
-# "Provisioned" should be observed eventually
-```
+## Development guide
+See [development guide](./docs/dev_guide.md) document if you want to contribute and [development setup](./docs/dev_setup.md) document if you want to test this provider quicly in local environment.

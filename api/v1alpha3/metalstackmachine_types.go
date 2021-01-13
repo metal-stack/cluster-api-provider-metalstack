@@ -82,9 +82,6 @@ type MetalStackMachineStatus struct {
 	// +optional
 	Addresses []corev1.NodeAddress `json:"addresses,omitempty"`
 
-	// +optional
-	Allocated bool `json:"allocated"`
-
 	// Any transient errors that occur during the reconciliation of Machines
 	// can be added as events to the Machine object and/or logged in the
 	// controller's output.
@@ -123,8 +120,8 @@ type MetalStackMachineStatus struct {
 	// +optional
 	LLDP bool `json:"lldp,omitempty"`
 
-	// +optional
-	Liveliness *string `json:"liveliness,omitempty"`
+	// MachineCreated is true when raw metal-stack machine was created.
+	MachineCreated bool `json:"machineCreated"`
 
 	// Ready is true when the provider resource is ready.
 	// +optional
