@@ -120,9 +120,6 @@ type MetalStackMachineStatus struct {
 	// +optional
 	LLDP bool `json:"lldp,omitempty"`
 
-	// MachineCreated is true when raw metal-stack machine was created.
-	MachineCreated bool `json:"machineCreated"`
-
 	// Ready is true when the provider resource is ready.
 	// +optional
 	Ready bool `json:"ready"`

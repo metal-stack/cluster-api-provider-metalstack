@@ -42,7 +42,7 @@ type metalStackMachineResources struct {
 	metalMachine *api.MetalStackMachine
 }
 
-func fetchMetalStackMachineResources(
+func newMetalStackMachineResources(
 	ctx context.Context,
 	logger logr.Logger,
 	k8sClient client.Client,
@@ -152,7 +152,10 @@ func (r *metalStackMachineResources) isControlPlane() bool {
 // getTagsForRawMachine returns slice of tags for raw MetalStack machine
 func (r *metalStackMachineResources) getTagsForRawMachine() (tags []string) {
 	tags = append(
-		[]string{tag.ClusterID + "=" + r.metalCluster.Name},
+		[]string{
+			tag.ClusterName + "=" + r.metalCluster.Name,
+			tag.MachineName + "=" + r.metalMachine.Name,
+		},
 		r.metalMachine.Spec.Tags...,
 	)
 
@@ -169,7 +172,6 @@ func (r *metalStackMachineResources) getTagsForRawMachine() (tags []string) {
 func (r *metalStackMachineResources) setProviderID(rawMachine *models.V1MachineResponse) {
 	r.metalMachine.Spec.SetProviderID(*rawMachine.ID)
 	r.metalMachine.Status.Addresses = toNodeAddrs(rawMachine)
-	r.metalMachine.Status.MachineCreated = true
 }
 
 // getProviderID returns ID of raw metal stack machine

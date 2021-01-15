@@ -136,7 +136,7 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 
 	// Create firewall
 	if !metalCluster.Status.FirewallReady {
-		err = r.createFirewall(metalCluster)
+		err = r.createFirewall(logger, metalCluster)
 		if err != nil {
 			logger.Info(err.Error() + ": requeueing")
 			return requeueWithDelay, nil
@@ -207,7 +207,7 @@ func (r *MetalStackClusterReconciler) controlPlaneIP(metalCluster *infra.MetalSt
 }
 
 // todo: Ask metal-API for an available external network IP (partition id empty -> destinationprefix: 0.0.0.0/0)
-func (r *MetalStackClusterReconciler) createFirewall(metalCluster *infra.MetalStackCluster) error {
+func (r *MetalStackClusterReconciler) createFirewall(logger logr.Logger, metalCluster *infra.MetalStackCluster) error {
 	if metalCluster.Spec.Firewall.DefaultNetworkID == nil {
 		return newErrSpecNotSet("Firewall.DefaultNetworkID")
 	}
@@ -237,6 +237,7 @@ func (r *MetalStackClusterReconciler) createFirewall(metalCluster *infra.MetalSt
 
 	// Set machine ID if it's set in firewall config
 	if pid, err := metalCluster.Spec.Firewall.ParsedProviderID(); err == nil {
+		logger.Info(fmt.Sprintf("Deploy Firewall on machine: %s", pid))
 		machineCreateReq.UUID = pid
 	}
 
