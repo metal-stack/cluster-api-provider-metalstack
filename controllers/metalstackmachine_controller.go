@@ -98,7 +98,7 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 
 	logger.Info("Starting MetalStackMachine reconcilation")
 
-	resources, err := fetchMetalStackMachineResources(ctx, logger, r.Client, req.NamespacedName)
+	resources, err := newMetalStackMachineResources(ctx, logger, r.Client, req.NamespacedName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
@@ -169,11 +169,8 @@ func (r *MetalStackMachineReconciler) reconcile(ctx context.Context, resources *
 		return ctrl.Result{}, nil
 	}
 
-	if !resources.metalMachine.Status.MachineCreated {
-		err := r.createRawMachineIfNotExists(ctx, resources)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
+	if err := r.createRawMachineIfNotExists(ctx, resources); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	ok, err := r.setNodeProviderID(ctx, resources)
@@ -190,6 +187,19 @@ func (r *MetalStackMachineReconciler) reconcile(ctx context.Context, resources *
 }
 
 func (r *MetalStackMachineReconciler) createRawMachineIfNotExists(ctx context.Context, resources *metalStackMachineResources) error {
+	// Check if machine already allocated
+	if pid, err := resources.metalMachine.Spec.ParsedProviderID(); err == nil {
+		resp, err := r.MetalStackClient.MachineGet(pid)
+		if err != nil {
+			return fmt.Errorf("Failed to get machine with ID %s: %w", pid, err)
+		}
+
+		if resp.Machine.Allocation != nil {
+			return nil
+		}
+	}
+
+	// Allocate new machine
 	req, err := r.newRequestToCreateMachine(ctx, resources)
 	if err != nil {
 		return fmt.Errorf("new createMachine request: %w", err)
@@ -230,6 +240,7 @@ func (r *MetalStackMachineReconciler) newRequestToCreateMachine(ctx context.Cont
 
 	// If ProviderID is provided set it in request
 	if pid, err := resources.metalMachine.Spec.ParsedProviderID(); err == nil {
+		resources.logger.Info(fmt.Sprintf("Deploy Node on machine: %s", pid))
 		config.UUID = pid
 	}
 

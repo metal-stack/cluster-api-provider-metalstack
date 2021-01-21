@@ -148,7 +148,7 @@ var _ = Describe("MetalStackClusterReconciler", func() {
 				}
 
 				// Run the target func.
-				err := newTestClusterReconciler(mClient).createFirewall(cluster)
+				err := newTestClusterReconciler(mClient).createFirewall(zap.New(zap.UseDevMode(true)), cluster)
 				Expect(err).To(Equal(newErrSpecNotSet(s)))
 			},
 			toEntriesForErrSpecNotSet(
@@ -160,7 +160,7 @@ var _ = Describe("MetalStackClusterReconciler", func() {
 		It(forwardingErr, func() {
 			// Set the returned error.
 			mClient.EXPECT().FirewallCreate(gmck.Any()).Return(nil, theErr)
-			err := newTestClusterReconciler(mClient).createFirewall(newTestCluster())
+			err := newTestClusterReconciler(mClient).createFirewall(zap.New(zap.UseDevMode(true)), newTestCluster())
 			Expect(err).To(Equal(theErr))
 		})
 	})
