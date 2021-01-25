@@ -106,10 +106,9 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		return ctrl.Result{}, err
 	}
 	if resources == nil {
+		logger.Info("Resources is nil")
 		return ctrl.Result{}, nil
 	}
-
-	controllerutil.AddFinalizer(resources.metalMachine, MetalStackMachineFinalizer)
 
 	// Check resources readiness
 	if !resources.isReady() {
@@ -145,7 +144,7 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 
 // reconcileDelete reconciles MetalStackMachine Delete event
 func (r *MetalStackMachineReconciler) reconcileDelete(ctx context.Context, resources *metalStackMachineResources) (ctrl.Result, error) {
-	resources.logger.Info("Trying to delete MetalStackMachine")
+	resources.logger.Info("Deleting MetalStackMachine")
 
 	id, err := resources.metalMachine.Spec.ParsedProviderID()
 	if err != nil {
@@ -165,9 +164,7 @@ func (r *MetalStackMachineReconciler) reconcileDelete(ctx context.Context, resou
 
 // reconcile reconciles MetalStackMachine Create/Update events
 func (r *MetalStackMachineReconciler) reconcile(ctx context.Context, resources *metalStackMachineResources) (ctrl.Result, error) {
-	if resources.metalMachine.Status.Ready {
-		return ctrl.Result{}, nil
-	}
+	controllerutil.AddFinalizer(resources.metalMachine, MetalStackMachineFinalizer)
 
 	if err := r.createRawMachineIfNotExists(ctx, resources); err != nil {
 		return ctrl.Result{}, err
