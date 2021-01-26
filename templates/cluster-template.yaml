@@ -4,7 +4,7 @@ apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
 metadata:
   name: "${CLUSTER_NAME}-control-plane1-config"
 spec:
- preKubeadmCommands:
+  preKubeadmCommands:
   - echo "waiting for the network"
   - sleep 150
   - echo "preKubeadmCommands run"
@@ -15,16 +15,16 @@ spec:
   - sudo rm key
   - echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list
   - sudo apt-get update
-  - sudo apt-get install -y kubelet=1.18.9-00 kubeadm=1.18.9-00 kubectl=1.18.9-00
+  - sudo apt-get install -y kubelet=${KUBERNETES_VERSION}-00 kubeadm=${KUBERNETES_VERSION}-00 kubectl=${KUBERNETES_VERSION}-00
   - sudo apt-mark hold kubelet kubeadm kubectl
   - kubeadm config migrate --old-config /tmp/kubeadm.yaml --new-config /tmp/new_kubeadm.yaml
   - sudo rm /tmp/kubeadm.yaml && sudo mv /tmp/new_kubeadm.yaml /tmp/kubeadm.yaml
   - echo "preKubeadmCommands finished"
   postKubeadmCommands: 
-  - sudo kubeadm init --config=/tmp/kubeadm.yaml --ignore-preflight-errors=NumCPU
+  - sudo kubeadm init --config=/tmp/kubeadm.yaml --ignore-preflight-errors=NumCPU,Mem
   initConfiguration:
     localAPIEndpoint:
-      advertiseAddress: "100.255.254.1"
+      advertiseAddress: "${CONTROL_PLANE_IP}"
       bindPort: 6443
     nodeRegistration:
       kubeletExtraArgs:
@@ -53,7 +53,7 @@ metadata:
   name: "${CLUSTER_NAME}"
 spec:
   controlPlaneEndpoint:
-    host: "100.255.254.1"
+    host: "${CONTROL_PLANE_IP}"
     port: 6443
   firewall:
     defaultNetworkID: internet-vagrant-lab
@@ -134,7 +134,6 @@ spec:
       partition: "${PARTITION}"
       sshKeys:
         - "${SSH_KEY}"
-      tags: []
 ---
 kind: KubeadmConfigTemplate
 apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
@@ -143,8 +142,21 @@ metadata:
 spec:
   template:
     spec:
-      preKubeadmCommands: []
       joinConfiguration:
         nodeRegistration:
           kubeletExtraArgs:
             cloud-provider: external
+      preKubeadmCommands:
+      - echo "waiting for the network"
+      - sleep 150
+      - echo "preKubeadmCommands run"
+      - sudo apt-get update && sudo apt-get install -y apt-transport-https curl
+      - curl -sS https://packages.cloud.google.com/apt/doc/apt-key.gpg -o key
+      - echo $(wc key)
+      - sudo apt-key add key
+      - sudo rm key
+      - echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+      - sudo apt-get update
+      - sudo apt-get install -y cri-tools=1.13.0-01 kubelet=${KUBERNETES_VERSION}-00 kubectl=${KUBERNETES_VERSION}-00
+      - sudo apt-mark hold kubelet kubectl
+      - echo "preKubeadmCommands finished"
