@@ -44,7 +44,6 @@ import (
 )
 
 const (
-	// MetalStackMachineFinalizer is the finalizer for MetalStackMachine.
 	MetalStackMachineFinalizer = "metalstackmachine.infrastructure.cluster.x-k8s.io"
 )
 
