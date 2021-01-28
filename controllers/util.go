@@ -24,9 +24,9 @@ import (
 )
 
 var (
-	requeueInstantly       = ctrl.Result{Requeue: true}
-	requeueWithDelay       = ctrl.Result{Requeue: true, RequeueAfter: 30 * time.Second}
-	requeuesWithSmallDelay = ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}
+	requeueInstantly      = ctrl.Result{Requeue: true}
+	requeueWithDelay      = ctrl.Result{Requeue: true, RequeueAfter: 30 * time.Second}
+	requeueWithSmallDelay = ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}
 )
 
 func toNetworks(ss ...string) (networks []metalgo.MachineAllocationNetwork) {

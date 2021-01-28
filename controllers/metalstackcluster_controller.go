@@ -122,13 +122,15 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	}
 
 	if !metalCluster.ObjectMeta.DeletionTimestamp.IsZero() {
-		r.reconcileDelete(ctx, logger, cluster, metalCluster)
+		return r.reconcileDelete(ctx, logger, cluster, metalCluster)
 	}
 
 	return r.reconcile(ctx, logger, metalCluster)
 }
 
 func (r *MetalStackClusterReconciler) reconcileDelete(ctx context.Context, logger logr.Logger, cluster *capi.Cluster, metalCluster *api.MetalStackCluster) (ctrl.Result, error) {
+	logger.Info("Deleting MetalStackCluster")
+
 	// Check if there's still active machines in Cluster
 	machineCount, err := r.countMachines(ctx, cluster)
 	if err != nil {
@@ -136,27 +138,39 @@ func (r *MetalStackClusterReconciler) reconcileDelete(ctx context.Context, logge
 	}
 	if machineCount > 0 {
 		// Delete machines
+		logger.Info("Deleting Cluster's Machines")
 		if err := r.deleteMachines(ctx, cluster); err != nil {
 			return ctrl.Result{}, fmt.Errorf("Failed to delete machines: %w", err)
 		}
 
-		return requeuesWithSmallDelay, nil
+		return requeueWithSmallDelay, nil
 	}
 
 	// Delete firewall
+	logger.Info("Deleting Firewall")
 	if err := r.deleteFirewall(ctx, metalCluster); err != nil {
 		return ctrl.Result{}, fmt.Errorf("Failed to delete Firewall: %w", err)
 	}
 
-	// Free Control Plane IP address
-	if _, err := r.MetalStackClient.IPFree(metalCluster.Spec.ControlPlaneEndpoint.Host); err != nil {
-		return ctrl.Result{}, fmt.Errorf("Failed to free Control Plane IP address: %w", err)
+	// Wait until all IPs are freed
+	resp, err := r.MetalStackClient.IPList()
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("Failed to list IPs: %w", err)
+	}
+	if len(resp.IPs) > 0 {
+		logger.Info("Waiting until all IPs are freed")
+		return requeueWithSmallDelay, nil
+
 	}
 
 	// Delete network
+	logger.Info("Deleting Cluster network")
 	if _, err := r.MetalStackClient.NetworkFree(*metalCluster.Spec.PrivateNetworkID); err != nil {
 		return ctrl.Result{}, fmt.Errorf("Failed to free network: %w", err)
 	}
+
+	controllerutil.RemoveFinalizer(metalCluster, MetalStackClusterFinalizer)
+	logger.Info("Successfully deleted MetalStackCluster")
 
 	return ctrl.Result{}, nil
 }
@@ -173,7 +187,6 @@ func (r *MetalStackClusterReconciler) reconcile(ctx context.Context, logger logr
 	}
 
 	// Allocate IP for API server
-
 	if !metalCluster.Status.ControlPlaneIPAllocated {
 		if err := r.allocateControlPlaneIP(logger, metalCluster); err != nil {
 			return requeueInstantly, nil
@@ -233,44 +246,19 @@ func (r *MetalStackClusterReconciler) allocateControlPlaneIP(logger logr.Logger,
 	return nil
 }
 
-// todo: Not used.
-func (r *MetalStackClusterReconciler) controlPlaneIP(metalCluster *api.MetalStackCluster) (string, error) {
-	tags := metalCluster.ControlPlaneTags()
-	mm, err := r.MetalStackClient.MachineFind(&metalgo.MachineFindRequest{
-		AllocationProject: &metalCluster.Spec.ProjectID,
-		Tags:              tags,
-	})
-	if err != nil {
-		return "", err
-	}
-	if mm == nil {
-		return "", newErrMachineNotFound(metalCluster.Spec.ProjectID, tags)
-	}
-
-	// todo: Consider high availabilty case and test it.
-	if len(mm.Machines) != 1 {
-		return "", &errMachineNotFound{fmt.Sprintf("%v machine(s) found", len(mm.Machines))}
-	}
-	m := mm.Machines[0]
-	if m.Allocation == nil || len(m.Allocation.Networks) == 0 || len(m.Allocation.Networks[0].Ips) == 0 || m.Allocation.Networks[0].Ips[0] == "" {
-		return "", &errIPNotAllocated{"IP address not allocated"}
-	}
-	return m.Allocation.Networks[0].Ips[0], nil
-}
-
 // todo: Ask metal-API for an available external network IP (partition id empty -> destinationprefix: 0.0.0.0/0)
 func (r *MetalStackClusterReconciler) createFirewall(logger logr.Logger, metalCluster *api.MetalStackCluster) error {
 	if metalCluster.Spec.Firewall.DefaultNetworkID == nil {
-		return newErrSpecNotSet("Firewall.DefaultNetworkID")
+		return fmt.Errorf("Firewall.DefaultNetworkID")
 	}
 	if metalCluster.Spec.Firewall.Image == nil {
-		return newErrSpecNotSet("Firewall.Image")
+		return fmt.Errorf("Firewall.Image")
 	}
 	if metalCluster.Spec.Firewall.Size == nil {
-		return newErrSpecNotSet("Firewall.Size")
+		return fmt.Errorf("Firewall.Size")
 	}
 	if metalCluster.Spec.PrivateNetworkID == nil {
-		return newErrSpecNotSet("PrivateNetworkID")
+		return fmt.Errorf("PrivateNetworkID")
 	}
 
 	machineCreateReq := metalgo.MachineCreateRequest{
@@ -343,39 +331,4 @@ func (r *MetalStackClusterReconciler) deleteFirewall(ctx context.Context, metalC
 
 	_, err = r.MetalStackClient.MachineDelete(providerId)
 	return err
-}
-
-// errIPNotAllocated error representing that the requested machine does not have an IP yet assigned
-type errIPNotAllocated struct {
-	s string
-}
-
-func (e *errIPNotAllocated) Error() string {
-	return e.s
-}
-
-// errMachineNotFound error representing that the requested machine was not yet found
-type errMachineNotFound struct {
-	s string
-}
-
-func (e *errMachineNotFound) Error() string {
-	return e.s
-}
-func newErrMachineNotFound(projectID string, tags []string) *errMachineNotFound {
-	return &errMachineNotFound{fmt.Sprintf("machine with the project ID %v and the tags %v not found", projectID, tags)}
-}
-
-type errSpecNotSet struct {
-	msg string
-}
-
-func (e *errSpecNotSet) Error() string {
-	return e.msg
-}
-
-func newErrSpecNotSet(s string) *errSpecNotSet {
-	return &errSpecNotSet{
-		msg: s + " not set",
-	}
 }

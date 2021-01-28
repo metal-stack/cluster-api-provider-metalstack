@@ -39,7 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-var _ = Describe(typeOf(MetalStackClusterReconciler{}), func() {
+var _ = Describe("MetalStackClusterReconciler", func() {
 	// Set up gomock Controller for each test case.
 	gmckController := new(gmck.Controller)
 
