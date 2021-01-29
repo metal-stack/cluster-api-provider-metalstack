@@ -21,15 +21,14 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	api "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
+	metalgo "github.com/metal-stack/metal-go"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-
-	api "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
-	metalgo "github.com/metal-stack/metal-go"
 )
 
 // MetalStackFirewallReconciler reconciles a MetalStackFirewall object

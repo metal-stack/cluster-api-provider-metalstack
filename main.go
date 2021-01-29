@@ -80,6 +80,7 @@ func main() {
 
 	if err = (&controllers.MetalStackFirewallReconciler{
 		Client: mgr.GetClient(),
+		Driver: metalClient,
 		Log:    ctrl.Log.WithName("controllers").WithName("MetalStackFirewall"),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {

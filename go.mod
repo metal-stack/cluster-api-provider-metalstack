@@ -3,6 +3,9 @@ module github.com/metal-stack/cluster-api-provider-metalstack
 go 1.15
 
 require (
+	github.com/containerd/fifo v0.0.0-20201026212402-0724c46b320c // indirect
+	github.com/docker/docker v0.7.3-0.20190506211059-b20a14b54661
+	github.com/docker/go-metrics v0.0.1 // indirect
 	github.com/go-logr/logr v0.1.0
 	github.com/golang/mock v1.4.4
 	github.com/google/uuid v1.1.5 // indirect
