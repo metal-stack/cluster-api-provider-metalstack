@@ -39,10 +39,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-const (
-	MetalStackClusterFinalizer = "metalstackcluster.infrastructure.cluster.x-k8s.io"
-)
-
 // MetalStackClusterReconciler reconciles a MetalStackCluster object
 type MetalStackClusterReconciler struct {
 	Client           client.Client
@@ -113,12 +109,12 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	}
 	if cluster == nil {
 		logger.Info("Waiting for cluster controller to set OwnerRef to MetalStackCluster")
-		return requeueWithDelay, nil
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	if util.IsPaused(cluster, metalCluster) {
 		logger.Info("reconcilation is paused for this object")
-		return requeueWithDelay, nil
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	if !metalCluster.ObjectMeta.DeletionTimestamp.IsZero() {
@@ -143,7 +139,7 @@ func (r *MetalStackClusterReconciler) reconcileDelete(ctx context.Context, logge
 			return ctrl.Result{}, fmt.Errorf("Failed to delete machines: %w", err)
 		}
 
-		return requeueWithSmallDelay, nil
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	// Delete firewall
@@ -159,7 +155,7 @@ func (r *MetalStackClusterReconciler) reconcileDelete(ctx context.Context, logge
 	}
 	if len(resp.IPs) > 0 {
 		logger.Info("Waiting until all IPs are freed")
-		return requeueWithSmallDelay, nil
+		return ctrl.Result{Requeue: true}, nil
 
 	}
 
@@ -169,27 +165,27 @@ func (r *MetalStackClusterReconciler) reconcileDelete(ctx context.Context, logge
 		return ctrl.Result{}, fmt.Errorf("Failed to free network: %w", err)
 	}
 
-	controllerutil.RemoveFinalizer(metalCluster, MetalStackClusterFinalizer)
+	controllerutil.RemoveFinalizer(metalCluster, api.MetalStackClusterFinalizer)
 	logger.Info("Successfully deleted MetalStackCluster")
 
 	return ctrl.Result{}, nil
 }
 
 func (r *MetalStackClusterReconciler) reconcile(ctx context.Context, logger logr.Logger, metalCluster *api.MetalStackCluster) (ctrl.Result, error) {
-	controllerutil.AddFinalizer(metalCluster, MetalStackClusterFinalizer)
+	controllerutil.AddFinalizer(metalCluster, api.MetalStackClusterFinalizer)
 
 	// Allocate network.
 	if metalCluster.Spec.PrivateNetworkID == nil {
 		if err := r.allocateNetwork(metalCluster); err != nil {
 			logger.Info(err.Error() + ": requeueing")
-			return requeueWithDelay, nil
+			return ctrl.Result{Requeue: true}, nil
 		}
 	}
 
 	// Allocate IP for API server
 	if !metalCluster.Status.ControlPlaneIPAllocated {
 		if err := r.allocateControlPlaneIP(logger, metalCluster); err != nil {
-			return requeueInstantly, nil
+			return ctrl.Result{Requeue: true}, nil
 		}
 	}
 
@@ -198,7 +194,7 @@ func (r *MetalStackClusterReconciler) reconcile(ctx context.Context, logger logr
 		err := r.createFirewall(logger, metalCluster)
 		if err != nil {
 			logger.Info(err.Error() + ": requeueing")
-			return requeueWithDelay, nil
+			return ctrl.Result{Requeue: true}, nil
 		}
 		logger.Info("Cluster firewall is created")
 		metalCluster.Status.FirewallReady = true
@@ -270,7 +266,7 @@ func (r *MetalStackClusterReconciler) createFirewall(logger logr.Logger, metalCl
 		Partition:     metalCluster.Spec.Partition,
 		Image:         *metalCluster.Spec.Firewall.Image,
 		SSHPublicKeys: metalCluster.Spec.Firewall.SSHKeys,
-		Networks:      toNetworks(*metalCluster.Spec.Firewall.DefaultNetworkID, *metalCluster.Spec.PrivateNetworkID),
+		Networks:      toMachineNetworks(*metalCluster.Spec.Firewall.DefaultNetworkID, *metalCluster.Spec.PrivateNetworkID),
 		UserData:      "",
 		Tags:          []string{},
 	}

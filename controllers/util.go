@@ -17,22 +17,13 @@ limitations under the License.
 package controllers
 
 import (
-	"time"
-
 	metalgo "github.com/metal-stack/metal-go"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-var (
-	requeueInstantly      = ctrl.Result{Requeue: true}
-	requeueWithDelay      = ctrl.Result{Requeue: true, RequeueAfter: 30 * time.Second}
-	requeueWithSmallDelay = ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}
-)
-
-func toNetworks(ss ...string) (networks []metalgo.MachineAllocationNetwork) {
-	for _, s := range ss {
-		networks = append(networks, metalgo.MachineAllocationNetwork{
-			NetworkID:   s,
+func toMachineNetworks(networks ...string) (machineNetworks []metalgo.MachineAllocationNetwork) {
+	for _, network := range networks {
+		machineNetworks = append(machineNetworks, metalgo.MachineAllocationNetwork{
+			NetworkID:   network,
 			Autoacquire: true,
 		})
 	}

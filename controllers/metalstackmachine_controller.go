@@ -43,10 +43,6 @@ import (
 	api "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
 )
 
-const (
-	MetalStackMachineFinalizer = "metalstackmachine.infrastructure.cluster.x-k8s.io"
-)
-
 // MetalStackMachineReconciler reconciles a MetalStackMachine object
 type MetalStackMachineReconciler struct {
 	Client           client.Client
@@ -116,7 +112,7 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 
 	if util.IsPaused(resources.cluster, resources.metalMachine) {
 		resources.logger.Info("Cluster or MetalStackMachine is paused")
-		return requeueWithDelay, nil
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	// Persist any change to MetalStackMachine
@@ -154,7 +150,7 @@ func (r *MetalStackMachineReconciler) reconcileDelete(ctx context.Context, resou
 		return ctrl.Result{}, fmt.Errorf("failed to delete the MetalStackMachine %s: %w", resources.metalMachine.Name, err)
 	}
 
-	controllerutil.RemoveFinalizer(resources.metalMachine, MetalStackMachineFinalizer)
+	controllerutil.RemoveFinalizer(resources.metalMachine, api.MetalStackMachineFinalizer)
 
 	resources.logger.Info("Successfully deleted MetalStackMachine")
 
@@ -163,7 +159,7 @@ func (r *MetalStackMachineReconciler) reconcileDelete(ctx context.Context, resou
 
 // reconcile reconciles MetalStackMachine Create/Update events
 func (r *MetalStackMachineReconciler) reconcile(ctx context.Context, resources *metalStackMachineResources) (ctrl.Result, error) {
-	controllerutil.AddFinalizer(resources.metalMachine, MetalStackMachineFinalizer)
+	controllerutil.AddFinalizer(resources.metalMachine, api.MetalStackMachineFinalizer)
 
 	if err := r.createRawMachineIfNotExists(ctx, resources); err != nil {
 		return ctrl.Result{}, err
@@ -175,7 +171,7 @@ func (r *MetalStackMachineReconciler) reconcile(ctx context.Context, resources *
 	}
 	if !ok {
 		resources.logger.Info("Node not ready yet")
-		return requeueWithDelay, nil
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	resources.metalMachine.Status.Ready = true
@@ -214,7 +210,7 @@ func (r *MetalStackMachineReconciler) createRawMachineIfNotExists(ctx context.Co
 
 func (r *MetalStackMachineReconciler) newRequestToCreateMachine(ctx context.Context, resources *metalStackMachineResources) (*metalgo.MachineCreateRequest, error) {
 	name := resources.metalMachine.Name
-	networks := toNetworks(*resources.metalCluster.Spec.Firewall.DefaultNetworkID, *resources.metalCluster.Spec.PrivateNetworkID)
+	networks := toMachineNetworks(*resources.metalCluster.Spec.Firewall.DefaultNetworkID, *resources.metalCluster.Spec.PrivateNetworkID)
 	userData, err := resources.getBootstrapData(ctx)
 	// todo: Remove this
 	log.Println("userData: ", string(userData))
