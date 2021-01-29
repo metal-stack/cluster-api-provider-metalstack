@@ -63,6 +63,36 @@ func (mr *MockMetalStackClientMockRecorder) IPAllocate(arg0 interface{}) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IPAllocate", reflect.TypeOf((*MockMetalStackClient)(nil).IPAllocate), arg0)
 }
 
+// IPFree mocks base method
+func (m *MockMetalStackClient) IPFree(arg0 string) (*metalgo.IPDetailResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IPFree", arg0)
+	ret0, _ := ret[0].(*metalgo.IPDetailResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IPFree indicates an expected call of IPFree
+func (mr *MockMetalStackClientMockRecorder) IPFree(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IPFree", reflect.TypeOf((*MockMetalStackClient)(nil).IPFree), arg0)
+}
+
+// IPList mocks base method
+func (m *MockMetalStackClient) IPList() (*metalgo.IPListResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IPList")
+	ret0, _ := ret[0].(*metalgo.IPListResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IPList indicates an expected call of IPList
+func (mr *MockMetalStackClientMockRecorder) IPList() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IPList", reflect.TypeOf((*MockMetalStackClient)(nil).IPList))
+}
+
 // MachineCreate mocks base method
 func (m *MockMetalStackClient) MachineCreate(arg0 *metalgo.MachineCreateRequest) (*metalgo.MachineCreateResponse, error) {
 	m.ctrl.T.Helper()
@@ -136,4 +166,19 @@ func (m *MockMetalStackClient) NetworkAllocate(arg0 *metalgo.NetworkAllocateRequ
 func (mr *MockMetalStackClientMockRecorder) NetworkAllocate(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NetworkAllocate", reflect.TypeOf((*MockMetalStackClient)(nil).NetworkAllocate), arg0)
+}
+
+// NetworkFree mocks base method
+func (m *MockMetalStackClient) NetworkFree(arg0 string) (*metalgo.NetworkDetailResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NetworkFree", arg0)
+	ret0, _ := ret[0].(*metalgo.NetworkDetailResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NetworkFree indicates an expected call of NetworkFree
+func (mr *MockMetalStackClientMockRecorder) NetworkFree(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NetworkFree", reflect.TypeOf((*MockMetalStackClient)(nil).NetworkFree), arg0)
 }

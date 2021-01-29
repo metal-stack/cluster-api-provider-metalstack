@@ -16,7 +16,10 @@ limitations under the License.
 
 package v1alpha3
 
-import "sigs.k8s.io/cluster-api/controllers/noderefutil"
+import (
+	"k8s.io/utils/pointer"
+	"sigs.k8s.io/cluster-api/controllers/noderefutil"
+)
 
 type Firewall struct {
 	// +optional
@@ -34,6 +37,10 @@ type Firewall struct {
 
 	// +optional
 	SSHKeys []string `json:"sshKeys,omitempty"`
+}
+
+func (spec *Firewall) SetProviderID(ID string) {
+	spec.ProviderID = pointer.StringPtr("metalstack://" + ID)
 }
 
 func (spec *Firewall) ParsedProviderID() (string, error) {

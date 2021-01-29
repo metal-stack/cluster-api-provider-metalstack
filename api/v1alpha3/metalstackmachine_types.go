@@ -29,6 +29,10 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+const (
+	MetalStackMachineFinalizer = "metalstackmachine.infrastructure.cluster.x-k8s.io"
+)
+
 // MetalStackMachineSpec defines the desired state of MetalStackMachine
 type MetalStackMachineSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster

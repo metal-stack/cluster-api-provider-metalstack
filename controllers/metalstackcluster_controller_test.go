@@ -17,7 +17,6 @@ limitations under the License.
 package controllers
 
 import (
-	"fmt"
 	"reflect"
 	"strings"
 
@@ -38,22 +37,22 @@ import (
 )
 
 var _ = Describe("MetalStackClusterReconciler", func() {
-	// Set up gomock Controller for each test case.
+	theErr := errors.New("this error going to be returned by the tested func")
+	forwardingErr := "should forward the returned error from the lower-level API"
+
+	mClient := new(mocks.MockMetalStackClient)
 	gmckController := new(gmck.Controller)
 
-	// mock of MetalStackClient
-	mClient := new(mocks.MockMetalStackClient)
 	BeforeEach(func() {
 		gmckController = gmck.NewController(GinkgoT())
 		mClient = mocks.NewMockMetalStackClient(gmckController)
 	})
+
 	AfterEach(func() {
 		gmckController.Finish()
 	})
-	forwardingErr := "should forward the returned error from the lower-level API"
-	theErr := errors.New("this error going to be returned by the tested func")
-	Describe("allocateNetwork", func() {
 
+	Describe("allocateNetwork", func() {
 		It(forwardingErr, func() {
 			// Set the returned error.
 			mClient.EXPECT().NetworkAllocate(gmck.Any()).Return(nil, theErr)
@@ -82,62 +81,10 @@ var _ = Describe("MetalStackClusterReconciler", func() {
 			Expect(testCluster.Spec.PrivateNetworkID).To(Equal(&expectedID))
 		})
 	})
-	Describe("controlPlaneIP", func() {
-		It(forwardingErr, func() {
-			mClient.EXPECT().MachineFind(gmck.Any()).Return(nil, theErr)
-			ip, err := newTestClusterReconciler(mClient).controlPlaneIP(newTestCluster())
-			Expect(ip).To(Equal(""))
-			Expect(err).To(Equal(theErr))
-		})
-		It(fmt.Sprintf("should return `%v`", typeOf(errMachineNotFound{})), func() {
-			mClient.EXPECT().MachineFind(gmck.Any()).Return(nil, nil)
-			cluster := newTestCluster()
-			ip, err := newTestClusterReconciler(mClient).controlPlaneIP(cluster)
-			Expect(ip).To(Equal(""))
-			Expect(err).To(Equal(newErrMachineNotFound(cluster.Spec.ProjectID, cluster.ControlPlaneTags())))
-		})
-		DescribeTable(
-			typeOf(errIPNotAllocated{}),
-			func(resp *models.V1MachineResponse) {
-				mClient.EXPECT().MachineFind(gmck.Any()).Return(
-					&metalgo.MachineListResponse{
-						Machines: []*models.V1MachineResponse{
-							resp,
-						},
-					},
-					nil,
-				)
-				_, err := newTestClusterReconciler(mClient).controlPlaneIP(newTestCluster())
-				Expect(typeOf(err)).To(Equal(typeOf(&errIPNotAllocated{})))
-			},
-			toEntriesForErrIPNotAllocated()...,
-		)
-		It("should return control-plane-IP", func() {
-			expectedIP := "127.0.0.1"
-			mClient.EXPECT().MachineFind(gmck.Any()).Return(
-				&metalgo.MachineListResponse{
-					Machines: []*models.V1MachineResponse{
-						{
-							Allocation: &models.V1MachineAllocation{
-								Networks: []*models.V1MachineNetwork{
-									{
-										Ips: []string{expectedIP},
-									},
-								},
-							},
-						},
-					},
-				},
-				nil,
-			)
-			ip, err := newTestClusterReconciler(mClient).controlPlaneIP(newTestCluster())
-			Expect(err).ToNot(HaveOccurred())
-			Expect(ip).To(Equal(expectedIP))
-		})
-	})
+
 	Describe("createFirewall", func() {
 		DescribeTable(
-			typeOf(errSpecNotSet{}),
+			"Firewall spec not full",
 			func(s string) {
 				cluster := newTestCluster()
 
@@ -149,13 +96,11 @@ var _ = Describe("MetalStackClusterReconciler", func() {
 
 				// Run the target func.
 				err := newTestClusterReconciler(mClient).createFirewall(zap.New(zap.UseDevMode(true)), cluster)
-				Expect(err).To(Equal(newErrSpecNotSet(s)))
+				Expect(err.Error()).To(Equal(s))
 			},
-			toEntriesForErrSpecNotSet(
-				"Firewall.DefaultNetworkID",
-				"Firewall.Image",
-				"Firewall.Size",
-			)...,
+			Entry("Firewall.DefaultNetworkID not set", "Firewall.DefaultNetworkID"),
+			Entry("Firewall.Image not set", "Firewall.Image"),
+			Entry("Firewall.Size not set", "Firewall.Size"),
 		)
 		It(forwardingErr, func() {
 			// Set the returned error.
@@ -174,6 +119,7 @@ func newAndReadyScheme() *apimachineryruntime.Scheme {
 	_ = infra.AddToScheme(scheme)
 	return scheme
 }
+
 func newTestCluster() *infra.MetalStackCluster {
 	cluster := new(infra.MetalStackCluster)
 
@@ -207,60 +153,11 @@ func newTestCluster() *infra.MetalStackCluster {
 	}
 	return cluster
 }
+
 func newTestClusterReconciler(mClient MetalStackClient) *MetalStackClusterReconciler {
 	return &MetalStackClusterReconciler{
 		Client:           fake.NewFakeClientWithScheme(newAndReadyScheme()),
 		Log:              zap.New(zap.UseDevMode(true)),
 		MetalStackClient: mClient,
 	}
-}
-func toEntriesForErrSpecNotSet(ss ...string) []TableEntry {
-	entries := []TableEntry{}
-	for _, s := range ss {
-		entries = append(entries, Entry(toTestDescr(newErrSpecNotSet(s)), s))
-	}
-	return entries
-}
-func toEntriesForErrIPNotAllocated() []TableEntry {
-	resps := []*models.V1MachineResponse{
-		{},
-		{
-			Allocation: &models.V1MachineAllocation{
-				Networks: []*models.V1MachineNetwork{},
-			},
-		},
-		{
-			Allocation: &models.V1MachineAllocation{
-				Networks: []*models.V1MachineNetwork{
-					{
-						Ips: []string{},
-					},
-				},
-			},
-		},
-		{
-			Allocation: &models.V1MachineAllocation{
-				Networks: []*models.V1MachineNetwork{
-					{
-						Ips: []string{""},
-					},
-				},
-			},
-		},
-	}
-	entries := []TableEntry{}
-	for _, resp := range resps {
-		entries = append(entries, Entry("should return "+typeOf(errIPNotAllocated{}), resp))
-	}
-	return entries
-}
-func toTestDescr(e *errSpecNotSet) string {
-	return fmt.Sprintf("should contain the message `%v`", e)
-}
-func typeOf(i interface{}) string {
-	return reflect.TypeOf(i).String()
-}
-func unsetPointeeField(i interface{}, name string) {
-	v := reflect.ValueOf(i).Elem().FieldByName(name)
-	v.Set(reflect.Zero(v.Type()))
 }
