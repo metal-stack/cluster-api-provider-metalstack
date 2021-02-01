@@ -33,6 +33,8 @@ const (
 	MetalStackMachineFinalizer = "metalstackmachine.infrastructure.cluster.x-k8s.io"
 )
 
+var ProviderIDNotSet = errors.New("ProviderID is not set")
+
 // MetalStackMachineSpec defines the desired state of MetalStackMachine
 type MetalStackMachineSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
@@ -56,8 +58,6 @@ type MetalStackMachineSpec struct {
 	// +optional
 	Tags []string `json:"tags,omitempty"`
 }
-
-var ProviderIDNotSet = errors.New("ProviderID of the MetalStackMachineSpec not set")
 
 func (spec *MetalStackMachineSpec) ParsedProviderID() (string, error) {
 	unparsed := spec.ProviderID

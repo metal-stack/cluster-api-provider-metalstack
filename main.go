@@ -27,9 +27,10 @@ import (
 
 	metalgo "github.com/metal-stack/metal-go"
 
+	clusterapi "sigs.k8s.io/cluster-api/api/v1alpha3"
+
 	infra "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
 	"github.com/metal-stack/cluster-api-provider-metalstack/controllers"
-	clusterapi "sigs.k8s.io/cluster-api/api/v1alpha3"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -77,6 +78,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err = (&controllers.MetalStackFirewallReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("MetalStackFirewall"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "MetalStackFirewall")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 
 	setupLog.Info("starting manager")
