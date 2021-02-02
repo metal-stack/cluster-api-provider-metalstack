@@ -40,25 +40,9 @@ spec:
             machineType:
               description: Machine type(currently specifies only size)
               type: string
-            partition:
-              description: Partition is the physical location where the cluster will
-                be created
-              type: string
-            privateNetworkID:
-              description: PrivateNetworkID is the id of the network which connects
-                the machine together
-              type: string
-            projectID:
-              description: ProjectID is the projectID of the project in which K8s
-                cluster should be deployed
-              type: string
             providerID:
               description: ProviderID sepecifies the machine on which the firewall
                 should be deployed
-              type: string
-            publicNetworkID:
-              description: PublicNetworkID is the id of the network that provides
-                access to the internet
               type: string
             sshKeys:
               description: public SSH keys for machine
@@ -67,7 +51,6 @@ spec:
               type: array
           required:
           - machineType
-          - publicNetworkID
           type: object
         status:
           description: MetalStackFirewallStatus defines the observed state of MetalStackFirewall

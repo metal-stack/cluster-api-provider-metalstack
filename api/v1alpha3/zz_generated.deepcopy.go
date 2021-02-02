@@ -199,11 +199,6 @@ func (in *MetalStackFirewallSpec) DeepCopyInto(out *MetalStackFirewallSpec) {
 		*out = new(string)
 		**out = **in
 	}
-	if in.PrivateNetworkID != nil {
-		in, out := &in.PrivateNetworkID, &out.PrivateNetworkID
-		*out = new(string)
-		**out = **in
-	}
 	if in.SSHKeys != nil {
 		in, out := &in.SSHKeys, &out.SSHKeys
 		*out = make([]string, len(*in))

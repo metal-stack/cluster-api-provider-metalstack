@@ -81,7 +81,7 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	// Fetch the MetalStackCluster.
 	metalCluster := &api.MetalStackCluster{}
 	if err := r.Client.Get(ctx, req.NamespacedName, metalCluster); err != nil {
-		return ctrl.Result{}, client.IgnoreNotFound(fmt.Errorf("fetch MetalStackCluster: %w", err))
+		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
 	// Persist any changes to MetalStackCluster.
@@ -141,7 +141,7 @@ func (r *MetalStackClusterReconciler) reconcileDelete(ctx context.Context, logge
 
 	// Delete firewall
 	logger.Info("Deleting Firewall")
-	if err := r.deleteFirewall(ctx, cluster); err != nil {
+	if err := r.deleteFirewall(ctx, metalCluster); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to delete Firewall: %w", err)
 	}
 
@@ -274,17 +274,19 @@ func (r *MetalStackClusterReconciler) createFirewall(ctx context.Context, metalC
 	firewall.Name = metalCluster.Name
 	firewall.Namespace = metalCluster.Namespace
 	firewall.Spec = metalCluster.Spec.FirewallSpec
-	firewall.Spec.PrivateNetworkID = metalCluster.Spec.PrivateNetworkID
+	firewall.Labels = map[string]string{
+		capi.ClusterLabelName: metalCluster.Name,
+	}
 
 	return r.Client.Create(ctx, firewall)
 }
 
-func (r *MetalStackClusterReconciler) deleteFirewall(ctx context.Context, cluster *capi.Cluster) error {
+func (r *MetalStackClusterReconciler) deleteFirewall(ctx context.Context, metalCluster *api.MetalStackCluster) error {
 	firewall := &api.MetalStackFirewall{}
 	deleteOptions := []client.DeleteAllOfOption{
-		client.InNamespace(cluster.Namespace),
+		client.InNamespace(metalCluster.Namespace),
 		client.MatchingLabels(map[string]string{
-			capi.ClusterLabelName: cluster.Name,
+			capi.ClusterLabelName: metalCluster.Name,
 		}),
 	}
 

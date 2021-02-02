@@ -24,6 +24,8 @@ import (
 	api "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
 	metalgo "github.com/metal-stack/metal-go"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	capi "sigs.k8s.io/cluster-api/api/v1alpha3"
 	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -59,12 +61,21 @@ func (r *MetalStackFirewallReconciler) SetupWithManager(mgr ctrl.Manager) error 
 
 func (r *MetalStackFirewallReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
-	log := r.Log.WithValues("MetalStackFirewall", req.NamespacedName)
+	logger := r.Log.WithValues("MetalStackFirewall", req.NamespacedName)
 
 	// Fetch the MetalStackFirewall in the Request.
 	firewall := &api.MetalStackFirewall{}
 	if err := r.Client.Get(ctx, req.NamespacedName, firewall); err != nil {
-		return ctrl.Result{}, client.IgnoreNotFound(fmt.Errorf("fetch MetalStackFirewall: %w", err))
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	metalClusterNamespacedName := types.NamespacedName{
+		Namespace: firewall.Namespace,
+		Name:      firewall.Labels[capi.ClusterLabelName],
+	}
+	metalCluster := getMetalStackCluster(ctx, logger, r.Client, metalClusterNamespacedName)
+	if metalCluster == nil {
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	// Persist any change to MetalStackFirewall
@@ -82,10 +93,10 @@ func (r *MetalStackFirewallReconciler) Reconcile(req ctrl.Request) (ctrl.Result,
 	}()
 
 	if !firewall.ObjectMeta.DeletionTimestamp.IsZero() {
-		return r.reconcileDelete(ctx, log, firewall)
+		return r.reconcileDelete(ctx, logger, firewall)
 	}
 
-	return r.reconcile(ctx, log, firewall)
+	return r.reconcile(ctx, logger, firewall, metalCluster)
 }
 
 func (r *MetalStackFirewallReconciler) reconcileDelete(ctx context.Context, logger logr.Logger, firewall *api.MetalStackFirewall) (ctrl.Result, error) {
@@ -107,40 +118,53 @@ func (r *MetalStackFirewallReconciler) reconcileDelete(ctx context.Context, logg
 	return ctrl.Result{}, nil
 }
 
-func (r *MetalStackFirewallReconciler) reconcile(ctx context.Context, logger logr.Logger, firewall *api.MetalStackFirewall) (ctrl.Result, error) {
+func (r *MetalStackFirewallReconciler) reconcile(
+	ctx context.Context,
+	logger logr.Logger,
+	firewall *api.MetalStackFirewall,
+	metalCluster *api.MetalStackCluster,
+) (ctrl.Result, error) {
 	controllerutil.AddFinalizer(firewall, api.MetalStackFirewallFinalizer)
 
 	// Check if the firewall was deployed successfully
 	if pid, err := firewall.Spec.ParsedProviderID(); err == nil {
-		resp, err := r.MetalStackClient.FirewallGet(pid)
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to get firewall with ID %s: %w", pid, err)
-		}
+		resp, _ := r.MetalStackClient.MachineGet(pid)
+		if resp.Machine.Allocation != nil {
+			resp2, err := r.MetalStackClient.FirewallGet(pid)
+			if err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to get firewall with ID %s: %w", pid, err)
+			}
 
-		if resp.Firewall.Allocation != nil {
-			succeded := *resp.Firewall.Allocation.Succeeded
-			firewall.Status.Ready = succeded
+			if resp2.Firewall.Allocation != nil {
+				succeded := *resp2.Firewall.Allocation.Succeeded
+				firewall.Status.Ready = succeded
 
-			return ctrl.Result{Requeue: !succeded}, nil
+				return ctrl.Result{Requeue: !succeded}, nil
+			}
 		}
 	}
 
-	err := r.createRawMachineIfNotExists(ctx, logger, firewall)
+	err := r.createRawMachineIfNotExists(ctx, logger, firewall, metalCluster)
 
 	return ctrl.Result{}, err
 }
 
-func (r *MetalStackFirewallReconciler) createRawMachineIfNotExists(ctx context.Context, logger logr.Logger, firewall *api.MetalStackFirewall) error {
+func (r *MetalStackFirewallReconciler) createRawMachineIfNotExists(
+	ctx context.Context,
+	logger logr.Logger,
+	firewall *api.MetalStackFirewall,
+	metalCluster *api.MetalStackCluster,
+) error {
 	machineCreateReq := metalgo.MachineCreateRequest{
 		Description:   firewall.Name + " created by Cluster API provider MetalStack",
 		Name:          firewall.Name,
 		Hostname:      firewall.Name + "-firewall",
 		Size:          firewall.Spec.MachineType,
-		Project:       firewall.Spec.ProjectID,
-		Partition:     firewall.Spec.Partition,
+		Project:       metalCluster.Spec.ProjectID,
+		Partition:     metalCluster.Spec.Partition,
 		Image:         firewall.Spec.Image,
 		SSHPublicKeys: firewall.Spec.SSHKeys,
-		Networks:      toMachineNetworks(firewall.Spec.PublicNetworkID, *firewall.Spec.PrivateNetworkID),
+		Networks:      toMachineNetworks(metalCluster.Spec.PublicNetworkID, *metalCluster.Spec.PrivateNetworkID),
 		UserData:      "",
 		Tags:          []string{},
 	}

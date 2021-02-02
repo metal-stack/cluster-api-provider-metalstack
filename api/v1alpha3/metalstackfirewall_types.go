@@ -32,25 +32,12 @@ type MetalStackFirewallSpec struct {
 	// OS image
 	Image string `json:"image,omitempty"`
 
-	// ProjectID is the projectID of the project in which K8s cluster should be deployed
-	ProjectID string `json:"projectID,omitempty"`
-
-	// Partition is the physical location where the cluster will be created
-	Partition string `json:"partition,omitempty"`
-
 	// Machine type(currently specifies only size)
 	MachineType string `json:"machineType"`
-
-	// PublicNetworkID is the id of the network that provides access to the internet
-	PublicNetworkID string `json:"publicNetworkID"`
 
 	// ProviderID sepecifies the machine on which the firewall should be deployed
 	// +optional
 	ProviderID *string `json:"providerID,omitempty"`
-
-	// PrivateNetworkID is the id of the network which connects the machine together
-	// +optional
-	PrivateNetworkID *string `json:"privateNetworkID,omitempty"`
 
 	// public SSH keys for machine
 	// +optional

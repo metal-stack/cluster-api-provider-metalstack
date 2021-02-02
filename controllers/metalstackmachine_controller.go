@@ -92,7 +92,7 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 
 	resources, err := newMetalStackMachineResources(ctx, logger, r.Client, req.NamespacedName)
 	if err != nil {
-		return ctrl.Result{}, client.IgnoreNotFound(fmt.Errorf("fetch MetalStackMachine resources: %w", err))
+		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 	if resources == nil {
 		logger.Info("Resources is nil")

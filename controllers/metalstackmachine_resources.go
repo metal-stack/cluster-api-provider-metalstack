@@ -82,9 +82,9 @@ func newMetalStackMachineResources(
 		Namespace: metalMachine.Namespace,
 		Name:      cluster.Spec.InfrastructureRef.Name,
 	}
-	metalCluster := &api.MetalStackCluster{}
-	if err := k8sClient.Get(ctx, metalClusterNamespacedName, metalCluster); err != nil {
-		return nil, err
+	metalCluster := getMetalStackCluster(ctx, logger, k8sClient, metalClusterNamespacedName)
+	if metalCluster == nil {
+		return nil, nil
 	}
 
 	return &metalStackMachineResources{

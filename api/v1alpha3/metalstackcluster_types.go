@@ -17,8 +17,6 @@ limitations under the License.
 package v1alpha3
 
 import (
-	"fmt"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/cluster-api/api/v1alpha3"
@@ -29,7 +27,6 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 const (
-	firewallNameTemplate       = "%s-firewall" // cluster_name-firewall
 	MetalStackClusterFinalizer = "metalstackcluster.infrastructure.cluster.x-k8s.io"
 )
 
@@ -102,7 +99,7 @@ type MetalStackCluster struct {
 func (cluster *MetalStackCluster) GetFirewallNamespacedName() types.NamespacedName {
 	return types.NamespacedName{
 		Namespace: cluster.Namespace,
-		Name:      fmt.Sprintf(firewallNameTemplate, cluster.Name),
+		Name:      cluster.Name,
 	}
 }
 

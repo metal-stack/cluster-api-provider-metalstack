@@ -17,7 +17,14 @@ limitations under the License.
 package controllers
 
 import (
+	"context"
+	"fmt"
+
+	"github.com/go-logr/logr"
+	api "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
 	metalgo "github.com/metal-stack/metal-go"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func toMachineNetworks(networks ...string) (machineNetworks []metalgo.MachineAllocationNetwork) {
@@ -28,4 +35,21 @@ func toMachineNetworks(networks ...string) (machineNetworks []metalgo.MachineAll
 		})
 	}
 	return
+}
+
+func getMetalStackCluster(ctx context.Context, logger logr.Logger, k8sClient client.Client, namespacedName types.NamespacedName) *api.MetalStackCluster {
+	metalCluster := &api.MetalStackCluster{}
+	if err := k8sClient.Get(ctx, namespacedName, metalCluster); err != nil {
+		return nil
+	}
+	if metalCluster == nil {
+		logger.Info(fmt.Sprintf("MetalStackCluster %s is not ready yet", namespacedName.Name))
+		return nil
+	}
+	if metalCluster.Spec.PrivateNetworkID == nil {
+		logger.Info("Private network isn't allocated yet")
+		return nil
+	}
+
+	return metalCluster
 }
