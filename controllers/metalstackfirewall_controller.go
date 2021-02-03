@@ -135,12 +135,10 @@ func (r *MetalStackFirewallReconciler) reconcile(
 				return ctrl.Result{}, fmt.Errorf("failed to get firewall with ID %s: %w", pid, err)
 			}
 
-			if resp2.Firewall.Allocation != nil {
-				succeded := *resp2.Firewall.Allocation.Succeeded
-				firewall.Status.Ready = succeded
+			succeded := *resp2.Firewall.Allocation.Succeeded
+			firewall.Status.Ready = succeded
 
-				return ctrl.Result{Requeue: !succeded}, nil
-			}
+			return ctrl.Result{Requeue: !succeded}, nil
 		}
 	}
 
