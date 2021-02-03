@@ -17,10 +17,9 @@ limitations under the License.
 package v1alpha3
 
 import (
-	"github.com/metal-stack/metal-lib/pkg/tag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/cluster-api/api/v1alpha3"
-	clusterapi "sigs.k8s.io/cluster-api/api/v1alpha3"
 	capierrors "sigs.k8s.io/cluster-api/errors"
 )
 
@@ -37,20 +36,23 @@ type MetalStackClusterSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// ControlPlaneEndpoint represents the endpoint used to communicate with the control plane.
-	ControlPlaneEndpoint v1alpha3.APIEndpoint `json:"controlPlaneEndpoint"`
+	ControlPlaneEndpoint v1alpha3.APIEndpoint `json:"controlPlaneEndpoint,omitempty"`
 
 	// ProjectID is the projectID of the project in which K8s cluster should be deployed
-	ProjectID string `json:"projectID"`
+	ProjectID string `json:"projectID,omitempty"`
 
 	// Partition is the physical location where the cluster will be created
-	Partition string `json:"partition"`
+	Partition string `json:"partition,omitempty"`
 
-	// Firewall is cluster's firewall config
-	Firewall Firewall `json:"firewall"`
+	// PublicNetworkID is the id of the network that provides access to the internet
+	PublicNetworkID string `json:"publicNetworkID"`
 
-	// PrivateNetworkID is the id if the network which connects the machine together
+	// PrivateNetworkID is the id of the network which connects the machine together
 	// +optional
 	PrivateNetworkID *string `json:"privateNetworkID,omitempty"`
+
+	// FirewallSpec is spec for MetalStackFirewall resource
+	FirewallSpec MetalStackFirewallSpec `json:"firewallSpec,omitempty"`
 }
 
 // MetalStackClusterStatus defines the observed state of MetalStackCluster
@@ -65,10 +67,6 @@ type MetalStackClusterStatus struct {
 	// ControlPlaneIPAllocated denotes that IP for Control Plane was allocated successfully.
 	ControlPlaneIPAllocated bool `json:"controlPlaneIPAllocated"`
 
-	// todo: Consider CR Firewall.
-	// +optional
-	FirewallReady bool `json:"firewallReady,omitempty"`
-
 	// FailureReason indicates there is a fatal problem reconciling the provider’s infrastructure.
 	// Meant to be suitable for programmatic interpretation
 	// +optional
@@ -78,6 +76,12 @@ type MetalStackClusterStatus struct {
 	// Meant to be a more descriptive value than failureReason
 	// +optional
 	FailureMessage *string `json:"failureMessage,omitempty"`
+}
+
+// MetalStackFirewallTemplate is the template of the MetalStackFirewall
+type MetalStackFirewallTemplate struct {
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              MetalStackFirewallSpec `json:"spec,omitempty"`
 }
 
 // +kubebuilder:subresource:status
@@ -92,10 +96,10 @@ type MetalStackCluster struct {
 	Status MetalStackClusterStatus `json:"status,omitempty"`
 }
 
-func (cluster *MetalStackCluster) ControlPlaneTags() []string {
-	return []string{
-		tag.ClusterID + "=" + cluster.Name,
-		clusterapi.MachineControlPlaneLabelName + "=true",
+func (cluster *MetalStackCluster) GetFirewallNamespacedName() types.NamespacedName {
+	return types.NamespacedName{
+		Namespace: cluster.Namespace,
+		Name:      cluster.Name,
 	}
 }
 

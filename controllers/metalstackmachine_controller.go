@@ -24,10 +24,7 @@ import (
 
 	"github.com/go-logr/logr"
 	metalgo "github.com/metal-stack/metal-go"
-	"github.com/pkg/errors"
-
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	capiv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	capiremote "sigs.k8s.io/cluster-api/controllers/remote"
 	capierr "sigs.k8s.io/cluster-api/errors"
@@ -95,10 +92,7 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 
 	resources, err := newMetalStackMachineResources(ctx, logger, r.Client, req.NamespacedName)
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return ctrl.Result{}, nil
-		}
-		return ctrl.Result{}, err
+		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 	if resources == nil {
 		logger.Info("Resources is nil")
@@ -123,9 +117,9 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	defer func() {
 		if e := h.Patch(ctx, resources.metalMachine); e != nil {
 			if err != nil {
-				err = errors.Wrap(e, err.Error())
+				err = fmt.Errorf("%s: %w", e.Error(), err)
 			}
-			err = e
+			err = fmt.Errorf("patch: %w", e)
 		}
 	}()
 
@@ -210,7 +204,7 @@ func (r *MetalStackMachineReconciler) createRawMachineIfNotExists(ctx context.Co
 
 func (r *MetalStackMachineReconciler) newRequestToCreateMachine(ctx context.Context, resources *metalStackMachineResources) (*metalgo.MachineCreateRequest, error) {
 	name := resources.metalMachine.Name
-	networks := toMachineNetworks(*resources.metalCluster.Spec.Firewall.DefaultNetworkID, *resources.metalCluster.Spec.PrivateNetworkID)
+	networks := toMachineNetworks(resources.metalCluster.Spec.PublicNetworkID, *resources.metalCluster.Spec.PrivateNetworkID)
 	userData, err := resources.getBootstrapData(ctx)
 	// todo: Remove this
 	log.Println("userData: ", string(userData))

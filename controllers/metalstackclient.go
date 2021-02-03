@@ -25,6 +25,7 @@ import (
 //go:generate mockgen -destination=mocks/mock_metalstackclient.go -package=mocks . MetalStackClient
 type MetalStackClient interface {
 	FirewallCreate(fcr *metalgo.FirewallCreateRequest) (*metalgo.FirewallCreateResponse, error)
+	FirewallGet(machineID string) (*metalgo.FirewallGetResponse, error)
 	IPAllocate(iar *metalgo.IPAllocateRequest) (*metalgo.IPDetailResponse, error)
 	IPList() (*metalgo.IPListResponse, error)
 	IPFree(id string) (*metalgo.IPDetailResponse, error)

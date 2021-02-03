@@ -26,7 +26,6 @@ import (
 	metalgo "github.com/metal-stack/metal-go"
 	"github.com/metal-stack/metal-go/api/models"
 	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"github.com/pkg/errors"
 	apimachineryruntime "k8s.io/apimachinery/pkg/runtime"
@@ -81,34 +80,6 @@ var _ = Describe("MetalStackClusterReconciler", func() {
 			Expect(testCluster.Spec.PrivateNetworkID).To(Equal(&expectedID))
 		})
 	})
-
-	Describe("createFirewall", func() {
-		DescribeTable(
-			"Firewall spec not full",
-			func(s string) {
-				cluster := newTestCluster()
-
-				// Unset a field.
-				if parsed := strings.Split(s, "."); len(parsed) == 2 {
-					v := reflect.ValueOf(&cluster.Spec.Firewall).Elem().FieldByName(strings.Split(s, ".")[1])
-					v.Set(reflect.Zero(v.Type()))
-				}
-
-				// Run the target func.
-				err := newTestClusterReconciler(mClient).createFirewall(zap.New(zap.UseDevMode(true)), cluster)
-				Expect(err.Error()).To(Equal(s))
-			},
-			Entry("Firewall.DefaultNetworkID not set", "Firewall.DefaultNetworkID"),
-			Entry("Firewall.Image not set", "Firewall.Image"),
-			Entry("Firewall.Size not set", "Firewall.Size"),
-		)
-		It(forwardingErr, func() {
-			// Set the returned error.
-			mClient.EXPECT().FirewallCreate(gmck.Any()).Return(nil, theErr)
-			err := newTestClusterReconciler(mClient).createFirewall(zap.New(zap.UseDevMode(true)), newTestCluster())
-			Expect(err).To(Equal(theErr))
-		})
-	})
 })
 
 // todo: Remove the duplicated logic.
@@ -126,9 +97,9 @@ func newTestCluster() *infra.MetalStackCluster {
 	// Set corresponding fields.
 	for _, s := range []string{
 		"Name",
-		"Spec.Firewall.DefaultNetworkID",
-		"Spec.Firewall.Image",
-		"Spec.Firewall.Size",
+		"Spec.PublicNetworkID",
+		"Spec.FirewallSpec.Image",
+		"Spec.FirewallSpec.MachineType",
 		"Spec.Partition",
 		"Spec.PrivateNetworkID",
 		"Spec.ProjectID",
@@ -137,16 +108,12 @@ func newTestCluster() *infra.MetalStackCluster {
 		last := parsed[len(parsed)-1]
 		newStr := "test-" + last
 		switch len(parsed) {
-		case 1: // Name
+		case 1:
 			reflect.ValueOf(cluster).Elem().FieldByName(last).Set(reflect.ValueOf(newStr))
 		case 2: // fields in Spec
-			if last == "PrivateNetworkID" {
-				reflect.ValueOf(&cluster.Spec).Elem().FieldByName(last).Set(reflect.ValueOf(&newStr))
-			} else {
-				reflect.ValueOf(&cluster.Spec).Elem().FieldByName(last).Set(reflect.ValueOf(newStr))
-			}
+			reflect.ValueOf(&cluster.Spec).Elem().FieldByName(last).Set(reflect.ValueOf(newStr))
 		case 3: // fields in Firewall
-			reflect.ValueOf(&cluster.Spec.Firewall).Elem().FieldByName(last).Set(reflect.ValueOf(&newStr))
+			reflect.ValueOf(&cluster.Spec.FirewallSpec).Elem().FieldByName(last).Set(reflect.ValueOf(&newStr))
 		default:
 			return new(infra.MetalStackCluster)
 		}

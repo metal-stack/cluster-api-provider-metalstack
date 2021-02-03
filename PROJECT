@@ -7,4 +7,10 @@ resources:
 - group: infrastructure
   kind: MetalStackMachine
   version: v1alpha3
+- group: infrastructure
+  kind: MetalStackFirewall
+  version: v1alpha3
+- group: infrastructure
+  kind: MetalStackFirewaer
+  version: v1alpha3
 version: "2"

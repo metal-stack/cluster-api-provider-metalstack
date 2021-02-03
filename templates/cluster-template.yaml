@@ -20,7 +20,7 @@ spec:
   - kubeadm config migrate --old-config /tmp/kubeadm.yaml --new-config /tmp/new_kubeadm.yaml
   - sudo rm /tmp/kubeadm.yaml && sudo mv /tmp/new_kubeadm.yaml /tmp/kubeadm.yaml
   - echo "preKubeadmCommands finished"
-  postKubeadmCommands: 
+  postKubeadmCommands:
   - sudo kubeadm init --config=/tmp/kubeadm.yaml --ignore-preflight-errors=NumCPU,Mem
   initConfiguration:
     localAPIEndpoint:
@@ -55,10 +55,11 @@ spec:
   controlPlaneEndpoint:
     host: "${CONTROL_PLANE_IP}"
     port: 6443
-  firewall:
-    defaultNetworkID: internet-vagrant-lab
-    image: "firewall-ubuntu-2.0"
-    size: "v1-small-x86"
+  firewallTemplate:
+    spec:
+      defaultNetworkID: internet-vagrant-lab
+      image: "firewall-ubuntu-2.0"
+      size: "v1-small-x86"
   partition: "${PARTITION}"
   projectID: "${PROJECT_ID}"
 ---

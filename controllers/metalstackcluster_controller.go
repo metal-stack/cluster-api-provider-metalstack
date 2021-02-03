@@ -24,8 +24,8 @@ import (
 	api "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
 	metalgo "github.com/metal-stack/metal-go"
 	"github.com/metal-stack/metal-lib/pkg/tag"
-	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/pointer"
 	capi "sigs.k8s.io/cluster-api/api/v1alpha3"
 	capierrors "sigs.k8s.io/cluster-api/errors"
@@ -44,6 +44,7 @@ type MetalStackClusterReconciler struct {
 	Client           client.Client
 	Log              logr.Logger
 	MetalStackClient MetalStackClient
+	Scheme           *runtime.Scheme
 }
 
 func NewMetalStackClusterReconciler(metalClient MetalStackClient, mgr manager.Manager) *MetalStackClusterReconciler {
@@ -51,6 +52,7 @@ func NewMetalStackClusterReconciler(metalClient MetalStackClient, mgr manager.Ma
 		Client:           mgr.GetClient(),
 		Log:              ctrl.Log.WithName("controllers").WithName("MetalStackCluster"),
 		MetalStackClient: metalClient,
+		Scheme:           mgr.GetScheme(),
 	}
 }
 
@@ -79,10 +81,7 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	// Fetch the MetalStackCluster.
 	metalCluster := &api.MetalStackCluster{}
 	if err := r.Client.Get(ctx, req.NamespacedName, metalCluster); err != nil {
-		if apierrors.IsNotFound(err) {
-			return ctrl.Result{}, nil
-		}
-		return ctrl.Result{}, fmt.Errorf("fetch MetalStackCluster: %w", err)
+		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
 	// Persist any changes to MetalStackCluster.
@@ -93,7 +92,7 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	defer func() {
 		if e := h.Patch(ctx, metalCluster); e != nil {
 			if err != nil {
-				err = errors.Wrap(e, err.Error())
+				err = fmt.Errorf("%s: %w", e.Error(), err)
 			}
 			err = fmt.Errorf("patch: %w", e)
 		}
@@ -130,31 +129,29 @@ func (r *MetalStackClusterReconciler) reconcileDelete(ctx context.Context, logge
 	// Check if there's still active machines in Cluster
 	machineCount, err := r.countMachines(ctx, cluster)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("Failed to count machines: %w", err)
+		return ctrl.Result{}, fmt.Errorf("failed to count machines: %w", err)
 	}
 	if machineCount > 0 {
 		// Delete machines
 		logger.Info("Deleting Cluster's Machines")
 		if err := r.deleteMachines(ctx, cluster); err != nil {
-			return ctrl.Result{}, fmt.Errorf("Failed to delete machines: %w", err)
+			return ctrl.Result{}, fmt.Errorf("failed to delete machines: %w", err)
 		}
-
-		return ctrl.Result{Requeue: true}, nil
 	}
 
 	// Delete firewall
 	logger.Info("Deleting Firewall")
 	if err := r.deleteFirewall(ctx, metalCluster); err != nil {
-		return ctrl.Result{}, fmt.Errorf("Failed to delete Firewall: %w", err)
+		return ctrl.Result{}, fmt.Errorf("failed to delete Firewall: %w", err)
 	}
 
 	// Wait until all IPs are freed
 	resp, err := r.MetalStackClient.IPList()
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("Failed to list IPs: %w", err)
+		return ctrl.Result{}, fmt.Errorf("failed to list IPs: %w", err)
 	}
 	if len(resp.IPs) > 0 {
-		logger.Info("Waiting until all IPs are freed")
+		logger.Info("waiting until all IPs are freed")
 		return ctrl.Result{Requeue: true}, nil
 
 	}
@@ -162,7 +159,7 @@ func (r *MetalStackClusterReconciler) reconcileDelete(ctx context.Context, logge
 	// Delete network
 	logger.Info("Deleting Cluster network")
 	if _, err := r.MetalStackClient.NetworkFree(*metalCluster.Spec.PrivateNetworkID); err != nil {
-		return ctrl.Result{}, fmt.Errorf("Failed to free network: %w", err)
+		return ctrl.Result{}, fmt.Errorf("failed to free network: %w", err)
 	}
 
 	controllerutil.RemoveFinalizer(metalCluster, api.MetalStackClusterFinalizer)
@@ -189,15 +186,17 @@ func (r *MetalStackClusterReconciler) reconcile(ctx context.Context, logger logr
 		}
 	}
 
-	// Create firewall
-	if !metalCluster.Status.FirewallReady {
-		err := r.createFirewall(logger, metalCluster)
-		if err != nil {
-			logger.Info(err.Error() + ": requeueing")
-			return ctrl.Result{Requeue: true}, nil
+	firewall := &api.MetalStackFirewall{}
+	if err := r.Client.Get(ctx, metalCluster.GetFirewallNamespacedName(), firewall); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return ctrl.Result{}, fmt.Errorf("failed to fetch firewall: %w", err)
 		}
+
+		if err := r.createFirewall(ctx, metalCluster); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to create firewall: %w", err)
+		}
+
 		logger.Info("Cluster firewall is created")
-		metalCluster.Status.FirewallReady = true
 	}
 
 	metalCluster.Status.Ready = true
@@ -242,52 +241,6 @@ func (r *MetalStackClusterReconciler) allocateControlPlaneIP(logger logr.Logger,
 	return nil
 }
 
-// todo: Ask metal-API for an available external network IP (partition id empty -> destinationprefix: 0.0.0.0/0)
-func (r *MetalStackClusterReconciler) createFirewall(logger logr.Logger, metalCluster *api.MetalStackCluster) error {
-	if metalCluster.Spec.Firewall.DefaultNetworkID == nil {
-		return fmt.Errorf("Firewall.DefaultNetworkID")
-	}
-	if metalCluster.Spec.Firewall.Image == nil {
-		return fmt.Errorf("Firewall.Image")
-	}
-	if metalCluster.Spec.Firewall.Size == nil {
-		return fmt.Errorf("Firewall.Size")
-	}
-	if metalCluster.Spec.PrivateNetworkID == nil {
-		return fmt.Errorf("PrivateNetworkID")
-	}
-
-	machineCreateReq := metalgo.MachineCreateRequest{
-		Description:   metalCluster.Name + " created by Cluster API provider MetalStack",
-		Name:          metalCluster.Name,
-		Hostname:      metalCluster.Name + "-firewall",
-		Size:          *metalCluster.Spec.Firewall.Size,
-		Project:       metalCluster.Spec.ProjectID,
-		Partition:     metalCluster.Spec.Partition,
-		Image:         *metalCluster.Spec.Firewall.Image,
-		SSHPublicKeys: metalCluster.Spec.Firewall.SSHKeys,
-		Networks:      toMachineNetworks(*metalCluster.Spec.Firewall.DefaultNetworkID, *metalCluster.Spec.PrivateNetworkID),
-		UserData:      "",
-		Tags:          []string{},
-	}
-
-	// Set machine ID if it's set in firewall config
-	if pid, err := metalCluster.Spec.Firewall.ParsedProviderID(); err == nil {
-		logger.Info(fmt.Sprintf("Deploy Firewall on machine: %s", pid))
-		machineCreateReq.UUID = pid
-	}
-
-	resp, err := r.MetalStackClient.FirewallCreate(&metalgo.FirewallCreateRequest{
-		MachineCreateRequest: machineCreateReq,
-	})
-	if err != nil {
-		return err
-	}
-
-	metalCluster.Spec.Firewall.SetProviderID(*resp.Firewall.ID)
-	return nil
-}
-
 func (r *MetalStackClusterReconciler) countMachines(ctx context.Context, cluster *capi.Cluster) (count int, err error) {
 	machines := capi.MachineList{}
 	listOptions := []client.ListOption{
@@ -298,7 +251,7 @@ func (r *MetalStackClusterReconciler) countMachines(ctx context.Context, cluster
 	}
 
 	if r.Client.List(ctx, &machines, listOptions...) != nil {
-		return 0, fmt.Errorf("Failed to list machines: %w", err)
+		return 0, fmt.Errorf("failed to list machines: %w", err)
 	}
 
 	return len(machines.Items), nil
@@ -312,19 +265,30 @@ func (r *MetalStackClusterReconciler) deleteMachines(ctx context.Context, cluste
 			capi.ClusterLabelName: cluster.Name,
 		}),
 	}
-	if err := r.Client.DeleteAllOf(ctx, &machine, deleteOptions...); err != nil {
-		return err
+
+	return r.Client.DeleteAllOf(ctx, &machine, deleteOptions...)
+}
+
+func (r *MetalStackClusterReconciler) createFirewall(ctx context.Context, metalCluster *api.MetalStackCluster) error {
+	firewall := &api.MetalStackFirewall{}
+	firewall.Name = metalCluster.Name
+	firewall.Namespace = metalCluster.Namespace
+	firewall.Spec = metalCluster.Spec.FirewallSpec
+	firewall.Labels = map[string]string{
+		capi.ClusterLabelName: metalCluster.Name,
 	}
 
-	return nil
+	return r.Client.Create(ctx, firewall)
 }
 
 func (r *MetalStackClusterReconciler) deleteFirewall(ctx context.Context, metalCluster *api.MetalStackCluster) error {
-	providerId, err := metalCluster.Spec.Firewall.ParsedProviderID()
-	if err != nil {
-		return fmt.Errorf("failed to parse providerID of Firewall: %w", err)
+	firewall := &api.MetalStackFirewall{}
+	deleteOptions := []client.DeleteAllOfOption{
+		client.InNamespace(metalCluster.Namespace),
+		client.MatchingLabels(map[string]string{
+			capi.ClusterLabelName: metalCluster.Name,
+		}),
 	}
 
-	_, err = r.MetalStackClient.MachineDelete(providerId)
-	return err
+	return r.Client.DeleteAllOf(ctx, firewall, deleteOptions...)
 }

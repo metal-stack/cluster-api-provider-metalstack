@@ -32,8 +32,9 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	infrastructurev1alpha3 "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
+
+	infrastructurev1alpha3 "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
 	// +kubebuilder:scaffold:imports
 )
 
