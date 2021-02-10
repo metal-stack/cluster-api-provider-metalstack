@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/go-logr/logr"
 	api "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
@@ -142,9 +143,9 @@ func (r *MetalStackFirewallReconciler) reconcile(
 		}
 	}
 
-	err := r.createRawMachineIfNotExists(ctx, logger, firewall, metalCluster)
+	created, err := r.createRawMachineIfNotExists(ctx, logger, firewall, metalCluster)
 
-	return ctrl.Result{}, err
+	return ctrl.Result{Requeue: !created}, err
 }
 
 func (r *MetalStackFirewallReconciler) createRawMachineIfNotExists(
@@ -152,7 +153,21 @@ func (r *MetalStackFirewallReconciler) createRawMachineIfNotExists(
 	logger logr.Logger,
 	firewall *api.MetalStackFirewall,
 	metalCluster *api.MetalStackCluster,
-) error {
+) (bool, error) {
+	kubeconfig, err := getKubeconfig(ctx, r.Client, metalCluster)
+	if err != nil {
+		return false, fmt.Errorf("Failed to get kubeconfig: %w", err)
+	}
+	if kubeconfig == nil {
+		return false, nil
+	}
+
+	userData, err := generateFirewallCloudInitConfig(kubeconfig)
+	if err != nil {
+		return false, fmt.Errorf("Failed to generate firewall cloud-init config: %w", err)
+	}
+
+	log.Println(userData)
 	machineCreateReq := metalgo.MachineCreateRequest{
 		Description:   firewall.Name + " created by Cluster API provider MetalStack",
 		Name:          firewall.Name,
@@ -163,7 +178,7 @@ func (r *MetalStackFirewallReconciler) createRawMachineIfNotExists(
 		Image:         firewall.Spec.Image,
 		SSHPublicKeys: firewall.Spec.SSHKeys,
 		Networks:      toMachineNetworks(metalCluster.Spec.PublicNetworkID, *metalCluster.Spec.PrivateNetworkID),
-		UserData:      "",
+		UserData:      userData,
 		Tags:          []string{},
 	}
 
@@ -177,9 +192,9 @@ func (r *MetalStackFirewallReconciler) createRawMachineIfNotExists(
 		MachineCreateRequest: machineCreateReq,
 	})
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	firewall.Spec.SetProviderID(*resp.Firewall.ID)
-	return nil
+	return true, nil
 }

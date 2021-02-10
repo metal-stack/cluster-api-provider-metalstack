@@ -23,8 +23,13 @@ import (
 	"github.com/go-logr/logr"
 	api "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
 	metalgo "github.com/metal-stack/metal-go"
+	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	kubeconfigSecretNameTemplate = "%s-kubeconfig" // cluster_name-kubeconfig
 )
 
 func toMachineNetworks(networks ...string) (machineNetworks []metalgo.MachineAllocationNetwork) {
@@ -52,4 +57,26 @@ func getMetalStackCluster(ctx context.Context, logger logr.Logger, k8sClient cli
 	}
 
 	return metalCluster
+}
+
+func getKubeconfig(
+	ctx context.Context,
+	k8sClient client.Client,
+	metalCluster *api.MetalStackCluster,
+) (kubeconfig []byte, err error) {
+	secret := &core.Secret{}
+	namespacedName := types.NamespacedName{
+		Namespace: metalCluster.Namespace,
+		Name:      fmt.Sprintf(kubeconfigSecretNameTemplate, metalCluster.Name),
+	}
+	if err := k8sClient.Get(ctx, namespacedName, secret); err != nil {
+		return nil, client.IgnoreNotFound(err)
+	}
+
+	kubeconfig, ok := secret.Data["value"]
+	if !ok {
+		return nil, fmt.Errorf("No key 'value' in kubeconfig secret")
+	}
+
+	return
 }
