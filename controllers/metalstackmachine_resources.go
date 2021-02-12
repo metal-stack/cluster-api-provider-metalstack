@@ -151,6 +151,7 @@ func (r *metalStackMachineResources) getTagsForRawMachine() (tags []string) {
 		[]string{
 			tag.ClusterName + "=" + r.metalCluster.Name,
 			tag.MachineName + "=" + r.metalMachine.Name,
+			fmt.Sprintf("%s=%s", tag.ClusterID, r.metalCluster.UID),
 		},
 		r.metalMachine.Spec.Tags...,
 	)

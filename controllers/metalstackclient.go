@@ -26,13 +26,15 @@ import (
 type MetalStackClient interface {
 	FirewallCreate(fcr *metalgo.FirewallCreateRequest) (*metalgo.FirewallCreateResponse, error)
 	FirewallGet(machineID string) (*metalgo.FirewallGetResponse, error)
+	FirewallFind(ffr *metalgo.FirewallFindRequest) (*metalgo.FirewallListResponse, error)
 	IPAllocate(iar *metalgo.IPAllocateRequest) (*metalgo.IPDetailResponse, error)
-	IPList() (*metalgo.IPListResponse, error)
+	IPFind(ifr *metalgo.IPFindRequest) (*metalgo.IPListResponse, error)
 	IPFree(id string) (*metalgo.IPDetailResponse, error)
 	MachineCreate(mcr *metalgo.MachineCreateRequest) (*metalgo.MachineCreateResponse, error)
 	MachineDelete(machineID string) (*metalgo.MachineDeleteResponse, error)
 	MachineFind(mfr *metalgo.MachineFindRequest) (*metalgo.MachineListResponse, error)
 	MachineGet(id string) (*metalgo.MachineGetResponse, error)
 	NetworkAllocate(ncr *metalgo.NetworkAllocateRequest) (*metalgo.NetworkDetailResponse, error)
+	NetworkFind(nfr *metalgo.NetworkFindRequest) (*metalgo.NetworkListResponse, error)
 	NetworkFree(id string) (*metalgo.NetworkDetailResponse, error)
 }

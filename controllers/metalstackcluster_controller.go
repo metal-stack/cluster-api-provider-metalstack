@@ -145,21 +145,22 @@ func (r *MetalStackClusterReconciler) reconcileDelete(ctx context.Context, logge
 		return ctrl.Result{}, fmt.Errorf("failed to delete Firewall: %w", err)
 	}
 
-	// Wait until all IPs are freed
-	resp, err := r.MetalStackClient.IPList()
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to list IPs: %w", err)
-	}
-	if len(resp.IPs) > 0 {
-		logger.Info("waiting until all IPs are freed")
-		return ctrl.Result{Requeue: true}, nil
-
-	}
-
 	// Delete network
 	logger.Info("Deleting Cluster network")
-	if _, err := r.MetalStackClient.NetworkFree(*metalCluster.Spec.PrivateNetworkID); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to free network: %w", err)
+	resp, err := r.MetalStackClient.NetworkFind(&metalgo.NetworkFindRequest{
+		ID:        metalCluster.Spec.PrivateNetworkID,
+		ProjectID: &metalCluster.Spec.ProjectID,
+	})
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to list networks: %w", err)
+	}
+
+	if len(resp.Networks) == 1 {
+		if _, err := r.MetalStackClient.NetworkFree(*metalCluster.Spec.PrivateNetworkID); err != nil {
+			return ctrl.Result{
+				Requeue: true,
+			}, nil
+		}
 	}
 
 	controllerutil.RemoveFinalizer(metalCluster, api.MetalStackClusterFinalizer)
@@ -222,21 +223,24 @@ func (r *MetalStackClusterReconciler) allocateNetwork(metalCluster *api.MetalSta
 }
 
 func (r *MetalStackClusterReconciler) allocateControlPlaneIP(logger logr.Logger, metalCluster *api.MetalStackCluster) error {
-	if _, err := r.MetalStackClient.IPAllocate(&metalgo.IPAllocateRequest{
+	resp, err := r.MetalStackClient.IPAllocate(&metalgo.IPAllocateRequest{
 		Description: "",
-		Name:        metalCluster.Name + "api-server-IP",
-		Networkid:   "internet-vagrant-lab",
+		Name:        metalCluster.Name + "-api-server-IP",
+		Networkid:   metalCluster.Spec.PublicNetworkID,
 		Projectid:   metalCluster.Spec.ProjectID,
 		IPAddress:   metalCluster.Spec.ControlPlaneEndpoint.Host,
 		Type:        "",
 		Tags:        []string{},
-	}); err != nil {
-		logger.Info(fmt.Sprintf("Failed to allocate Control Plane IP %s", metalCluster.Spec.ControlPlaneEndpoint.Host))
+	})
+	if err != nil {
+		logger.Info(fmt.Sprintf("Failed to allocate Control Plane IP %s", err))
 		return err
 	}
 
+	metalCluster.Spec.ControlPlaneEndpoint.Host = *resp.IP.Ipaddress
+
 	metalCluster.Status.ControlPlaneIPAllocated = true
-	logger.Info(fmt.Sprintf("Control Plane IP %s allocated", metalCluster.Spec.ControlPlaneEndpoint.Host))
+	logger.Info(fmt.Sprintf("Control Plane IP %s allocated", *resp.IP.Ipaddress))
 
 	return nil
 }
