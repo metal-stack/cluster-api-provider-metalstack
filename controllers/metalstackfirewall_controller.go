@@ -186,9 +186,10 @@ func (r *MetalStackFirewallReconciler) createRawMachineIfNotExists(
 		return false, fmt.Errorf("Failed to generate firewall ignition config: %w", err)
 	}
 
-	log.Println(firewall.Spec.Image)
-
+	// TODO: Remove
+	log.Println(string(kubeconfig))
 	log.Println(userData)
+
 	machineCreateReq := metalgo.MachineCreateRequest{
 		Description:   firewall.Name + " created by Cluster API provider MetalStack",
 		Name:          firewall.Name,
