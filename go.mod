@@ -16,7 +16,6 @@ require (
 	github.com/metal-stack/metal-lib v0.6.8
 	github.com/onsi/ginkgo v1.14.2
 	github.com/onsi/gomega v1.10.4
-	github.com/pkg/errors v0.9.1
 	github.com/vincent-petithory/dataurl v0.0.0-20191104211930-d1553a71de50 // indirect
 	go4.org v0.0.0-20201209231011-d4a079459e60 // indirect
 	k8s.io/api v0.17.9

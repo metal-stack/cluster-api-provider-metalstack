@@ -17,6 +17,9 @@ limitations under the License.
 package v1alpha3
 
 import (
+	"fmt"
+
+	"github.com/metal-stack/metal-lib/pkg/tag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/cluster-api/api/v1alpha3"
@@ -101,6 +104,10 @@ func (cluster *MetalStackCluster) GetFirewallNamespacedName() types.NamespacedNa
 		Namespace: cluster.Namespace,
 		Name:      cluster.Name,
 	}
+}
+
+func (cluster *MetalStackCluster) GetClusterIDTag() string {
+	return fmt.Sprintf("%s=%s", tag.ClusterID, cluster.UID)
 }
 
 // +kubebuilder:object:root=true

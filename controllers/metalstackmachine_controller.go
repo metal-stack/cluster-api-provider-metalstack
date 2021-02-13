@@ -24,7 +24,6 @@ import (
 
 	"github.com/go-logr/logr"
 	metalgo "github.com/metal-stack/metal-go"
-	"github.com/metal-stack/metal-lib/pkg/tag"
 	corev1 "k8s.io/api/core/v1"
 	capiv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	capiremote "sigs.k8s.io/cluster-api/controllers/remote"
@@ -144,7 +143,7 @@ func (r *MetalStackMachineReconciler) reconcileDelete(ctx context.Context, resou
 	resp, err := r.MetalStackClient.MachineFind(&metalgo.MachineFindRequest{
 		ID:                &id,
 		AllocationProject: &resources.metalCluster.Spec.ProjectID,
-		Tags:              []string{fmt.Sprintf("%s=%s", tag.ClusterID, resources.metalCluster.UID)},
+		Tags:              []string{resources.metalCluster.GetClusterIDTag()},
 	})
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("error finding machines: %w", err)

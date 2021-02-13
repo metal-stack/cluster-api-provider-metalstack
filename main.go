@@ -113,6 +113,6 @@ func newManagerOptions(metricsAddr string, enableLeaderElection bool) *ctrl.Opti
 		Port:               9443,
 		// EventBroadcaster:   broadcaster,
 		LeaderElection:   enableLeaderElection,
-		LeaderElectionID: "cad3ba79.cluster.x-k8s.io", // todo: What is this?
+		LeaderElectionID: "capi-metal-stack-le",
 	}
 }

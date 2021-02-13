@@ -48,6 +48,21 @@ func (mr *MockMetalStackClientMockRecorder) FirewallCreate(arg0 interface{}) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FirewallCreate", reflect.TypeOf((*MockMetalStackClient)(nil).FirewallCreate), arg0)
 }
 
+// FirewallFind mocks base method
+func (m *MockMetalStackClient) FirewallFind(arg0 *metalgo.FirewallFindRequest) (*metalgo.FirewallListResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FirewallFind", arg0)
+	ret0, _ := ret[0].(*metalgo.FirewallListResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FirewallFind indicates an expected call of FirewallFind
+func (mr *MockMetalStackClientMockRecorder) FirewallFind(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FirewallFind", reflect.TypeOf((*MockMetalStackClient)(nil).FirewallFind), arg0)
+}
+
 // FirewallGet mocks base method
 func (m *MockMetalStackClient) FirewallGet(arg0 string) (*metalgo.FirewallGetResponse, error) {
 	m.ctrl.T.Helper()
@@ -76,36 +91,6 @@ func (m *MockMetalStackClient) IPAllocate(arg0 *metalgo.IPAllocateRequest) (*met
 func (mr *MockMetalStackClientMockRecorder) IPAllocate(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IPAllocate", reflect.TypeOf((*MockMetalStackClient)(nil).IPAllocate), arg0)
-}
-
-// IPFree mocks base method
-func (m *MockMetalStackClient) IPFree(arg0 string) (*metalgo.IPDetailResponse, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IPFree", arg0)
-	ret0, _ := ret[0].(*metalgo.IPDetailResponse)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// IPFree indicates an expected call of IPFree
-func (mr *MockMetalStackClientMockRecorder) IPFree(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IPFree", reflect.TypeOf((*MockMetalStackClient)(nil).IPFree), arg0)
-}
-
-// IPList mocks base method
-func (m *MockMetalStackClient) IPList() (*metalgo.IPListResponse, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IPList")
-	ret0, _ := ret[0].(*metalgo.IPListResponse)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// IPList indicates an expected call of IPList
-func (mr *MockMetalStackClientMockRecorder) IPList() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IPList", reflect.TypeOf((*MockMetalStackClient)(nil).IPList))
 }
 
 // MachineCreate mocks base method
@@ -181,6 +166,21 @@ func (m *MockMetalStackClient) NetworkAllocate(arg0 *metalgo.NetworkAllocateRequ
 func (mr *MockMetalStackClientMockRecorder) NetworkAllocate(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NetworkAllocate", reflect.TypeOf((*MockMetalStackClient)(nil).NetworkAllocate), arg0)
+}
+
+// NetworkFind mocks base method
+func (m *MockMetalStackClient) NetworkFind(arg0 *metalgo.NetworkFindRequest) (*metalgo.NetworkListResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NetworkFind", arg0)
+	ret0, _ := ret[0].(*metalgo.NetworkListResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NetworkFind indicates an expected call of NetworkFind
+func (mr *MockMetalStackClientMockRecorder) NetworkFind(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NetworkFind", reflect.TypeOf((*MockMetalStackClient)(nil).NetworkFind), arg0)
 }
 
 // NetworkFree mocks base method

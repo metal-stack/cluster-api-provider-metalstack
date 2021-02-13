@@ -28,8 +28,6 @@ type MetalStackClient interface {
 	FirewallGet(machineID string) (*metalgo.FirewallGetResponse, error)
 	FirewallFind(ffr *metalgo.FirewallFindRequest) (*metalgo.FirewallListResponse, error)
 	IPAllocate(iar *metalgo.IPAllocateRequest) (*metalgo.IPDetailResponse, error)
-	IPFind(ifr *metalgo.IPFindRequest) (*metalgo.IPListResponse, error)
-	IPFree(id string) (*metalgo.IPDetailResponse, error)
 	MachineCreate(mcr *metalgo.MachineCreateRequest) (*metalgo.MachineCreateResponse, error)
 	MachineDelete(machineID string) (*metalgo.MachineDeleteResponse, error)
 	MachineFind(mfr *metalgo.MachineFindRequest) (*metalgo.MachineListResponse, error)

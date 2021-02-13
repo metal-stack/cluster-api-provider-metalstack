@@ -24,7 +24,6 @@ import (
 	"github.com/go-logr/logr"
 	api "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
 	metalgo "github.com/metal-stack/metal-go"
-	"github.com/metal-stack/metal-lib/pkg/tag"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	capi "sigs.k8s.io/cluster-api/api/v1alpha3"
@@ -101,7 +100,12 @@ func (r *MetalStackFirewallReconciler) Reconcile(req ctrl.Request) (ctrl.Result,
 	return r.reconcile(ctx, logger, firewall, metalCluster)
 }
 
-func (r *MetalStackFirewallReconciler) reconcileDelete(ctx context.Context, logger logr.Logger, firewall *api.MetalStackFirewall, metalCluster *api.MetalStackCluster) (ctrl.Result, error) {
+func (r *MetalStackFirewallReconciler) reconcileDelete(
+	ctx context.Context,
+	logger logr.Logger,
+	firewall *api.MetalStackFirewall,
+	metalCluster *api.MetalStackCluster,
+) (ctrl.Result, error) {
 	logger.Info("Deleting MetalStackFirewall")
 
 	id, err := firewall.Spec.ParsedProviderID()
@@ -113,22 +117,17 @@ func (r *MetalStackFirewallReconciler) reconcileDelete(ctx context.Context, logg
 		MachineFindRequest: metalgo.MachineFindRequest{
 			ID:                &id,
 			AllocationProject: &metalCluster.Spec.ProjectID,
-			Tags:              []string{fmt.Sprintf("%s=%s", tag.ClusterID, metalCluster.UID)},
+			Tags:              []string{metalCluster.GetClusterIDTag()},
 		},
 	})
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("error finding firewalls: %w", err)
 	}
 
-	switch len(resp.Firewalls) {
-	case 0:
-		logger.Info("firewall already released")
-	case 1:
+	if len(resp.Firewalls) == 1 {
 		if _, err = r.MetalStackClient.MachineDelete(id); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to delete the MetalStackFirewall %s: %w", firewall.Name, err)
 		}
-	default:
-		return ctrl.Result{}, fmt.Errorf("found multiple firewall for cluster")
 	}
 
 	controllerutil.RemoveFinalizer(firewall, api.MetalStackFirewallFinalizer)
@@ -200,9 +199,7 @@ func (r *MetalStackFirewallReconciler) createRawMachineIfNotExists(
 		SSHPublicKeys: firewall.Spec.SSHKeys,
 		Networks:      toMachineNetworks(metalCluster.Spec.PublicNetworkID, *metalCluster.Spec.PrivateNetworkID),
 		UserData:      userData,
-		Tags: []string{
-			fmt.Sprintf("%s=%s", tag.ClusterID, metalCluster.UID),
-		},
+		Tags:          []string{metalCluster.GetClusterIDTag()},
 	}
 
 	// If ProviderID is provided set it in request
