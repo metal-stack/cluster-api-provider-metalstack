@@ -18,13 +18,11 @@ package controllers
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/go-logr/logr"
 	api "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
 	"github.com/metal-stack/metal-go/api/models"
-	"github.com/metal-stack/metal-lib/pkg/tag"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	capiv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
@@ -116,24 +114,21 @@ func (r *metalStackMachineResources) isReady() bool {
 func (r *metalStackMachineResources) getBootstrapData(ctx context.Context) ([]byte, error) {
 	secretName := r.machine.Spec.Bootstrap.DataSecretName
 	if secretName == nil {
-		return nil, errors.New("owner Machine's Spec.Bootstrap.DataSecretName being nil")
+		return nil, fmt.Errorf("Owner Machine's Spec.Bootstrap.DataSecretName being nil")
 	}
 
 	secret := &core.Secret{}
-	if err := r.client.Get(
-		ctx,
-		types.NamespacedName{
-			Namespace: r.metalMachine.Namespace,
-			Name:      *secretName,
-		},
-		secret,
-	); err != nil {
+	namespacedName := types.NamespacedName{
+		Namespace: r.metalMachine.Namespace,
+		Name:      *secretName,
+	}
+	if err := r.client.Get(ctx, namespacedName, secret); err != nil {
 		return nil, err
 	}
 
 	value, ok := secret.Data["value"]
 	if !ok {
-		return nil, errors.New("key `value` of the map `Data` of the bootstrap data missing")
+		return nil, fmt.Errorf("Key 'value' is missing in bootstrap secret")
 	}
 
 	return value, nil
@@ -152,18 +147,11 @@ func (r *metalStackMachineResources) isControlPlane() bool {
 // getTagsForRawMachine returns slice of tags for raw MetalStack machine
 func (r *metalStackMachineResources) getTagsForRawMachine() (tags []string) {
 	tags = append(
-		[]string{
-			tag.ClusterName + "=" + r.metalCluster.Name,
-			tag.MachineName + "=" + r.metalMachine.Name,
-		},
+		[]string{r.metalCluster.GetClusterIDTag()},
 		r.metalMachine.Spec.Tags...,
 	)
 
-	if r.isControlPlane() {
-		tags = append(tags, capiv1.MachineControlPlaneLabelName+"=true")
-	} else {
-		tags = append(tags, capiv1.MachineControlPlaneLabelName+"=false")
-	}
+	tags = append(tags, fmt.Sprintf("%s=%t", capiv1.MachineControlPlaneLabelName, r.isControlPlane()))
 
 	return
 }

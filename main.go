@@ -22,6 +22,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
+
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -111,6 +113,6 @@ func newManagerOptions(metricsAddr string, enableLeaderElection bool) *ctrl.Opti
 		Port:               9443,
 		// EventBroadcaster:   broadcaster,
 		LeaderElection:   enableLeaderElection,
-		LeaderElectionID: "cad3ba79.cluster.x-k8s.io", // todo: What is this?
+		LeaderElectionID: "capi-metal-stack-le",
 	}
 }

@@ -140,8 +140,19 @@ func (r *MetalStackMachineReconciler) reconcileDelete(ctx context.Context, resou
 		return ctrl.Result{}, fmt.Errorf("parse provider ID: %w", err)
 	}
 
-	if _, err = r.MetalStackClient.MachineDelete(id); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to delete the MetalStackMachine %s: %w", resources.metalMachine.Name, err)
+	resp, err := r.MetalStackClient.MachineFind(&metalgo.MachineFindRequest{
+		ID:                &id,
+		AllocationProject: &resources.metalCluster.Spec.ProjectID,
+		Tags:              []string{resources.metalCluster.GetClusterIDTag()},
+	})
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("error finding machines: %w", err)
+	}
+
+	if len(resp.Machines) == 1 {
+		if _, err = r.MetalStackClient.MachineDelete(id); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to delete the MetalStackMachine %s: %w", resources.metalMachine.Name, err)
+		}
 	}
 
 	controllerutil.RemoveFinalizer(resources.metalMachine, api.MetalStackMachineFinalizer)
@@ -154,6 +165,12 @@ func (r *MetalStackMachineReconciler) reconcileDelete(ctx context.Context, resou
 // reconcile reconciles MetalStackMachine Create/Update events
 func (r *MetalStackMachineReconciler) reconcile(ctx context.Context, resources *metalStackMachineResources) (ctrl.Result, error) {
 	controllerutil.AddFinalizer(resources.metalMachine, api.MetalStackMachineFinalizer)
+
+	if !resources.metalCluster.Status.ControlPlaneIPAllocated {
+		return ctrl.Result{
+			Requeue: true,
+		}, nil
+	}
 
 	if err := r.createRawMachineIfNotExists(ctx, resources); err != nil {
 		return ctrl.Result{}, err

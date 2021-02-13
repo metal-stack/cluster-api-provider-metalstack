@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/go-logr/logr"
 	api "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
@@ -93,13 +94,18 @@ func (r *MetalStackFirewallReconciler) Reconcile(req ctrl.Request) (ctrl.Result,
 	}()
 
 	if !firewall.ObjectMeta.DeletionTimestamp.IsZero() {
-		return r.reconcileDelete(ctx, logger, firewall)
+		return r.reconcileDelete(ctx, logger, firewall, metalCluster)
 	}
 
 	return r.reconcile(ctx, logger, firewall, metalCluster)
 }
 
-func (r *MetalStackFirewallReconciler) reconcileDelete(ctx context.Context, logger logr.Logger, firewall *api.MetalStackFirewall) (ctrl.Result, error) {
+func (r *MetalStackFirewallReconciler) reconcileDelete(
+	ctx context.Context,
+	logger logr.Logger,
+	firewall *api.MetalStackFirewall,
+	metalCluster *api.MetalStackCluster,
+) (ctrl.Result, error) {
 	logger.Info("Deleting MetalStackFirewall")
 
 	id, err := firewall.Spec.ParsedProviderID()
@@ -107,8 +113,21 @@ func (r *MetalStackFirewallReconciler) reconcileDelete(ctx context.Context, logg
 		return ctrl.Result{}, fmt.Errorf("parse provider ID: %w", err)
 	}
 
-	if _, err = r.MetalStackClient.MachineDelete(id); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to delete the MetalStackFirewall %s: %w", firewall.Name, err)
+	resp, err := r.MetalStackClient.FirewallFind(&metalgo.FirewallFindRequest{
+		MachineFindRequest: metalgo.MachineFindRequest{
+			ID:                &id,
+			AllocationProject: &metalCluster.Spec.ProjectID,
+			Tags:              []string{metalCluster.GetClusterIDTag()},
+		},
+	})
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("error finding firewalls: %w", err)
+	}
+
+	if len(resp.Firewalls) == 1 {
+		if _, err = r.MetalStackClient.MachineDelete(id); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to delete the MetalStackFirewall %s: %w", firewall.Name, err)
+		}
 	}
 
 	controllerutil.RemoveFinalizer(firewall, api.MetalStackFirewallFinalizer)
@@ -142,9 +161,9 @@ func (r *MetalStackFirewallReconciler) reconcile(
 		}
 	}
 
-	err := r.createRawMachineIfNotExists(ctx, logger, firewall, metalCluster)
+	created, err := r.createRawMachineIfNotExists(ctx, logger, firewall, metalCluster)
 
-	return ctrl.Result{}, err
+	return ctrl.Result{Requeue: !created}, err
 }
 
 func (r *MetalStackFirewallReconciler) createRawMachineIfNotExists(
@@ -152,7 +171,23 @@ func (r *MetalStackFirewallReconciler) createRawMachineIfNotExists(
 	logger logr.Logger,
 	firewall *api.MetalStackFirewall,
 	metalCluster *api.MetalStackCluster,
-) error {
+) (bool, error) {
+	kubeconfig, err := getKubeconfig(ctx, r.Client, metalCluster)
+	if err != nil {
+		return false, fmt.Errorf("Failed to get kubeconfig: %w", err)
+	}
+	if kubeconfig == nil {
+		return false, nil
+	}
+
+	userData, err := generateFirewallIgnitionConfig(kubeconfig)
+	if err != nil {
+		return false, fmt.Errorf("Failed to generate firewall ignition config: %w", err)
+	}
+
+	log.Println(firewall.Spec.Image)
+
+	log.Println(userData)
 	machineCreateReq := metalgo.MachineCreateRequest{
 		Description:   firewall.Name + " created by Cluster API provider MetalStack",
 		Name:          firewall.Name,
@@ -163,8 +198,8 @@ func (r *MetalStackFirewallReconciler) createRawMachineIfNotExists(
 		Image:         firewall.Spec.Image,
 		SSHPublicKeys: firewall.Spec.SSHKeys,
 		Networks:      toMachineNetworks(metalCluster.Spec.PublicNetworkID, *metalCluster.Spec.PrivateNetworkID),
-		UserData:      "",
-		Tags:          []string{},
+		UserData:      userData,
+		Tags:          []string{metalCluster.GetClusterIDTag()},
 	}
 
 	// If ProviderID is provided set it in request
@@ -177,9 +212,9 @@ func (r *MetalStackFirewallReconciler) createRawMachineIfNotExists(
 		MachineCreateRequest: machineCreateReq,
 	})
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	firewall.Spec.SetProviderID(*resp.Firewall.ID)
-	return nil
+	return true, nil
 }
