@@ -68,24 +68,24 @@ var _ = Describe("Reconcile MetalStackCluster", func() {
 	DescribeTable("Create Cluster", metalStackClusterTestFunc,
 		Entry("Should be no error when metal-stack cluster not found", MetalStackClusterTestCase{}),
 		Entry("Should requeue if Owner Cluster not set", MetalStackClusterTestCase{
-			Objects: []runtime.Object{newMetalStackCluster(nil, nil, false)},
+			Objects: []runtime.Object{newMetalStackCluster(nil, nil, false, false)},
 			Requeue: true,
 		}),
 		Entry("Should fail if unable to get Owner Cluster", MetalStackClusterTestCase{
-			Objects: []runtime.Object{newMetalStackCluster(newOwnerRef(), nil, false)},
+			Objects: []runtime.Object{newMetalStackCluster(newClusterOwnerRef(), nil, false, false)},
 			Error:   true,
 		}),
 		Entry("Should requeue if paused", MetalStackClusterTestCase{
 			Objects: []runtime.Object{
-				newCluster(true),
-				newMetalStackCluster(newOwnerRef(), nil, false),
+				newCluster(true, false),
+				newMetalStackCluster(newClusterOwnerRef(), nil, false, false),
 			},
 			Requeue: true,
 		}),
 		Entry("Should requeue if network allocation failed", MetalStackClusterTestCase{
 			Objects: []runtime.Object{
-				newCluster(false),
-				newMetalStackCluster(newOwnerRef(), nil, false),
+				newCluster(false, false),
+				newMetalStackCluster(newClusterOwnerRef(), nil, false, false),
 			},
 			Requeue: true,
 			MockFunc: func() {
@@ -94,8 +94,8 @@ var _ = Describe("Reconcile MetalStackCluster", func() {
 		}),
 		Entry("Should requeue if Control Plane IP allocation failed", MetalStackClusterTestCase{
 			Objects: []runtime.Object{
-				newCluster(false),
-				newMetalStackCluster(newOwnerRef(), pointer.StringPtr("privateNetworkID"), false),
+				newCluster(false, false),
+				newMetalStackCluster(newClusterOwnerRef(), pointer.StringPtr("privateNetworkID"), false, false),
 			},
 			Requeue: true,
 			MockFunc: func() {
@@ -104,44 +104,48 @@ var _ = Describe("Reconcile MetalStackCluster", func() {
 		}),
 		Entry("Should succeed", MetalStackClusterTestCase{
 			Objects: []runtime.Object{
-				newCluster(false),
-				newMetalStackCluster(newOwnerRef(), pointer.StringPtr("privateNetworkID"), false),
+				newCluster(false, false),
+				newMetalStackCluster(newClusterOwnerRef(), pointer.StringPtr("privateNetworkID"), false, false),
 			},
 			MockFunc: func() {
-				metalClient.EXPECT().IPAllocate(gomock.Any()).Return(nil, nil)
+				metalClient.EXPECT().IPAllocate(gomock.Any()).Return(&metalgo.IPDetailResponse{
+					IP: &metalmodels.V1IPResponse{Ipaddress: pointer.StringPtr("8.8.8.8")},
+				}, nil)
 			},
 		}),
 	)
 
 	DescribeTable("Delete Cluster", metalStackClusterTestFunc,
-		Entry("Should requeue if not all IPs are freed", MetalStackClusterTestCase{
+		Entry("Should fail if NetworkFind returned error", MetalStackClusterTestCase{
 			Objects: []runtime.Object{
-				newCluster(false),
-				newMetalStackCluster(newOwnerRef(), pointer.StringPtr("privateNetworkID"), true),
-			},
-			Requeue: true,
-			MockFunc: func() {
-				metalClient.EXPECT().IPList().Return(&metalgo.IPListResponse{IPs: []*metalmodels.V1IPResponse{nil}}, nil)
-			},
-		}),
-		Entry("Should fail if NetworkFree returned error", MetalStackClusterTestCase{
-			Objects: []runtime.Object{
-				newCluster(false),
-				newMetalStackCluster(newOwnerRef(), pointer.StringPtr("privateNetworkID"), true),
+				newCluster(false, false),
+				newMetalStackCluster(newClusterOwnerRef(), pointer.StringPtr("privateNetworkID"), false, true),
 			},
 			Error: true,
 			MockFunc: func() {
-				metalClient.EXPECT().IPList().Return(&metalgo.IPListResponse{IPs: nil}, nil)
+				metalClient.EXPECT().NetworkFind(gomock.Any()).Return(nil, fmt.Errorf("error"))
+			},
+		}),
+		Entry("Should requeue if NetworkFree returned error", MetalStackClusterTestCase{
+			Objects: []runtime.Object{
+				newCluster(false, false),
+				newMetalStackCluster(newClusterOwnerRef(), pointer.StringPtr("privateNetworkID"), false, true),
+			},
+			Requeue: true,
+			MockFunc: func() {
+				metalClient.EXPECT().NetworkFind(gomock.Any()).Return(
+					&metalgo.NetworkListResponse{Networks: []*metalmodels.V1NetworkResponse{nil}}, nil)
 				metalClient.EXPECT().NetworkFree(gomock.Any()).Return(nil, fmt.Errorf("error"))
 			},
 		}),
 		Entry("Should succeed", MetalStackClusterTestCase{
 			Objects: []runtime.Object{
-				newCluster(false),
-				newMetalStackCluster(newOwnerRef(), pointer.StringPtr("privateNetworkID"), true),
+				newCluster(false, false),
+				newMetalStackCluster(newClusterOwnerRef(), pointer.StringPtr("privateNetworkID"), false, true),
 			},
 			MockFunc: func() {
-				metalClient.EXPECT().IPList().Return(&metalgo.IPListResponse{IPs: nil}, nil)
+				metalClient.EXPECT().NetworkFind(gomock.Any()).Return(
+					&metalgo.NetworkListResponse{Networks: []*metalmodels.V1NetworkResponse{nil}}, nil)
 				metalClient.EXPECT().NetworkFree(gomock.Any()).Return(nil, nil)
 			},
 		}),
