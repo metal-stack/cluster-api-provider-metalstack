@@ -35,7 +35,7 @@ type MetalStackFirewallSpec struct {
 	// Machine type(currently specifies only size)
 	MachineType string `json:"machineType"`
 
-	// ProviderID sepecifies the machine on which the firewall should be deployed
+	// ProviderID specifies the machine on which the firewall should be deployed
 	// +optional
 	ProviderID *string `json:"providerID,omitempty"`
 
