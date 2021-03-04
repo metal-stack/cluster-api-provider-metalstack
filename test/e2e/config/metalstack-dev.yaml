@@ -5,7 +5,7 @@
 # - control-plane kubeadm
 
 images:
-- name: "metalstack/cluster-api-metalstack-controller"
+- name: "metalstack/cluster-api-provider-metalstack"
   loadBehavior: mustLoad
 
 providers:
@@ -50,23 +50,23 @@ providers:
   type: InfrastructureProvider
   versions:
   - name: v0.3.0
-    value: "../../../config"
+    value: "../../../config/managerless"
     replacements:
     - old: "imagePullPolicy: Always"
       new: "imagePullPolicy: IfNotPresent"
     - old: "--enable-leader-election"
       new: "--enable-leader-election=false"
   files:
-  - sourcePath: "../../../../metadata.yaml"
+  - sourcePath: "../../../metadata.yaml"
     targetName: "metadata.yaml"
   - sourcePath: "../../../templates/cluster-template.yaml"
 
 variables:
-  KUBERNETES_VERSION: "v1.18.2"
+  KUBERNETES_VERSION: "v1.20.3"
   ETCD_VERSION_UPGRADE_TO: "3.4.3-0"
   COREDNS_VERSION_UPGRADE_TO: "1.6.7"
-  KUBERNETES_VERSION_UPGRADE_TO: "v1.18.2"
-  KUBERNETES_VERSION_UPGRADE_FROM: "v1.17.2"
+  KUBERNETES_VERSION_UPGRADE_TO: "v1.20.3"
+  KUBERNETES_VERSION_UPGRADE_FROM: "v1.20.3"
   CNI: "./data/cni/kindnet/kindnet.yaml"
 
 intervals:

@@ -8,8 +8,7 @@ The `cluster-api-provider-metalstack` controller main goal is to provision  K8s 
 ## MetalStackCluster Controller
 Watches new/updated/deleted `MetalStackCluster` resources. Responsible for:
 - network allocation
-- deploying firewall
-- ??? dynamic Control Plane IP assignment ???
+- MetalStackFirewall resource creation
 
 
 ### Reconciliation example:
@@ -115,4 +114,43 @@ status:
   - address: node-1
     type: InternalDNS
   ready: true  
+```
+
+## MetalStackFirewall Controller
+Watches new/updated/deleted `MetalStackFirewall` resources. Responsible for:
+- creates/updates firewall instance.
+
+### Reconciliation example
+Initial state of new `MetalStackFirewall` resource:
+```yaml
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
+kind: MetalStackFirewall
+metadata:
+  name: test1-v8vmn
+  namespace: default
+  labels: 
+      cluster.x-k8s.io/cluster-name: test1-v8vmn
+spec:
+  image: firewall-ubuntu-2.0
+  machineType: v1-small-x86
+  providerID: metalstack://2294c949-88f6-5390-8154-fa53d93a3313
+status:
+  ready: false
+```
+
+State of resource after reconciliation:
+```yaml
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
+kind: MetalStackFirewall
+metadata:
+  name: test1-v8vmn
+  namespace: default
+  labels: 
+      cluster.x-k8s.io/cluster-name: test1-v8vmn
+spec:
+  image: firewall-ubuntu-2.0
+  machineType: v1-small-x86
+  providerID: metalstack://2294c949-88f6-5390-8154-fa53d93a3313
+status:
+  ready: true
 ```

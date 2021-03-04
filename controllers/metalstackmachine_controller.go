@@ -190,7 +190,7 @@ func (r *MetalStackMachineReconciler) reconcile(ctx context.Context, resources *
 }
 
 func (r *MetalStackMachineReconciler) createRawMachineIfNotExists(ctx context.Context, resources *metalStackMachineResources) error {
-	// Check if machine already allocated
+	// Just checking if machine is already occupied
 	if pid, err := resources.metalMachine.Spec.ParsedProviderID(); err == nil {
 		resp, err := r.MetalStackClient.MachineGet(pid)
 		if err != nil {

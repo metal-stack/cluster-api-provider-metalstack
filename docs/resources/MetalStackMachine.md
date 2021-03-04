@@ -36,10 +36,10 @@ status:
 
 ## Fields
 Required fields:
-- **Image**: string - OS image.
--	**MachineType**: string - machine type(currently specifies only size).
+- **image**: string - OS image name.
+-	**machineType**: string - machine type(currently specifies only size).
 
 Optional fields:
-- **ProviderID**: *string - ID of Metal Stack machine.
-- **SSHKeys**: []string - public SSH keys for machine.
--	**Tags**: []string - set of tags to add to Metal Stack machine.
+- **providerID**: *string - ID of Metal Stack machine on which node should be deployed.
+- **sshKeys**: []string - public SSH keys for machine.
+-	**tags**: []string - set of tags to add to Metal Stack machine.

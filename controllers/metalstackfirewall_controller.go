@@ -19,7 +19,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/go-logr/logr"
 	api "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
@@ -161,9 +160,12 @@ func (r *MetalStackFirewallReconciler) reconcile(
 		}
 	}
 
-	created, err := r.createRawMachineIfNotExists(ctx, logger, firewall, metalCluster)
+	if err := r.createRawMachineIfNotExists(ctx, logger, firewall, metalCluster); err != nil {
+		return ctrl.Result{}, err
+	}
 
-	return ctrl.Result{Requeue: !created}, err
+	// Always requeue after successful firewall creation to check allocation in next reconcilation
+	return ctrl.Result{Requeue: true}, nil
 }
 
 func (r *MetalStackFirewallReconciler) createRawMachineIfNotExists(
@@ -171,23 +173,20 @@ func (r *MetalStackFirewallReconciler) createRawMachineIfNotExists(
 	logger logr.Logger,
 	firewall *api.MetalStackFirewall,
 	metalCluster *api.MetalStackCluster,
-) (bool, error) {
+) error {
 	kubeconfig, err := getKubeconfig(ctx, r.Client, metalCluster)
 	if err != nil {
-		return false, fmt.Errorf("Failed to get kubeconfig: %w", err)
+		return fmt.Errorf("Failed to get kubeconfig: %w", err)
 	}
 	if kubeconfig == nil {
-		return false, nil
+		return nil
 	}
 
 	userData, err := generateFirewallIgnitionConfig(kubeconfig)
 	if err != nil {
-		return false, fmt.Errorf("Failed to generate firewall ignition config: %w", err)
+		return fmt.Errorf("Failed to generate firewall ignition config: %w", err)
 	}
 
-	log.Println(firewall.Spec.Image)
-
-	log.Println(userData)
 	machineCreateReq := metalgo.MachineCreateRequest{
 		Description:   firewall.Name + " created by Cluster API provider MetalStack",
 		Name:          firewall.Name,
@@ -212,9 +211,9 @@ func (r *MetalStackFirewallReconciler) createRawMachineIfNotExists(
 		MachineCreateRequest: machineCreateReq,
 	})
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	firewall.Spec.SetProviderID(*resp.Firewall.ID)
-	return true, nil
+	return nil
 }
