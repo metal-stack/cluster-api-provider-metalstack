@@ -6,7 +6,7 @@ metadata:
 spec:
   preKubeadmCommands:
   - echo "waiting for the network"
-  - sleep 150
+  - sleep 120
   - echo "preKubeadmCommands run"
   - sudo apt-get update && sudo apt-get install -y apt-transport-https curl
   - curl -sS https://packages.cloud.google.com/apt/doc/apt-key.gpg -o key
@@ -55,13 +55,13 @@ spec:
   controlPlaneEndpoint:
     host: "${CONTROL_PLANE_IP}"
     port: 6443
-  firewallTemplate:
-    spec:
-      defaultNetworkID: internet-vagrant-lab
-      image: "firewall-ubuntu-2.0"
-      size: "v1-small-x86"
-  partition: "${PARTITION}"
-  projectID: "${PROJECT_ID}"
+  firewallSpec:
+    image: firewall-ubuntu-2.0
+    machineType: v1-small-x86
+    providerID: metalstack://2294c949-88f6-5390-8154-fa53d93a3313
+  partition: vagrant
+  projectID: 00000000-0000-0000-0000-000000000000
+  publicNetworkID: internet-vagrant-lab
 ---
 apiVersion: cluster.x-k8s.io/v1alpha3
 kind: Machine

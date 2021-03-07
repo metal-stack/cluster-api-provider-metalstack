@@ -16,3 +16,4 @@ resources:
 - ../resources/crd
 - ../resources/rbac
 - ../resources/namespace
+- ../resources/manager

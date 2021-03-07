@@ -136,6 +136,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	configPath = parts[1]
 	clusterctlConfigPath = parts[2]
 	kubeconfigPath := parts[3]
+	fmt.Printf("Kubeconfig path: %s\n", kubeconfigPath)
 
 	e2eConfig = loadE2EConfig(configPath)
 	bootstrapClusterProxy = framework.NewClusterProxy("bootstrap", kubeconfigPath, initScheme())
