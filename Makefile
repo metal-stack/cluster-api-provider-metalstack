@@ -254,7 +254,17 @@ deploy: crds
 
 # Generate manifests e.g. CRD, RBAC etc.
 crds: controller-gen
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/resources/crd/bases
+	$(CONTROLLER_GEN) \
+		$(CRD_OPTIONS) \
+		paths=./api/... \
+		rbac:roleName=manager-role \
+		output:crd:artifacts:config=config/resources/crd/bases \
+		webhook
+	$(CONTROLLER_GEN) \
+		$(CRD_OPTIONS) \
+		paths=./controllers/... \
+		output:rbac:dir=config/resources/rbac \
+		rbac:roleName=manager-role
 
 # Run go fmt against code
 fmt:

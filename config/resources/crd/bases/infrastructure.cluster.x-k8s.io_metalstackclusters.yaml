@@ -61,7 +61,7 @@ spec:
                   description: Machine type(currently specifies only size)
                   type: string
                 providerID:
-                  description: ProviderID sepecifies the machine on which the firewall
+                  description: ProviderID specifies the machine on which the firewall
                     should be deployed
                   type: string
                 sshKeys:
