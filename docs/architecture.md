@@ -1,17 +1,20 @@
-# Components
+# Architecture
+
+![Architecture diagram](images/metal_stack_arch.drawio.svg)
+
+## Components
 The `cluster-api-provider-metalstack` controller main goal is to provision  K8s cluster on `metal-stack`. Main requirements:
 - Provision ControlPlane node
 - Provision Worker nodes
 - Allow user to provision Firewall for Cluster
 - Allow user to deploy nodes on specific `metal-stack` machines.
 
-## MetalStackCluster Controller
+### MetalStackCluster Controller
 Watches new/updated/deleted `MetalStackCluster` resources. Responsible for:
 - network allocation
 - MetalStackFirewall resource creation
 
-
-### Reconciliation example:
+#### Reconciliation example:
 Initial state of new `MetalStackCluster` resource:
 ```
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
@@ -23,12 +26,13 @@ spec:
   controlPlaneEndpoint:
     host: "100.255.254.1"
     port: 6443
-  firewall:
-    defaultNetworkID: metal-stack-network
+  firewallSpec:
     image: firewall-ubuntu-2.0
-    size: v1-small-x86
+    machineType: v1-small-x86
+    providerID: metalstack://2294c949-88f6-5390-8154-fa53d93a3313
   partition: vagrant
   projectID: 00000000-0000-0000-0000-000000000000
+  publicNetworkID: internet-vagrant-lab
 ```
 
 State of resource after reconciliation:
@@ -50,21 +54,22 @@ spec:
   controlPlaneEndpoint:
     host: "100.255.254.1"
     port: 6443
-  firewall:
-    defaultNetworkID: metal-stack-network
+  firewallSpec:
     image: firewall-ubuntu-2.0
-    size: v1-small-x86
+    machineType: v1-small-x86
+    providerID: metalstack://2294c949-88f6-5390-8154-fa53d93a3313
   partition: vagrant
   projectID: 00000000-0000-0000-0000-000000000000
+  publicNetworkID: internet-vagrant-lab
 status:
   ready: true
 ```
 
-## MetalStackMachine Controller
+### MetalStackMachine Controller
 Watches new/updated/deleted `MetalStackMachine` resources. Responsible for:
 - creates/updates raw machine instance
 
-### Reconciliation example
+#### Reconciliation example
 Initial state of new `MetalStackMachine` resource:
 ```
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
@@ -116,11 +121,11 @@ status:
   ready: true  
 ```
 
-## MetalStackFirewall Controller
+### MetalStackFirewall Controller
 Watches new/updated/deleted `MetalStackFirewall` resources. Responsible for:
 - creates/updates firewall instance.
 
-### Reconciliation example
+#### Reconciliation example
 Initial state of new `MetalStackFirewall` resource:
 ```yaml
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3

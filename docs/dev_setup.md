@@ -1,41 +1,14 @@
 # Development setup
 
 ## Prerequisites
-First of all, follow steps in [dev guide document](./dev_guide.md) prerequisites. Then clone [mini-lab]() project to your local directory, it will provide infrastructure for testing this provider.
+For development you will need to install 2 tools: [kubebuilder](https://book.kubebuilder.io/quick-start.html)(run `make kubebuilder`) and [kustomize](https://kubernetes-sigs.github.io/kustomize/)(run `make kustomize`).
 
-## Setup
-For basic setup with Control Plane node only, use `master` branch in `mini-lab`. For setup with worker node, swtich to `3-machines` branch. 
+For running and testing locally this provider you will need to install and run [mini-lab](https://github.com/metal-stack/mini-lab). Follow instructions in README to run it. It will provide Kubernetes cluster where Cluster API components will be installed and virtual environment.
 
-In `mini-lab` project directory run:
-```
-make
-eval $(make dev-env)
+## Updating API
+Our API conforms to rules described in [kubebuilder book](https://book.kubebuilder.io/cronjob-tutorial/api-design.html), please read it first before making any changes to that.
 
-make route
-# Execute the output of the previous command.
-make fwrules
-# Execute the output of the previous command.
-```
+After making changes to API resources, run `make generate` to update generated code in `/api` directory. Then run `make crds` to update CRD manifests stored in `/config/resources/crd/bases/`.
 
-In this project root directory run:
-```
-make crds
-make managerless
-```
-
-Then run this commands, instead of `{version}` placeholder insert appropriate version(just check generated directories, usually it should be `{latest_tag}-dirty`):
-```
-sed -i "s/cluster-api-provider-metalstack-controller-manager-metrics-service/cap-metalstack-controller-manager-metrics-service/g" out/managerless/infrastructure-metalstack/{version}/infrastructure-components.yaml
-clusterctl init --config=out/managerless/infrastructure-metalstack/clusterctl-{version}.yaml --infrastructure=metalstack -v3
-```
-
-Create resources for running cluster:
-```
-make cluster
-kubectl apply -f ./out/cluster.yaml
-```
-
-Run this provider:
-```
-make manager && ./bin/manager-linux-amd64
-```
+## Testing
+Run `make test`.
