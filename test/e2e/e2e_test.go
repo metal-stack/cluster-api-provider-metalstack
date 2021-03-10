@@ -21,7 +21,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 
 	. "github.com/onsi/ginkgo"
@@ -29,7 +28,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/pointer"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	capi_e2e "sigs.k8s.io/cluster-api/test/e2e"
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/test/framework/clusterctl"
@@ -42,7 +40,6 @@ var _ = Describe("Workload cluster creation", func() {
 		specName            = "create-workload-cluster"
 		namespace           *corev1.Namespace
 		cancelWatches       context.CancelFunc
-		cluster             *clusterv1.Cluster
 		clusterName         string
 		clusterctlLogFolder string
 	)
@@ -59,19 +56,19 @@ var _ = Describe("Workload cluster creation", func() {
 
 	AfterEach(func() {
 		dumpSpecResourcesAndCleanup(
-			ctx, specName, bootstrapClusterProxy, artifactFolder, namespace, cancelWatches, cluster, e2eConfig.GetIntervals,
+			ctx, specName, bootstrapClusterProxy, artifactFolder, namespace, cancelWatches, e2eConfig.GetIntervals,
 			clusterName, clusterctlLogFolder, skipCleanup)
 	})
 
 	Describe("Should create control-plane and worker", func() {
 		It("Should create a cluster", func() {
-			result := clusterctl.ApplyClusterTemplateAndWait(ctx, clusterctl.ApplyClusterTemplateAndWaitInput{
+			_ = clusterctl.ApplyClusterTemplateAndWait(ctx, clusterctl.ApplyClusterTemplateAndWaitInput{
 				ClusterProxy: bootstrapClusterProxy,
 				ConfigCluster: clusterctl.ConfigClusterInput{
 					LogFolder:                clusterctlLogFolder,
 					ClusterctlConfigPath:     clusterctlConfigPath,
 					KubeconfigPath:           bootstrapClusterProxy.GetKubeconfigPath(),
-					InfrastructureProvider:   clusterctl.DefaultInfrastructureProvider,
+					InfrastructureProvider:   "metalstack:v0.3.0",
 					Flavor:                   clusterctl.DefaultFlavor,
 					Namespace:                namespace.Name,
 					ClusterName:              clusterName,
@@ -83,8 +80,6 @@ var _ = Describe("Workload cluster creation", func() {
 				WaitForControlPlaneIntervals: e2eConfig.GetIntervals(specName, "wait-control-plane"),
 				WaitForMachineDeployments:    e2eConfig.GetIntervals(specName, "wait-worker-nodes"),
 			})
-
-			cluster = result.Cluster
 		})
 	})
 })
@@ -113,7 +108,6 @@ func dumpSpecResourcesAndCleanup(
 	artifactFolder string,
 	namespace *corev1.Namespace,
 	cancelWatches context.CancelFunc,
-	cluster *clusterv1.Cluster,
 	intervalsGetter func(spec, key string) []interface{},
 	clusterName, clusterctlLogFolder string,
 	skipCleanup bool,
@@ -130,8 +124,10 @@ func dumpSpecResourcesAndCleanup(
 		LogPath:   filepath.Join(artifactFolder, "clusters", bootstrapClusterProxy.GetName(), "resources"),
 	})
 
+	By(fmt.Sprintf("Dumped all the Cluster API resources in the %q namespace", namespace.Name))
+	By(fmt.Sprintf("Skipping cleanup %t", skipCleanup))
 	if !skipCleanup {
-		By(fmt.Sprintf("Deleting cluster %s/%s", cluster.Namespace, cluster.Name))
+		By(fmt.Sprintf("Deleting cluster %s/%s", namespace.Name, clusterName))
 		// While https://github.com/kubernetes-sigs/cluster-api/issues/2955 is addressed in future iterations, there is a chance
 		// that cluster variable is not set even if the cluster exists, so we are calling DeleteAllClustersAndWait
 		// instead of DeleteClusterAndWait
@@ -147,15 +143,7 @@ func dumpSpecResourcesAndCleanup(
 		})
 
 		// Will call the clean resources just to make sure we clean everything
-		By(fmt.Sprintf("Making sure there is no leftover running for %s", cluster.Name))
+		By(fmt.Sprintf("Making sure there is no leftover running for %s", clusterName))
 	}
 	cancelWatches()
-	redactLogs()
-}
-
-func redactLogs() {
-	By("Redacting sensitive information from logs")
-	Expect(e2eConfig.Variables).To(HaveKey(RedactLogScriptPath))
-	cmd := exec.Command(e2eConfig.GetVariable(RedactLogScriptPath))
-	cmd.Run()
 }

@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
 	metalgo "github.com/metal-stack/metal-go"
@@ -182,7 +183,7 @@ func (r *MetalStackMachineReconciler) reconcile(ctx context.Context, resources *
 	}
 	if !ok {
 		resources.logger.Info("Node not ready yet")
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{Requeue: true, RequeueAfter: 15 * time.Second}, nil
 	}
 
 	resources.metalMachine.Status.Ready = true

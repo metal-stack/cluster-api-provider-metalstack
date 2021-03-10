@@ -14,7 +14,7 @@ spec:
   kubeadmConfigSpec:
     preKubeadmCommands:
     - echo "waiting for the network"
-    - sleep 120
+    - sleep 150
     - echo "preKubeadmCommands run"
     - sudo apt-get update && sudo apt-get install -y apt-transport-https curl
     - curl -sS https://packages.cloud.google.com/apt/doc/apt-key.gpg -o key
@@ -30,6 +30,7 @@ spec:
     - echo "preKubeadmCommands finished"
     postKubeadmCommands:
     - sudo kubeadm init --config=/tmp/kubeadm.yaml --ignore-preflight-errors=NumCPU,Mem
+    - sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
     initConfiguration:
       localAPIEndpoint:
         advertiseAddress: "${CONTROL_PLANE_IP}"

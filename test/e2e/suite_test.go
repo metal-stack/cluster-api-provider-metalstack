@@ -39,11 +39,6 @@ import (
 	"sigs.k8s.io/cluster-api/test/framework/clusterctl"
 )
 
-// Test suite constants for e2e config variables
-const (
-	RedactLogScriptPath = "REDACT_LOG_SCRIPT"
-)
-
 // Test suite flags
 var (
 	// configPath is the path to the e2e config file.
