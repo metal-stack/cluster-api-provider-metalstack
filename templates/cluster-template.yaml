@@ -1,38 +1,58 @@
-# this is a temporary mock
-kind: KubeadmConfig
-apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
+kind: KubeadmControlPlane
+apiVersion: controlplane.cluster.x-k8s.io/v1alpha3
 metadata:
-  name: "${CLUSTER_NAME}-control-plane1-config"
+  name: "${CLUSTER_NAME}-controlplane"
+  namespace: default
 spec:
-  preKubeadmCommands:
-  - echo "waiting for the network"
-  - sleep 120
-  - echo "preKubeadmCommands run"
-  - sudo apt-get update && sudo apt-get install -y apt-transport-https curl
-  - curl -sS https://packages.cloud.google.com/apt/doc/apt-key.gpg -o key
-  - echo $(wc key)
-  - sudo apt-key add key
-  - sudo rm key
-  - echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list
-  - sudo apt-get update
-  - sudo apt-get install -y kubelet=${KUBERNETES_VERSION}-00 kubeadm=${KUBERNETES_VERSION}-00 kubectl=${KUBERNETES_VERSION}-00
-  - sudo apt-mark hold kubelet kubeadm kubectl
-  - kubeadm config migrate --old-config /tmp/kubeadm.yaml --new-config /tmp/new_kubeadm.yaml
-  - sudo rm /tmp/kubeadm.yaml && sudo mv /tmp/new_kubeadm.yaml /tmp/kubeadm.yaml
-  - echo "preKubeadmCommands finished"
-  postKubeadmCommands:
-  - sudo kubeadm init --config=/tmp/kubeadm.yaml --ignore-preflight-errors=NumCPU,Mem
-  initConfiguration:
-    localAPIEndpoint:
-      advertiseAddress: "${CONTROL_PLANE_IP}"
-      bindPort: 6443
-    nodeRegistration:
-      kubeletExtraArgs:
-        cloud-provider: external
-  clusterConfiguration:
-    controllerManager:
-      extraArgs:
-        enable-hostpath-provisioner: "true"
+  nodeDrainTimeout: "0s"
+  replicas: 1
+  version: ${KUBERNETES_VERSION}
+  infrastructureTemplate:
+    kind: MetalStackMachineTemplate
+    apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
+    name: "${CLUSTER_NAME}-controlplane"
+  kubeadmConfigSpec:
+    preKubeadmCommands:
+    - echo "waiting for the network"
+    - sleep 120
+    - echo "preKubeadmCommands run"
+    - sudo apt-get update && sudo apt-get install -y apt-transport-https curl
+    - curl -sS https://packages.cloud.google.com/apt/doc/apt-key.gpg -o key
+    - echo $(wc key)
+    - sudo apt-key add key
+    - sudo rm key
+    - echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+    - sudo apt-get update
+    - sudo apt-get install -y kubelet=${KUBERNETES_VERSION}-00 kubeadm=${KUBERNETES_VERSION}-00 kubectl=${KUBERNETES_VERSION}-00
+    - sudo apt-mark hold kubelet kubeadm kubectl
+    - kubeadm config migrate --old-config /tmp/kubeadm.yaml --new-config /tmp/new_kubeadm.yaml
+    - sudo rm /tmp/kubeadm.yaml && sudo mv /tmp/new_kubeadm.yaml /tmp/kubeadm.yaml
+    - echo "preKubeadmCommands finished"
+    postKubeadmCommands:
+    - sudo kubeadm init --config=/tmp/kubeadm.yaml --ignore-preflight-errors=NumCPU,Mem
+    initConfiguration:
+      localAPIEndpoint:
+        advertiseAddress: "${CONTROL_PLANE_IP}"
+        bindPort: 6443
+      nodeRegistration:
+        kubeletExtraArgs:
+          cloud-provider: external
+    clusterConfiguration:
+      controllerManager:
+        extraArgs:
+          enable-hostpath-provisioner: "true"
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
+kind: MetalStackMachineTemplate
+metadata:
+  name: "${CLUSTER_NAME}-controlplane"
+  namespace: default
+spec:
+  template:
+    spec:
+      image: ubuntu-cloud-init-20.04
+      machineType: v1-small-x86
+      providerID: metalstack://2294c949-88f6-5390-8154-fa53d93a3314
 ---
 apiVersion: cluster.x-k8s.io/v1alpha3
 kind: Cluster
@@ -46,6 +66,10 @@ spec:
     apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
     kind: MetalStackCluster
     name: "${CLUSTER_NAME}"
+  controlPlaneRef:
+    kind: KubeadmControlPlane
+    apiVersion: controlplane.cluster.x-k8s.io/v1alpha3
+    name: "${CLUSTER_NAME}-controlplane"
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
 kind: MetalStackCluster
@@ -62,34 +86,6 @@ spec:
   partition: vagrant
   projectID: 00000000-0000-0000-0000-000000000000
   publicNetworkID: internet-vagrant-lab
----
-apiVersion: cluster.x-k8s.io/v1alpha3
-kind: Machine
-metadata:
-  name: "${CLUSTER_NAME}-master-0"
-  labels:
-    cluster.x-k8s.io/cluster-name: ${CLUSTER_NAME}
-    cluster.x-k8s.io/control-plane: "true"
-spec:
-  clusterName: "${CLUSTER_NAME}"
-  bootstrap:
-    configRef:
-      kind: KubeadmConfig
-      apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
-      name: "${CLUSTER_NAME}-control-plane1-config"
-  infrastructureRef:
-    apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
-    kind: MetalStackMachine
-    name: "${CLUSTER_NAME}-master-0"
----
-apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
-kind: MetalStackMachine
-metadata:
-  name: "${CLUSTER_NAME}-master-0"
-spec:
-  image: "${NODE_IMAGE}"
-  machineType: "${MASTER_NODE_TYPE}"
-  partition: "${PARTITION}"
 ---
 apiVersion: cluster.x-k8s.io/v1alpha3
 kind: MachineDeployment

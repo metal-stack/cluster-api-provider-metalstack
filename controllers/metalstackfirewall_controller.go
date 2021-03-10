@@ -50,7 +50,7 @@ func NewMetalStackFirewallReconciler(metalClient MetalStackClient, mgr manager.M
 	}
 }
 
-// +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=metalstackfirewalls,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=metalstackfirewalls,verbs=get;list;watch;create;update;patch;delete;deletecollection
 // +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=metalstackfirewalls/status,verbs=get;update;patch
 
 func (r *MetalStackFirewallReconciler) SetupWithManager(mgr ctrl.Manager) error {

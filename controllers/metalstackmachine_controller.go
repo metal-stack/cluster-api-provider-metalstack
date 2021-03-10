@@ -68,7 +68,7 @@ func NewMetalStackMachineReconciler(metalClient MetalStackClient, mgr manager.Ma
 
 // +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=metalstackmachines,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=metalstackmachines/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=cluster.x-k8s.io,resources=machines;machines/status,verbs=get;list;watch;delete
+// +kubebuilder:rbac:groups=cluster.x-k8s.io,resources=machines;machines/status,verbs=get;list;watch;delete;deletecollection
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 func (r *MetalStackMachineReconciler) SetupWithManager(mgr ctrl.Manager) error {
