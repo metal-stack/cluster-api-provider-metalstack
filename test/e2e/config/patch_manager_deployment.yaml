@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+  namespace: system
+spec:
+  template:
+    spec:
+      containers:
+      - args:
+        - --enable-leader-election=false
+        env:
+        - name: METALCTL_URL
+          value: ${METALCTL_URL}
+        - name: METALCTL_HMAC
+          value: ${METALCTL_HMAC}
+        envFrom: []
+        name: manager
+      hostNetwork: true

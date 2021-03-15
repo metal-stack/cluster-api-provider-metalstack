@@ -49,8 +49,10 @@ providers:
   type: InfrastructureProvider
   versions:
   - name: v0.3.0
-    type: url
-    value: "https://gist.githubusercontent.com/GrigoriyMikhalkin/287ff30fd352fde4f0a1eb9bee8fd25c/raw/5e5f7628fd052f20ff9f46f506e14ce78bdb9154/test.yaml"
+    value: "./"
+    replacements:
+    - old: "image: metalstack-controller"
+      new: "image: localhost:5000/cluster-api-provider-metalstack"
   files:
   - sourcePath: "../../../metadata.yaml"
     targetName: "metadata.yaml"
@@ -58,10 +60,6 @@ providers:
 
 variables:
   KUBERNETES_VERSION: "1.20.4"
-  ETCD_VERSION_UPGRADE_TO: "3.4.3-0"
-  COREDNS_VERSION_UPGRADE_TO: "1.6.7"
-  KUBERNETES_VERSION_UPGRADE_TO: "1.20.4"
-  KUBERNETES_VERSION_UPGRADE_FROM: "1.20.4"
   CNI: "./data/cni/kindnet/kindnet.yaml"
 
 intervals:

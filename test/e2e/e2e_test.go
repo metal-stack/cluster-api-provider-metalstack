@@ -45,7 +45,7 @@ var _ = Describe("Workload cluster creation", func() {
 	)
 
 	BeforeEach(func() {
-		clusterName = fmt.Sprintf("capp-e2e-%s", util.RandomString(6))
+		clusterName = fmt.Sprintf("capms-e2e-%s", util.RandomString(6))
 
 		// Setup a Namespace where to host objects for this spec and create a watcher for the namespace events.
 		namespace, cancelWatches = setupSpecNamespace(ctx, specName, bootstrapClusterProxy, artifactFolder)

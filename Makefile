@@ -256,15 +256,11 @@ deploy: crds
 crds: controller-gen
 	$(CONTROLLER_GEN) \
 		$(CRD_OPTIONS) \
-		paths=./api/... \
-		rbac:roleName=manager-role \
+		paths=./... \
 		output:crd:artifacts:config=config/resources/crd/bases \
-		webhook
-	$(CONTROLLER_GEN) \
-		$(CRD_OPTIONS) \
-		paths=./controllers/... \
 		output:rbac:dir=config/resources/rbac \
-		rbac:roleName=manager-role
+		rbac:roleName=manager-role \
+		webhook   
 
 # Run go fmt against code
 fmt:
