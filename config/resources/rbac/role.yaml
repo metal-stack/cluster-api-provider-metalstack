@@ -29,6 +29,8 @@ rules:
   - machines
   - machines/status
   verbs:
+  - delete
+  - deletecollection
   - get
   - list
   - watch
@@ -48,6 +50,27 @@ rules:
   - infrastructure.cluster.x-k8s.io
   resources:
   - metalstackclusters/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - infrastructure.cluster.x-k8s.io
+  resources:
+  - metalstackfirewalls
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - infrastructure.cluster.x-k8s.io
+  resources:
+  - metalstackfirewalls/status
   verbs:
   - get
   - patch

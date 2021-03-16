@@ -56,3 +56,6 @@ kubectl apply -f ./out/cluster.yaml
 ```
 
 After some time you should see that worker node is started.
+
+## Testing
+To run controller test, execute `make test`. To run E2E test, `3-machines` branch of `mini-lab` need to be started, after it's ready run `make e2e` command.

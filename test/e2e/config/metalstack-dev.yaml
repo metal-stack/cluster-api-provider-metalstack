@@ -5,16 +5,15 @@
 # - control-plane kubeadm
 
 images:
-- name: "metalstack/cluster-api-provider-metalstack"
-  loadBehavior: mustLoad
+- name: "localhost:5000/cluster-api-provider-metalstack"
+  loadBehavior: tryLoad
 
 providers:
-
 - name: cluster-api
   type: CoreProvider
   versions:
-  - name: v0.3.5
-    value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v0.3.5/core-components.yaml"
+  - name: v0.3.14
+    value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v0.3.14/core-components.yaml"
     type: "url"
     replacements:
     - old: "imagePullPolicy: Always"
@@ -25,8 +24,8 @@ providers:
 - name: kubeadm
   type: BootstrapProvider
   versions:
-  - name: v0.3.5
-    value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v0.3.5/bootstrap-components.yaml"
+  - name: v0.3.14
+    value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v0.3.14/bootstrap-components.yaml"
     type: "url"
     replacements:
     - old: "imagePullPolicy: Always"
@@ -37,8 +36,8 @@ providers:
 - name: kubeadm
   type: ControlPlaneProvider
   versions:
-  - name: v0.3.5
-    value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v0.3.5/control-plane-components.yaml"
+  - name: v0.3.14
+    value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v0.3.14/control-plane-components.yaml"
     type: "url"
     replacements:
     - old: "imagePullPolicy: Always"
@@ -50,30 +49,24 @@ providers:
   type: InfrastructureProvider
   versions:
   - name: v0.3.0
-    value: "../../../config/managerless"
+    value: "./"
     replacements:
-    - old: "imagePullPolicy: Always"
-      new: "imagePullPolicy: IfNotPresent"
-    - old: "--enable-leader-election"
-      new: "--enable-leader-election=false"
+    - old: "image: metalstack-controller"
+      new: "image: localhost:5000/cluster-api-provider-metalstack"
   files:
   - sourcePath: "../../../metadata.yaml"
     targetName: "metadata.yaml"
   - sourcePath: "../../../templates/cluster-template.yaml"
 
 variables:
-  KUBERNETES_VERSION: "v1.20.3"
-  ETCD_VERSION_UPGRADE_TO: "3.4.3-0"
-  COREDNS_VERSION_UPGRADE_TO: "1.6.7"
-  KUBERNETES_VERSION_UPGRADE_TO: "v1.20.3"
-  KUBERNETES_VERSION_UPGRADE_FROM: "v1.20.3"
+  KUBERNETES_VERSION: "1.20.4"
   CNI: "./data/cni/kindnet/kindnet.yaml"
 
 intervals:
   default/wait-controllers: ["3m", "10s"]
-  default/wait-cluster: ["3m", "10s"]
-  default/wait-control-plane: ["3m", "10s"]
-  default/wait-worker-nodes: ["3m", "10s"]
-  default/wait-delete-cluster: ["3m", "10s"]
+  default/wait-cluster: ["5m", "10s"]
+  default/wait-control-plane: ["10m", "10s"]
+  default/wait-worker-nodes: ["10m", "10s"]
+  default/wait-delete-cluster: ["5m", "10s"]
   default/wait-machine-upgrade: ["15m", "10s"]
-  default/wait-machine-remediation: ["3m", "10s"]
+  default/wait-machine-remediation: ["5m", "10s"]

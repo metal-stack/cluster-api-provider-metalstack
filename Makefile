@@ -215,9 +215,17 @@ $(KUBEBUILDER):
 test: generate fmt vet crds
 	go test ./... -coverprofile cover.out
 
+.PHONY: e2e-image
+e2e-image:
+	docker build -f Dockerfile --tag=metalstack/cluster-api-provider-metalstack .
+
 # Run e2e tests
 .PHONY: e2e
-e2e:
+e2e: e2e-image
+	./scripts/run-e2e.sh
+
+.PHONY: e2e-test
+e2e-test:
 	# This is the name used inside the component.yaml for the container that runs the manager
 	# The image gets loaded inside kind from ./test/e2e/config/metalstack-dev.yaml
 	$(E2E_FLAGS) $(MAKE) -C $(TEST_E2E_DIR) run
@@ -246,7 +254,13 @@ deploy: crds
 
 # Generate manifests e.g. CRD, RBAC etc.
 crds: controller-gen
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/resources/crd/bases
+	$(CONTROLLER_GEN) \
+		$(CRD_OPTIONS) \
+		paths=./... \
+		output:crd:artifacts:config=config/resources/crd/bases \
+		output:rbac:dir=config/resources/rbac \
+		rbac:roleName=manager-role \
+		webhook   
 
 # Run go fmt against code
 fmt:
