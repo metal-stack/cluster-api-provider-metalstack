@@ -40,7 +40,7 @@ data:
 EOF
 
 # Tag and push provider image to registry
-docker tag metalstack/cluster-api-provider-metalstack:latest localhost:5000/cluster-api-provider-metalstack:latest
+docker tag $BUILD_IMAGE:$IMAGE_TAG localhost:5000/cluster-api-provider-metalstack:latest
 docker push localhost:5000/cluster-api-provider-metalstack:latest
 
 export PROJECT_ID PARTITION NETWORK_ID NODE_IMAGE CONTROL_PLANE_IP WORKER_NODE_TYPE MASTER_NODE_TYPE POD_CIDR SERVICE_CIDR SSH_KEY USE_EXISTING_CLUSTER KUBERNETES_VERSION NODE_OS FACILITY

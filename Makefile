@@ -95,14 +95,10 @@ endif
 OS ?= $(BUILDOS)
 
 # Image URL to use all building/pushing image targets
-BUILD_IMAGE ?= metalstack/cluster-api-provider-metalstack
-BUILD_IMAGE_TAG ?= $(BUILD_IMAGE):latest
-PUSH_IMAGE_TAG ?= $(BUILD_IMAGE):$(IMAGETAG)
+BUILD_IMAGE ?= ghcr.io/metal-stack/cluster-api-provider-metalstack
+IMAGE_TAG ?= latest
 MANAGER ?= bin/manager-$(OS)-$(ARCH)
 KUBECTL ?= kubectl
-FROMTAG ?= latest
-
-IMAGENAME ?= $(BUILD_IMAGE):$(IMAGETAG)-$(ARCH)
 
 # Manifest tool, until `docker manifest` is fully ready. As of this writing, it remains experimental
 MANIFEST_VERSION ?= 1.0.0
@@ -183,11 +179,6 @@ tag-images-all: $(addprefix sub-tag-image-, $(ARCHES))
 sub-tag-image-%:
 	@$(MAKE) ARCH=$* IMAGETAG=$(IMAGETAG) tag-images
 
-tag-image: imagetag
-	docker tag $(BUILD_IMAGE_TAG) $(PUSH_IMAGE_TAG)
-tag-images: imagetag
-	docker tag $(BUILD_IMAGE):$(FROMTAG)-$(ARCH) $(IMAGENAME)
-
 confirm:
 ifndef CONFIRM
 	$(error CONFIRM is undefined - run using make <target> CONFIRM=true)
@@ -215,14 +206,10 @@ $(KUBEBUILDER):
 test: generate fmt vet crds
 	go test ./... -coverprofile cover.out
 
-.PHONY: e2e-image
-e2e-image:
-	docker build -f Dockerfile --tag=metalstack/cluster-api-provider-metalstack .
-
 # Run e2e tests
 .PHONY: e2e
-e2e: e2e-image
-	./scripts/run-e2e.sh
+e2e: docker-image
+	BUILD_IMAGE=$(BUILD_IMAGE) IMAGE_TAG=$(IMAGE_TAG) ./scripts/run-e2e.sh
 
 .PHONY: e2e-test
 e2e-test:
@@ -279,10 +266,15 @@ image-all: $(addprefix sub-image-, $(ARCHES))
 sub-image-%:
 	@$(MAKE) ARCH=$* image
 
-# Build the docker image for a single arch
-image: test
-	docker buildx build --load -t $(IMG)-$(ARCH) -f Dockerfile --build-arg ARCH=$(ARCH) --platform $(OS)/$(ARCH) .
-	echo "Done. image is at $(IMG)-$(ARCH)"
+# Build the docker image
+.PHONY: docker-image
+docker-image:
+	docker build --no-cache --tag=$(BUILD_IMAGE):$(IMAGE_TAG) .
+
+# Push docker image
+.PHONY: docker-push
+docker-push:
+	docker push $(BUILD_IMAGE):$(IMAGE_TAG)
 
   # Targets used when cross building.
 .PHONY: register
@@ -306,10 +298,6 @@ push-manifest: manifest-tool imagetag
 push-all: imagetag $(addprefix sub-push-, $(ARCHES))
 sub-push-%:
 	@$(MAKE) ARCH=$* push IMAGETAG=$(IMAGETAG)
-
-# Push the docker image
-push:
-	docker push $(IMAGENAME)
 
 # find or download controller-gen
 # download controller-gen if necessary
