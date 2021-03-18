@@ -41,9 +41,28 @@ jobs:
     runs-on: self-hosted
     needs: build
     steps:
+    - name: Set ownership
+      shell: bash
+      run: |
+        sudo chown -R $USER:$USER /var/lib/gitlab-runner/github/_work/cluster-api-provider-metalstack/cluster-api-provider-metalstack
+
+    # Checkout code and setup requirements
     - name: Checkout
       uses: actions/checkout@v2
+    - uses: actions/setup-go@v2
+      with:
+        go-version: '~1.15'
+
     - name: Run E2E tests
       shell: bash
       run: |
-        ./test/run-e2e.sh
+        export TMPDIR=/var/tmp/
+        export IMAGE_TAG=${GITHUB_HEAD_REF##*/}
+        export GOPATH=/var/lib/gitlab-runner/go
+        export KUBEBUILDER_DIR=/var/lib/gitlab-runner/github/_work/cluster-api-provider-metalstack/cluster-api-provider-metalstack/kubebuilder
+        export KUBEBUILDER_ASSETS=/var/lib/gitlab-runner/github/_work/cluster-api-provider-metalstack/cluster-api-provider-metalstack/kubebuilder/bin
+        ./scripts/ci-prep.sh
+        make kustomize
+        make e2e-prep
+        make kubebuilder
+        make e2e

@@ -164,6 +164,13 @@ MANAGERLESS_CLUSTERCTLYAML := $(MANAGERLESS_BASE)/clusterctl-$(MANAGERLESS_VERSI
 CLUSTERCTL_TEMPLATE ?= templates/clusterctl-template.yaml
 CLUSTER_TEMPLATE ?= templates/cluster-template.yaml
 
+# mini-lab
+ifeq ($(CI),true)
+MINI_LAB_PATH := $(PWD)/mini-lab
+else
+MINI_LAB_PATH := $(PWD)/../mini-lab
+endif
+
 
 all: manager
 
@@ -206,9 +213,18 @@ $(KUBEBUILDER):
 test: generate fmt vet crds
 	go test ./... -coverprofile cover.out
 
-# Run e2e tests
+# e2e tests rules
+.PHONY: mini-lab
+mini-lab:
+	$(MAKE) -C $(MINI_LAB_PATH)
+	$(MAKE) -C $(MINI_LAB_PATH) route
+
+.PHONY: e2e-prep
+e2e-prep:
+	@kind get clusters | grep metal-control-plane > /dev/null || $(MAKE) mini-lab
+
 .PHONY: e2e
-e2e: docker-image
+e2e:
 	BUILD_IMAGE=$(BUILD_IMAGE) IMAGE_TAG=$(IMAGE_TAG) ./scripts/run-e2e.sh
 
 .PHONY: e2e-test

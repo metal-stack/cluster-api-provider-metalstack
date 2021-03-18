@@ -4,10 +4,6 @@
 # - bootstrap kubeadm
 # - control-plane kubeadm
 
-images:
-- name: "localhost:5000/cluster-api-provider-metalstack"
-  loadBehavior: tryLoad
-
 providers:
 - name: cluster-api
   type: CoreProvider
@@ -50,9 +46,6 @@ providers:
   versions:
   - name: v0.3.0
     value: "./"
-    replacements:
-    - old: "image: metalstack-controller"
-      new: "image: localhost:5000/cluster-api-provider-metalstack"
   files:
   - sourcePath: "../../../metadata.yaml"
     targetName: "metadata.yaml"

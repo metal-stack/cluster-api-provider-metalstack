@@ -25,23 +25,7 @@ PARTITION=${METAL_PARTITION:-"vagrant"}
 NODE_OS=NODE_IMAGE
 FACILITY=PARTITION
 
-# Connect docker registry to kind cluster
-docker network connect "kind" "kind-registry" || true
-cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: local-registry-hosting
-  namespace: kube-public
-data:
-  localRegistryHosting.v1: |
-    host: "localhost:5000"
-    help: "https://kind.sigs.k8s.io/docs/user/local-registry/"
-EOF
+METALSTACK_IMAGE="${BUILD_IMAGE}:${IMAGE_TAG}"
 
-# Tag and push provider image to registry
-docker tag $BUILD_IMAGE:$IMAGE_TAG localhost:5000/cluster-api-provider-metalstack:latest
-docker push localhost:5000/cluster-api-provider-metalstack:latest
-
-export PROJECT_ID PARTITION NETWORK_ID NODE_IMAGE CONTROL_PLANE_IP WORKER_NODE_TYPE MASTER_NODE_TYPE POD_CIDR SERVICE_CIDR SSH_KEY USE_EXISTING_CLUSTER KUBERNETES_VERSION NODE_OS FACILITY
+export PROJECT_ID PARTITION NETWORK_ID NODE_IMAGE CONTROL_PLANE_IP WORKER_NODE_TYPE MASTER_NODE_TYPE POD_CIDR SERVICE_CIDR SSH_KEY USE_EXISTING_CLUSTER KUBERNETES_VERSION NODE_OS FACILITY METALSTACK_IMAGE
 make e2e-test
