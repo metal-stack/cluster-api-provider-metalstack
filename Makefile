@@ -222,6 +222,18 @@ mini-lab:
 .PHONY: e2e-prep
 e2e-prep:
 	@kind get clusters | grep metal-control-plane > /dev/null || $(MAKE) mini-lab
+	cp $(MINI_LAB_PATH)/.kubeconfig .
+
+.PHONY: e2e-run
+e2e-run:
+	docker build \
+		-f Dockerfile-e2e \
+		--build-arg METALCTL_URL=$(METALCTL_URL) \
+		--build-arg METALCTL_HMAC=$(METALCTL_HMAC) \
+		--build-arg MINI_LAB_PATH=$(MINI_LAB_PATH) \
+		--build-arg IMAGE_TAG=$(IMAGE_TAG) \
+		-t e2e-test . \
+		&& docker run --rm --network host --name e2e-test e2e-test
 
 .PHONY: e2e
 e2e:
