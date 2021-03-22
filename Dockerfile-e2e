@@ -14,15 +14,10 @@
 
 # Build the manager binary
 ARG GOVER=1.15
-ARG METALCTL_URL
-ARG METALCTL_HMAC
-ARG MINI_LAB_PATH
-ARG IMAGE_TAG
 FROM golang:${GOVER} as builder
 
-ENV METALCTL_URL=$METALCTL_URL
-ENV METALCTL_HMAC=$METALCTL_HMAC
-ENV IMAGE_TAG=$IMAGE_TAG
+RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
+    && install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
