@@ -218,6 +218,7 @@ test: generate fmt vet crds
 mini-lab:
 	$(MAKE) -C $(MINI_LAB_PATH)
 	$(MAKE) -C $(MINI_LAB_PATH) route
+	$(MAKE) -C $(MINI_LAB_PATH) fwrules
 
 .PHONY: e2e-prep
 e2e-prep:
@@ -226,11 +227,10 @@ e2e-prep:
 
 .PHONY: e2e-run
 e2e-run:
-	echo $(METALCTL_URL)
 	docker build \
 		-f Dockerfile-e2e \
-		-t e2e-test . \
-		&& docker run --rm --network host \
+		-t e2e-test .
+	docker run --rm --network host \
 		-e METALCTL_URL \
 		-e METALCTL_HMAC \
 		-e IMAGE_TAG \
