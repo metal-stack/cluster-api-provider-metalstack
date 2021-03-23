@@ -1,0 +1,77 @@
+name: Build latest image
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  test_build:
+    name: Build docker image for E2E test
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout code and setup requirements
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '~1.15'
+      - name: Install kubebuilder
+        run: |
+          sudo make kubebuilder
+      
+      - name: Run tests
+        run: |
+          make test
+
+      - name: Docker Login
+        uses: docker/login-action@v1
+        with:
+          registry: ${{ secrets.DOCKER_REGISTRY }}
+          username: ${{ secrets.DOCKER_REGISTRY_USER }}
+          password: ${{ secrets.DOCKER_REGISTRY_TOKEN }}
+
+      - name: Build and push Docker image
+        run: |
+          export IMAGE_TAG=${GITHUB_SHA##*/}
+          make docker-image
+          make docker-push
+
+  e2e_test:
+    name: Run E2E tests for PR
+    runs-on: self-hosted
+    needs: test_build
+    steps:
+    - name: Set ownership
+      shell: bash
+      run: |
+        sudo chown -R $USER:$USER /var/lib/gitlab-runner/github/_work/cluster-api-provider-metalstack/cluster-api-provider-metalstack
+
+    # Checkout code and setup requirements
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Run E2E tests
+      shell: bash
+      run: |
+        export TMPDIR=/var/tmp/
+        export IMAGE_TAG=${GITHUB_SHA##*/}
+        ./scripts/ci-prep.sh
+        make e2e-prep
+        make e2e-run
+
+  build:
+    name: Build docker image
+    runs-on: ubuntu-latest
+    needs: e2e_test
+    steps:
+    - uses: actions/checkout@v2
+    - name: Docker Login
+      uses: docker/login-action@v1
+      with:
+        registry: ${{ secrets.DOCKER_REGISTRY }}
+        username: ${{ secrets.DOCKER_REGISTRY_USER }}
+        password: ${{ secrets.DOCKER_REGISTRY_TOKEN }}
+    - name: Build and push Docker image
+      run: |
+        make docker-image
+        make docker-push

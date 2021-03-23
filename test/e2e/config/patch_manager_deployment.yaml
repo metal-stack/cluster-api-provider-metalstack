@@ -16,4 +16,5 @@ spec:
           value: ${METALCTL_HMAC}
         envFrom: []
         name: manager
+        image: ${METALSTACK_IMAGE}
       hostNetwork: true

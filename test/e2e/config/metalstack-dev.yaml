@@ -4,10 +4,6 @@
 # - bootstrap kubeadm
 # - control-plane kubeadm
 
-images:
-- name: "localhost:5000/cluster-api-provider-metalstack"
-  loadBehavior: tryLoad
-
 providers:
 - name: cluster-api
   type: CoreProvider
@@ -50,9 +46,6 @@ providers:
   versions:
   - name: v0.3.0
     value: "./"
-    replacements:
-    - old: "image: metalstack-controller"
-      new: "image: localhost:5000/cluster-api-provider-metalstack"
   files:
   - sourcePath: "../../../metadata.yaml"
     targetName: "metadata.yaml"
@@ -65,8 +58,8 @@ variables:
 intervals:
   default/wait-controllers: ["3m", "10s"]
   default/wait-cluster: ["5m", "10s"]
-  default/wait-control-plane: ["10m", "10s"]
-  default/wait-worker-nodes: ["10m", "10s"]
+  default/wait-control-plane: ["20m", "10s"]
+  default/wait-worker-nodes: ["20m", "10s"]
   default/wait-delete-cluster: ["5m", "10s"]
   default/wait-machine-upgrade: ["15m", "10s"]
   default/wait-machine-remediation: ["5m", "10s"]
