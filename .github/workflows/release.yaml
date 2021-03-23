@@ -32,7 +32,7 @@ jobs:
 
       - name: Build and push Docker image
         run: |
-          export IMAGE_TAG=${GITHUB_HEAD_REF##*/}-test
+          export IMAGE_TAG=test
           make docker-image
           make docker-push
 
@@ -41,12 +41,23 @@ jobs:
     runs-on: self-hosted
     needs: test_build
     steps:
+    - name: Set ownership
+      shell: bash
+      run: |
+        sudo chown -R $USER:$USER /var/lib/gitlab-runner/github/_work/cluster-api-provider-metalstack/cluster-api-provider-metalstack
+
+    # Checkout code and setup requirements
     - name: Checkout
       uses: actions/checkout@v2
+
     - name: Run E2E tests
       shell: bash
       run: |
-        ./test/run-e2e.sh
+        export TMPDIR=/var/tmp/
+        export IMAGE_TAG=test
+        ./scripts/ci-prep.sh
+        make e2e-prep
+        make e2e-run
   
   build:
     name: Build docker image

@@ -218,7 +218,6 @@ test: generate fmt vet crds
 mini-lab:
 	$(MAKE) -C $(MINI_LAB_PATH)
 	$(MAKE) -C $(MINI_LAB_PATH) route
-	$(MAKE) -C $(MINI_LAB_PATH) dev-env
 
 .PHONY: e2e-prep
 e2e-prep:
