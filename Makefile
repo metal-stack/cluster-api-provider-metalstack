@@ -160,14 +160,14 @@ FULL_MANAGERLESS_MANIFEST := $(FULL_MANAGERLESS_DIR)/infrastructure-components.y
 MANAGERLESS_CLUSTERCTLYAML := $(MANAGERLESS_BASE)/clusterctl-$(RELEASE_VERSION).yaml
 
 # manager - for running manager locally in docker
-MANAGER_BASE := out/manager/infrastructure-metalstack
-MANAGER_DIR := $(MANAGER_BASE)/$(RELEASE_VERSION)
-FULL_MANAGER_DIR := $(realpath .)/$(MANAGER_DIR)
-MANAGER_MANIFEST := $(MANAGER_DIR)/infrastructure-components.yaml
-MANAGER_METADATA := $(MANAGER_DIR)/metadata.yaml
-MANAGER_CLUSTER_TEMPLATE := $(MANAGER_DIR)/cluster-template.yaml
-FULL_MANAGER_MANIFEST := $(FULL_MANAGER_DIR)/infrastructure-components.yaml
-MANAGER_CLUSTERCTLYAML := $(MANAGER_BASE)/clusterctl-$(RELEASE_VERSION).yaml
+MANAGER_TEST_BASE := out/test/infrastructure-metalstack
+MANAGER_TEST_DIR := $(MANAGER_TEST_BASE)/$(RELEASE_VERSION)
+FULL_MANAGER_TEST_DIR := $(realpath .)/$(MANAGER_TEST_DIR)
+MANAGER_TEST_MANIFEST := $(MANAGER_TEST_DIR)/infrastructure-components.yaml
+MANAGER_TEST_METADATA := $(MANAGER_TEST_DIR)/metadata.yaml
+MANAGER_TEST_CLUSTER_TEMPLATE := $(MANAGER_TEST_DIR)/cluster-template.yaml
+FULL_MANAGER_TEST_MANIFEST := $(FULL_MANAGER_TEST_DIR)/infrastructure-components.yaml
+MANAGER_TEST_CLUSTERCTLYAML := $(MANAGER_TEST_BASE)/clusterctl-$(RELEASE_VERSION).yaml
 
 # templates
 CLUSTERCTL_TEMPLATE ?= templates/clusterctl-template.yaml
@@ -349,13 +349,7 @@ $(CONTROLLER_GEN):
 cluster:
 	RELEASE_VERSION=$(RELEASE_VERSION) ./scripts/generate-cluster.sh
 
-$(RELEASE_DIR) $(RELEASE_BASE):
-	mkdir -p $@
-
-$(MANAGERLESS_DIR) $(MANAGERLESS_BASE):
-	mkdir -p $@
-
-$(MANAGER_DIR) $(MANAGER_BASE):
+$(RELEASE_DIR) $(RELEASE_BASE) $(MANAGERLESS_DIR) $(MANAGERLESS_BASE) $(MANAGER_TEST_DIR) $(MANAGER_TEST_BASE):
 	mkdir -p $@
 
 .PHONY: semver release-clusterctl release-manifests release $(RELEASE_CLUSTERCTLYAML) $(RELEASE_MANIFEST) $(RELEASE_METADATA) $(RELEASE_CLUSTER_TEMPLATE) $(FULL_RELEASE_CLUSTERCTLYAML)
@@ -409,23 +403,23 @@ $(MANAGERLESS_CLUSTERCTLYAML): $(MANAGERLESS_BASE)
 	@echo "managerless ready, command-line is:"
 	@echo "	clusterctl --config=$@ <commands>"
 
-.PHONY: manager-clusterctl manager-manifests manager $(MANAGER_CLUSTERCTLYAML) $(MANAGER_MANIFEST) $(MANAGER_METADATA) $(MANAGER_CLUSTER_TEMPLATE)
-manager: semver manager-manifests manager-clusterctl manager-cluster-template
-manager-manifests: semver $(MANAGER_MANIFEST) $(MANAGER_METADATA)
-$(MANAGER_MANIFEST): $(MANAGER_DIR)
-	$(KUSTOMIZE) build config/manager > $@
+.PHONY: manager-test-clusterctl manager-test-manifests manager-test $(MANAGER_TEST_CLUSTERCTLYAML) $(MANAGER_TEST_MANIFEST) $(MANAGER_TEST_METADATA) $(MANAGER_TEST_CLUSTER_TEMPLATE)
+manager-test: semver manager-test-manifests manager-test-clusterctl manager-test-cluster-template
+manager-test-manifests: semver $(MANAGER_TEST_MANIFEST) $(MANAGER_TEST_METADATA)
+$(MANAGER_TEST_MANIFEST): $(MANAGER_TEST_DIR)
+	$(KUSTOMIZE) build config/test > $@
 
-$(MANAGER_METADATA): semver $(MANAGER_DIR)
+$(MANAGER_TEST_METADATA): semver $(MANAGER_TEST_DIR)
 	cp $(METADATA_YAML) $@
 
-manager-cluster-template: semver $(MANAGER_CLUSTER_TEMPLATE)
-$(MANAGER_CLUSTER_TEMPLATE): $(MANAGER_DIR)
+manager-test-cluster-template: semver $(MANAGER_TEST_CLUSTER_TEMPLATE)
+$(MANAGER_TEST_CLUSTER_TEMPLATE): $(MANAGER_TEST_DIR)
 	cp $(CLUSTER_TEMPLATE) $@
 
-manager-clusterctl: semver $(MANAGER_CLUSTERCTLYAML)
-$(MANAGER_CLUSTERCTLYAML): $(MANAGER_BASE)
-	@cat $(CLUSTERCTL_TEMPLATE) | sed 's%URL%$(FULL_MANAGER_MANIFEST)%g' > $@
-	@echo "manager is ready, command-line is:"
+manager-test-clusterctl: semver $(MANAGER_TEST_CLUSTERCTLYAML)
+$(MANAGER_TEST_CLUSTERCTLYAML): $(MANAGER_TEST_BASE)
+	@cat $(CLUSTERCTL_TEMPLATE) | sed 's%URL%$(FULL_MANAGER_TEST_MANIFEST)%g' > $@
+	@echo "manager-test is ready, command-line is:"
 	@echo "	clusterctl --config=$@ <commands>"
 
 $(COREPATH):
