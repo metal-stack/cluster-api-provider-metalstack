@@ -45,7 +45,7 @@ providers:
   type: InfrastructureProvider
   versions:
   - name: v0.3.0
-    value: "./"
+    value: "../../../config/test"
   files:
   - sourcePath: "../../../metadata.yaml"
     targetName: "metadata.yaml"
