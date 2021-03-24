@@ -150,7 +150,6 @@ FULL_RELEASE_CLUSTERCTLYAML := $(FULL_RELEASE_DIR)/clusterctl.yaml
 RELEASE_CLUSTERCTLYAML := $(RELEASE_BASE)/clusterctl-$(RELEASE_VERSION).yaml
 
 # managerless - for running manager locally for testing
-MANAGERLESS_VERSION ?= $(RELEASE_VERSION)
 MANAGERLESS_BASE := out/managerless/infrastructure-metalstack
 MANAGERLESS_DIR := $(MANAGERLESS_BASE)/$(RELEASE_VERSION)
 FULL_MANAGERLESS_DIR := $(realpath .)/$(MANAGERLESS_DIR)
@@ -158,7 +157,17 @@ MANAGERLESS_MANIFEST := $(MANAGERLESS_DIR)/infrastructure-components.yaml
 MANAGERLESS_METADATA := $(MANAGERLESS_DIR)/metadata.yaml
 MANAGERLESS_CLUSTER_TEMPLATE := $(MANAGERLESS_DIR)/cluster-template.yaml
 FULL_MANAGERLESS_MANIFEST := $(FULL_MANAGERLESS_DIR)/infrastructure-components.yaml
-MANAGERLESS_CLUSTERCTLYAML := $(MANAGERLESS_BASE)/clusterctl-$(MANAGERLESS_VERSION).yaml
+MANAGERLESS_CLUSTERCTLYAML := $(MANAGERLESS_BASE)/clusterctl-$(RELEASE_VERSION).yaml
+
+# manager - for running manager locally in docker
+MANAGER_BASE := out/manager/infrastructure-metalstack
+MANAGER_DIR := $(MANAGER_BASE)/$(RELEASE_VERSION)
+FULL_MANAGER_DIR := $(realpath .)/$(MANAGER_DIR)
+MANAGER_MANIFEST := $(MANAGER_DIR)/infrastructure-components.yaml
+MANAGER_METADATA := $(MANAGER_DIR)/metadata.yaml
+MANAGER_CLUSTER_TEMPLATE := $(MANAGER_DIR)/cluster-template.yaml
+FULL_MANAGER_MANIFEST := $(FULL_MANAGER_DIR)/infrastructure-components.yaml
+MANAGER_CLUSTERCTLYAML := $(MANAGER_BASE)/clusterctl-$(RELEASE_VERSION).yaml
 
 # templates
 CLUSTERCTL_TEMPLATE ?= templates/clusterctl-template.yaml
@@ -346,6 +355,9 @@ $(RELEASE_DIR) $(RELEASE_BASE):
 $(MANAGERLESS_DIR) $(MANAGERLESS_BASE):
 	mkdir -p $@
 
+$(MANAGER_DIR) $(MANAGER_BASE):
+	mkdir -p $@
+
 .PHONY: semver release-clusterctl release-manifests release $(RELEASE_CLUSTERCTLYAML) $(RELEASE_MANIFEST) $(RELEASE_METADATA) $(RELEASE_CLUSTER_TEMPLATE) $(FULL_RELEASE_CLUSTERCTLYAML)
 
 semver:
@@ -397,6 +409,25 @@ $(MANAGERLESS_CLUSTERCTLYAML): $(MANAGERLESS_BASE)
 	@echo "managerless ready, command-line is:"
 	@echo "	clusterctl --config=$@ <commands>"
 
+.PHONY: manager-clusterctl manager-manifests manager $(MANAGER_CLUSTERCTLYAML) $(MANAGER_MANIFEST) $(MANAGER_METADATA) $(MANAGER_CLUSTER_TEMPLATE)
+manager: semver manager-manifests manager-clusterctl manager-cluster-template
+manager-manifests: semver $(MANAGER_MANIFEST) $(MANAGER_METADATA)
+$(MANAGER_MANIFEST): $(MANAGER_DIR)
+	$(KUSTOMIZE) build config/manager > $@
+
+$(MANAGER_METADATA): semver $(MANAGER_DIR)
+	cp $(METADATA_YAML) $@
+
+manager-cluster-template: semver $(MANAGER_CLUSTER_TEMPLATE)
+$(MANAGER_CLUSTER_TEMPLATE): $(MANAGER_DIR)
+	cp $(CLUSTER_TEMPLATE) $@
+
+manager-clusterctl: semver $(MANAGER_CLUSTERCTLYAML)
+$(MANAGER_CLUSTERCTLYAML): $(MANAGER_BASE)
+	@cat $(CLUSTERCTL_TEMPLATE) | sed 's%URL%$(FULL_MANAGER_MANIFEST)%g' > $@
+	@echo "manager is ready, command-line is:"
+	@echo "	clusterctl --config=$@ <commands>"
+
 $(COREPATH):
 	mkdir -p $@
 
@@ -407,16 +438,3 @@ core: $(COREPATH)
 	# download from core
 	@$(eval YAMLS := $(shell curl -s -L $(CORE_API) | jq -r '[.[] | select(.tag_name == "$(CORE_VERSION)").assets[] | select(.name | contains("yaml")) | .name] | join(" ")'))
 	@if [ -n "$(YAMLS)" ]; then $(MAKE) $(addprefix $(COREPATH)/,$(YAMLS)); fi
-
-# the standard way to initialize a cluster. If you are using an actually released version,
-# then you can just do "clusterctl init --infrastructure=metalstack" without any of this
-cluster-init: managerless release
-	clusterctl init
-	clusterctl init --config=$(MANAGERLESS_CLUSTERCTLYAML) --infrastructure=metalstack
-
-# this is just for those who really want to see the manual steps
-cluster-init-manual: core managerless release
-	kubectl apply --validate=false -f $(CERTMANAGER_URL)
-	# because of dependencies, this is allowed to fail once or twice
-	kubectl apply -f $(COREPATH) || kubectl apply -f $(COREPATH) || kubectl apply -f $(COREPATH)
-	kubectl apply -f $(FULL_MANAGERLESS_MANIFEST)
