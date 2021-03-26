@@ -8,7 +8,7 @@ Infrastructure provider for Kubernetes [Cluster API](https://cluster-api.sigs.k8
 | metal-stack Provider v1alpha3 (v0.1) | ✓                           |
 
 ## Compatibility with Kubernetes versions
-|                                      | Kubernetes 1.20             |
+|                                      | Kubernetes 1.21             |
 | ------------------------------------ | --------------------------- |
 | metal-stack Provider v1alpha3 (v0.1) | ✓                           |
 
