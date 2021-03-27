@@ -18,7 +18,6 @@ spec:
     - echo "preKubeadmCommands run"
     - sudo apt-get update && sudo apt-get install -y apt-transport-https curl
     - curl -sS https://packages.cloud.google.com/apt/doc/apt-key.gpg -o key
-    - echo $(wc key)
     - sudo apt-key add key
     - sudo rm key
     - echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list
@@ -35,9 +34,6 @@ spec:
       localAPIEndpoint:
         advertiseAddress: "${CONTROL_PLANE_IP}"
         bindPort: 6443
-      nodeRegistration:
-        kubeletExtraArgs:
-          cloud-provider: external
     clusterConfiguration:
       controllerManager:
         extraArgs:
@@ -140,10 +136,6 @@ metadata:
 spec:
   template:
     spec:
-      joinConfiguration:
-        nodeRegistration:
-          kubeletExtraArgs:
-            cloud-provider: external
       preKubeadmCommands:
       - echo "waiting for the network"
       - sleep 150
