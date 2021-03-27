@@ -1,6 +1,6 @@
 module github.com/metal-stack/cluster-api-provider-metalstack
 
-go 1.15
+go 1.16
 
 replace github.com/ajeddeloh/yaml => github.com/ajeddeloh/yaml v0.0.0-20170912190910-6b94386aeefd // indirect
 
