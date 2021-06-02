@@ -52,14 +52,15 @@ providers:
   - sourcePath: "../../../templates/cluster-template.yaml"
 
 variables:
-  KUBERNETES_VERSION: "1.20.4"
+  KUBERNETES_VERSION: "1.21.1"
   CNI: "./data/cni/kindnet/kindnet.yaml"
+  WORKER_MACHINE_COUNT: 1
 
 intervals:
   default/wait-controllers: ["3m", "10s"]
-  default/wait-cluster: ["5m", "10s"]
+  default/wait-cluster: ["10m", "10s"]
   default/wait-control-plane: ["20m", "10s"]
-  default/wait-worker-nodes: ["20m", "10s"]
+  default/wait-worker-nodes: ["30m", "10s"]
   default/wait-delete-cluster: ["5m", "10s"]
   default/wait-machine-upgrade: ["15m", "10s"]
   default/wait-machine-remediation: ["5m", "10s"]

@@ -47,7 +47,7 @@ metadata:
 spec:
   template:
     spec:
-      image: ubuntu-cloud-init-20.04
+      image: "${NODE_IMAGE}"
       machineType: v1-small-x86
       providerID: metalstack://2294c949-88f6-5390-8154-fa53d93a3314
 ---
@@ -147,6 +147,8 @@ spec:
       - sudo rm key
       - echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list
       - sudo apt-get update
-      - sudo apt-get install -y cri-tools=1.13.0-01 kubelet=${KUBERNETES_VERSION}-00 kubectl=${KUBERNETES_VERSION}-00
-      - sudo apt-mark hold kubelet kubectl
+      - sudo apt-get install -y kubelet=${KUBERNETES_VERSION}-00 kubeadm=${KUBERNETES_VERSION}-00 kubectl=${KUBERNETES_VERSION}-00
+      - sudo apt-mark hold kubelet kubeadm kubectl
+      - kubeadm config migrate --old-config /tmp/kubeadm-join-config.yaml --new-config /tmp/new_kubeadm.yaml
+      - sudo mv /tmp/new_kubeadm.yaml /tmp/kubeadm-join-config.yaml
       - echo "preKubeadmCommands finished"
