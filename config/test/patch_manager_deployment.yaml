@@ -17,4 +17,4 @@ spec:
         envFrom: []
         name: manager
         image: ${METALSTACK_IMAGE}
-      hostNetwork: true
+      hostNetwork: false
