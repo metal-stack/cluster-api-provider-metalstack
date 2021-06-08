@@ -61,7 +61,7 @@ var _ = Describe("Workload cluster creation", func() {
 	})
 
 	Describe("Should create control-plane and worker", func() {
-		It("Should create a cluster", func() {
+		It("Should create a cluster and one worker", func() {
 			_ = clusterctl.ApplyClusterTemplateAndWait(ctx, clusterctl.ApplyClusterTemplateAndWaitInput{
 				ClusterProxy: bootstrapClusterProxy,
 				ConfigCluster: clusterctl.ConfigClusterInput{
@@ -74,7 +74,7 @@ var _ = Describe("Workload cluster creation", func() {
 					ClusterName:              clusterName,
 					KubernetesVersion:        e2eConfig.GetVariable(capi_e2e.KubernetesVersion),
 					ControlPlaneMachineCount: pointer.Int64Ptr(1),
-					WorkerMachineCount:       pointer.Int64Ptr(0),
+					WorkerMachineCount:       pointer.Int64Ptr(1),
 				},
 				WaitForClusterIntervals:      e2eConfig.GetIntervals(specName, "wait-cluster"),
 				WaitForControlPlaneIntervals: e2eConfig.GetIntervals(specName, "wait-control-plane"),

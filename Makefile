@@ -225,7 +225,7 @@ test: generate fmt vet crds
 # e2e tests rules
 .PHONY: mini-lab
 mini-lab:
-	$(MAKE) -C $(MINI_LAB_PATH)
+	MINI_LAB_FLAVOR=cluster-api $(MAKE) -C $(MINI_LAB_PATH)
 	$(MAKE) -C $(MINI_LAB_PATH) route
 	$(MAKE) -C $(MINI_LAB_PATH) fwrules
 
