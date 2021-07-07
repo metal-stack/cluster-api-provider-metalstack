@@ -219,7 +219,7 @@ $(KUBEBUILDER):
 	mv /tmp/kubebuilder_$(KUBEBUILDER_VERSION)_$(BUILDOS)_$(BUILDARCH) $(KUBEBUILDER_DIR)
 
 # Run tests
-test: generate fmt vet crds
+test: fmt vet
 	go test ./... -coverprofile cover.out
 
 # e2e tests rules

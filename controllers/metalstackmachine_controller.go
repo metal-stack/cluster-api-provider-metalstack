@@ -231,15 +231,16 @@ func (r *MetalStackMachineReconciler) newRequestToCreateMachine(ctx context.Cont
 	}
 
 	config := &metalgo.MachineCreateRequest{
-		Hostname:  name,
-		Image:     resources.metalMachine.Spec.Image,
-		Name:      name,
-		Networks:  networks,
-		Partition: resources.metalCluster.Spec.Partition,
-		Project:   resources.metalCluster.Spec.ProjectID,
-		Size:      resources.metalMachine.Spec.MachineType,
-		Tags:      resources.getTagsForRawMachine(),
-		UserData:  string(userData),
+		Hostname:      name,
+		Image:         resources.metalMachine.Spec.Image,
+		Name:          name,
+		Networks:      networks,
+		Partition:     resources.metalCluster.Spec.Partition,
+		Project:       resources.metalCluster.Spec.ProjectID,
+		Size:          resources.metalMachine.Spec.MachineType,
+		Tags:          resources.getTagsForRawMachine(),
+		SSHPublicKeys: resources.metalMachine.Spec.SSHKeys,
+		UserData:      string(userData),
 	}
 
 	// If ProviderID is provided set it in request
