@@ -17,6 +17,7 @@ limitations under the License.
 package controllers
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/golang/mock/gomock"
@@ -56,7 +57,7 @@ var _ = Describe("Reconcile MetalStackCluster", func() {
 			tc.MockFunc()
 		}
 
-		res, err := r.Reconcile(req)
+		res, err := r.Reconcile(context.TODO(), req)
 		if tc.Error {
 			Expect(err).To(HaveOccurred())
 		} else {

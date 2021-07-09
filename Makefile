@@ -36,19 +36,16 @@ VERSION ?= $(RELEASE_VERSION)
 # which arches can we support
 ARCHES=arm64 amd64
 
-QEMU_VERSION?=4.2.0-7
-QEMU_IMAGE?=multiarch/qemu-user-static:$(QEMU_VERSION)
-
-KUBEBUILDER_VERSION ?= 2.3.1
-# default install location for kubebuilder; can be placed elsewhere
-KUBEBUILDER_DIR ?= /usr/local/kubebuilder
-KUBEBUILDER ?= $(KUBEBUILDER_DIR)/bin/kubebuilder
-CONTROLLER_GEN_VERSION ?= v0.3.0
-CONTROLLER_GEN=$(GOBIN)/controller-gen
-
 CERTMANAGER_URL ?= https://github.com/jetstack/cert-manager/releases/download/v0.14.1/cert-manager.yaml
 
 REPO_URL ?= https://github.com/metal-stack/cluster-api-provider-metalstack
+
+# Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
+ifeq (,$(shell go env GOBIN))
+GOBIN=$(shell go env GOPATH)/bin
+else
+GOBIN=$(shell go env GOBIN)
+endif
 
 # BUILDARCH is the host architecture
 # ARCH is the target architecture
@@ -64,13 +61,23 @@ TOOLS_BIN_DIR := $(TOOLS_DIR)/bin
 BIN_DIR := bin
 TEST_DIR := test
 TEST_E2E_DIR := $(TEST_DIR)/e2e
+GO_INSTALL = ./scripts/go_install.sh
 
 # Binaries.
 KUSTOMIZE := $(TOOLS_BIN_DIR)/kustomize
 
-kustomize: $(KUSTOMIZE)
-$(KUSTOMIZE): $(TOOLS_DIR)/go.mod # Build kustomize from tools folder.
-	cd $(TOOLS_DIR); go build -tags=tools -o $(BIN_DIR)/kustomize sigs.k8s.io/kustomize/kustomize/v3
+KUBEBUILDER_VERSION ?= 2.3.1
+# default install location for kubebuilder; can be placed elsewhere
+KUBEBUILDER_DIR ?= /usr/local/kubebuilder
+KUBEBUILDER ?= $(KUBEBUILDER_DIR)/bin/kubebuilder
+
+CONTROLLER_GEN_VER := v0.6.1
+CONTROLLER_GEN_BIN := controller-gen
+CONTROLLER_GEN := $(GOBIN)/$(CONTROLLER_GEN_BIN)
+
+CONVERSION_GEN_VER := v0.21.2
+CONVERSION_GEN_BIN := conversion-gen
+CONVERSION_GEN := $(GOBIN)/$(CONVERSION_GEN_BIN)
 
 # canonicalized names for host architecture
 ifeq ($(BUILDARCH),aarch64)
@@ -118,13 +125,6 @@ GO ?= GO111MODULE=on CGO_ENABLED=0 go
 IMG ?= metalstack/cluster-api-provider-metalstack:latest
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
-
-# Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
-ifeq (,$(shell go env GOBIN))
-GOBIN=$(shell go env GOPATH)/bin
-else
-GOBIN=$(shell go env GOBIN)
-endif
 
 MANIFEST_TOOL ?= $(GOBIN)/manifest-tool
 
@@ -210,24 +210,44 @@ cd: confirm branchname
 	$(MAKE) tag-images-all push-all push-manifest IMAGETAG=${BRANCH_NAME}
 	$(MAKE) tag-images-all push-all push-manifest IMAGETAG=${GIT_VERSION}
 
-# needed kubebuilder for tests
-kubebuilder: $(KUBEBUILDER)
-$(KUBEBUILDER):
-	curl -sL https://go.kubebuilder.io/dl/$(KUBEBUILDER_VERSION)/$(BUILDOS)/$(BUILDARCH) | tar -xz -C /tmp/
-	# move to a long-term location and put it on your path
-	# (you'll need to set the KUBEBUILDER_ASSETS env var if you put it somewhere else)
-	mv /tmp/kubebuilder_$(KUBEBUILDER_VERSION)_$(BUILDOS)_$(BUILDARCH) $(KUBEBUILDER_DIR)
-
-# Run tests
-test: fmt vet
-	go test ./... -coverprofile cover.out
-
-# e2e tests rules
 .PHONY: mini-lab
 mini-lab:
 	MINI_LAB_FLAVOR=cluster-api $(MAKE) -C $(MINI_LAB_PATH)
 	$(MAKE) -C $(MINI_LAB_PATH) route
 	$(MAKE) -C $(MINI_LAB_PATH) fwrules
+
+## ------------
+## Tooling
+## ------------
+
+kustomize: $(KUSTOMIZE)
+$(KUSTOMIZE): $(TOOLS_DIR)/go.mod # Build kustomize from tools folder.
+	cd $(TOOLS_DIR); go build -tags=tools -o $(BIN_DIR)/kustomize sigs.k8s.io/kustomize/kustomize/v3
+
+kubebuilder: $(KUBEBUILDER)
+$(KUBEBUILDER): # kubebuilder is needed for tests
+	curl -sL https://go.kubebuilder.io/dl/$(KUBEBUILDER_VERSION)/$(BUILDOS)/$(BUILDARCH) | tar -xz -C /tmp/
+	# move to a long-term location and put it on your path
+	# (you'll need to set the KUBEBUILDER_ASSETS env var if you put it somewhere else)
+	mv /tmp/kubebuilder_$(KUBEBUILDER_VERSION)_$(BUILDOS)_$(BUILDARCH) $(KUBEBUILDER_DIR)
+
+controller-gen: $(CONTROLLER_GEN)
+$(CONTROLLER_GEN): # Build controller-gen from tools folder.
+	GOBIN=$(GOBIN) $(GO_INSTALL) sigs.k8s.io/controller-tools/cmd/controller-gen $(CONTROLLER_GEN_BIN) $(CONTROLLER_GEN_VER)
+
+conversion-gen: $(CONVERSION_GEN)
+$(CONVERSION_GEN): # Build conversion-gen.
+	GOBIN=$(GOBIN) $(GO_INSTALL) k8s.io/code-generator/cmd/conversion-gen $(CONVERSION_GEN_BIN) $(CONVERSION_GEN_VER)
+
+manager: $(MANAGER)
+$(MANAGER): generate fmt vet # Build manager binary
+	GOOS=$(OS) GOARCH=$(ARCH) $(GO) build -o $@ .
+
+## ------------
+## Tests
+## ------------
+test: fmt vet
+	go test ./... -coverprofile cover.out
 
 .PHONY: e2e-prep
 e2e-prep:
@@ -254,11 +274,6 @@ e2e-test:
 	# This is the name used inside the component.yaml for the container that runs the manager
 	# The image gets loaded inside kind from ./test/e2e/config/metalstack-dev.yaml
 	$(E2E_FLAGS) $(MAKE) -C $(TEST_E2E_DIR) run
-
-# Build manager binary
-manager: $(MANAGER)
-$(MANAGER): generate fmt vet
-	GOOS=$(OS) GOARCH=$(ARCH) $(GO) build -o $@ .
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet crds
@@ -296,8 +311,14 @@ vet:
 	go vet ./...
 
 # Generate code
-generate: controller-gen
+generate: controller-gen conversion-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
+	$(CONVERSION_GEN) \
+		--input-dirs=./api/v1alpha3 \
+		--build-tag=ignore_autogenerated \
+		--extra-peer-dirs=sigs.k8s.io/cluster-api/api/v1alpha3 \
+		--output-file-base=zz_generated.conversion \
+		--go-header-file=./hack/boilerplate.go.txt
 
 ## make the images for all supported ARCH
 image-all: $(addprefix sub-image-, $(ARCHES))
@@ -336,14 +357,6 @@ push-manifest: manifest-tool imagetag
 push-all: imagetag $(addprefix sub-push-, $(ARCHES))
 sub-push-%:
 	@$(MAKE) ARCH=$* push IMAGETAG=$(IMAGETAG)
-
-# find or download controller-gen
-# download controller-gen if necessary
-# version must be at least the given version
-.PHONY: $(CONTROLLER_GEN)
-controller-gen: $(CONTROLLER_GEN)
-$(CONTROLLER_GEN):
-	scripts/controller-gen.sh $@ $(CONTROLLER_GEN_VERSION)
 
 ## generate a cluster using clusterctl and setting defaults
 cluster:

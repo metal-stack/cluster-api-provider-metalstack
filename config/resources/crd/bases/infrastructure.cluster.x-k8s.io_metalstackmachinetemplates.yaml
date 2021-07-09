@@ -1,10 +1,10 @@
 
 ---
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.3.0
+    controller-gen.kubebuilder.io/version: v0.6.1
   creationTimestamp: null
   name: metalstackmachinetemplates.infrastructure.cluster.x-k8s.io
 spec:
@@ -17,68 +17,129 @@ spec:
     plural: metalstackmachinetemplates
     singular: metalstackmachinetemplate
   scope: Namespaced
-  validation:
-    openAPIV3Schema:
-      description: MetalStackMachineTemplate is the Schema for the metalstackmachinetemplates
-        API
-      properties:
-        apiVersion:
-          description: 'APIVersion defines the versioned schema of this representation
-            of an object. Servers should convert recognized schemas to the latest
-            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-          type: string
-        kind:
-          description: 'Kind is a string value representing the REST resource this
-            object represents. Servers may infer this from the endpoint the client
-            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-          type: string
-        metadata:
-          type: object
-        spec:
-          description: MetalStackMachineTemplateSpec defines the desired state of
-            MetalStackMachineTemplate
-          properties:
-            template:
-              description: MetalStackMachineTemplateResource describes the data needed
-                to create am MetalStackMachine from a template
-              properties:
-                spec:
-                  description: Spec is the specification of the desired behavior of
-                    the machine.
-                  properties:
-                    image:
-                      description: OS image
-                      type: string
-                    machineType:
-                      description: Machine type(currently specifies only size)
-                      type: string
-                    providerID:
-                      description: ID of Metal Stack machine
-                      type: string
-                    sshKeys:
-                      description: public SSH keys for machine
-                      items:
-                        type: string
-                      type: array
-                    tags:
-                      description: Set of tags to add to Metal Stack machine
-                      items:
-                        type: string
-                      type: array
-                  required:
-                  - image
-                  - machineType
-                  type: object
-              required:
-              - spec
-              type: object
-          required:
-          - template
-          type: object
-      type: object
-  version: v1alpha3
   versions:
   - name: v1alpha3
+    schema:
+      openAPIV3Schema:
+        description: MetalStackMachineTemplate is the Schema for the metalstackmachinetemplates
+          API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: MetalStackMachineTemplateSpec defines the desired state of
+              MetalStackMachineTemplate
+            properties:
+              template:
+                description: MetalStackMachineTemplateResource describes the data
+                  needed to create am MetalStackMachine from a template
+                properties:
+                  spec:
+                    description: Spec is the specification of the desired behavior
+                      of the machine.
+                    properties:
+                      image:
+                        description: OS image
+                        type: string
+                      machineType:
+                        description: Machine type(currently specifies only size)
+                        type: string
+                      providerID:
+                        description: ID of Metal Stack machine
+                        type: string
+                      sshKeys:
+                        description: public SSH keys for machine
+                        items:
+                          type: string
+                        type: array
+                      tags:
+                        description: Set of tags to add to Metal Stack machine
+                        items:
+                          type: string
+                        type: array
+                    required:
+                    - image
+                    - machineType
+                    type: object
+                required:
+                - spec
+                type: object
+            required:
+            - template
+            type: object
+        type: object
+    served: true
+    storage: false
+  - name: v1alpha4
+    schema:
+      openAPIV3Schema:
+        description: MetalStackMachineTemplate is the Schema for the metalstackmachinetemplates
+          API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: MetalStackMachineTemplateSpec defines the desired state of
+              MetalStackMachineTemplate
+            properties:
+              template:
+                description: MetalStackMachineTemplateResource describes the data
+                  needed to create am MetalStackMachine from a template
+                properties:
+                  spec:
+                    description: Spec is the specification of the desired behavior
+                      of the machine.
+                    properties:
+                      image:
+                        description: OS image
+                        type: string
+                      machineType:
+                        description: Machine type(currently specifies only size)
+                        type: string
+                      providerID:
+                        description: ID of Metal Stack machine
+                        type: string
+                      sshKeys:
+                        description: public SSH keys for machine
+                        items:
+                          type: string
+                        type: array
+                      tags:
+                        description: Set of tags to add to Metal Stack machine
+                        items:
+                          type: string
+                        type: array
+                    required:
+                    - image
+                    - machineType
+                    type: object
+                required:
+                - spec
+                type: object
+            required:
+            - template
+            type: object
+        type: object
     served: true
     storage: true
 status:

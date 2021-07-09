@@ -5,7 +5,7 @@ Resource that provides configuration for running machine on Metal Stack.
 ## Usage example
 
 ```yaml
-apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
 kind: MetalStackMachine
 metadata:
   name: test1-hglxe-master-0
@@ -17,7 +17,7 @@ spec:
 
 After reconcilation:
 ```yaml
-apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
 kind: MetalStackMachine
 metadata:
   name: test1-hglxe-master-0

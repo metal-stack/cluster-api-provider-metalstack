@@ -17,10 +17,10 @@ limitations under the License.
 package controllers
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/golang/mock/gomock"
-	"github.com/metal-stack/cluster-api-provider-metalstack/controllers/mocks"
 	metalgo "github.com/metal-stack/metal-go"
 	metalmodels "github.com/metal-stack/metal-go/api/models"
 	. "github.com/onsi/ginkgo"
@@ -30,6 +30,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/metal-stack/cluster-api-provider-metalstack/controllers/mocks"
 )
 
 var _ = Describe("Reconcile MetalStackFirewall", func() {
@@ -56,7 +58,7 @@ var _ = Describe("Reconcile MetalStackFirewall", func() {
 			tc.MockFunc()
 		}
 
-		res, err := r.Reconcile(req)
+		res, err := r.Reconcile(context.TODO(), req)
 		if tc.Error {
 			Expect(err).To(HaveOccurred())
 		} else {

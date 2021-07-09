@@ -5,7 +5,7 @@ Resource that provides Firewall configuration.
 ## Usage example
 Firewall spec usually should be defined in `MetalStackCluster` resource `firewallSpec` field. Then `MetalStackCluster` controller will create `MetalStackFirewall` resource when all required data is ready(private network ID and kubeconfig for cluster):
 ```yaml
-apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
 kind: MetalStackCluster
 metadata:
   name: test1-v8vmn
@@ -25,7 +25,7 @@ spec:
 
 After `MetalStackCluster` and `MetalStackFirewall` controllers reconcilation:
 ```yaml
-apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
 kind: MetalStackFirewall
 metadata:
   name: test1-v8vmn

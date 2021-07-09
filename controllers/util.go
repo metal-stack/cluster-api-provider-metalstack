@@ -21,7 +21,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	api "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
+	api "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha4"
 	metalgo "github.com/metal-stack/metal-go"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
