@@ -18,7 +18,7 @@ jobs:
       - name: Install kubebuilder
         run: |
           sudo make kubebuilder
-      
+
       - name: Run tests
         run: |
           make test
@@ -58,3 +58,6 @@ jobs:
         ./scripts/ci-prep.sh
         make e2e-prep
         make e2e-run
+      env:
+        DOCKER_HUB_USER: ${{ secrets.DOCKER_HUB_USER }}
+        DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_HUB_TOKEN }}
