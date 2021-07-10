@@ -128,12 +128,6 @@ CRD_OPTIONS ?= "crd:trivialVersions=true"
 
 MANIFEST_TOOL ?= $(GOBIN)/manifest-tool
 
-# where we store downloaded core
-COREPATH ?= out/core
-CORE_VERSION ?= v0.3.5
-CORE_API ?= https://api.github.com/repos/kubernetes-sigs/cluster-api/releases
-CORE_URL ?= https://github.com/kubernetes-sigs/cluster-api/releases/download/$(CORE_VERSION)
-
 # metadata file to be included in releases
 METADATA_YAML ?= metadata.yaml
 
@@ -360,7 +354,7 @@ sub-push-%:
 
 ## generate a cluster using clusterctl and setting defaults
 cluster:
-	RELEASE_VERSION=$(RELEASE_VERSION) ./scripts/generate-cluster.sh
+	RELEASE_TYPE=managerless RELEASE_VERSION=$(RELEASE_VERSION) ./scripts/generate-cluster.sh
 
 $(RELEASE_DIR) $(RELEASE_BASE) $(MANAGERLESS_DIR) $(MANAGERLESS_BASE) $(MANAGER_TEST_DIR) $(MANAGER_TEST_BASE):
 	mkdir -p $@
@@ -435,13 +429,5 @@ $(MANAGER_TEST_CLUSTERCTLYAML): $(MANAGER_TEST_BASE)
 	@echo "manager-test is ready, command-line is:"
 	@echo "	clusterctl --config=$@ <commands>"
 
-$(COREPATH):
-	mkdir -p $@
-
-$(COREPATH)/%:
-	curl -s -L -o $@ $(CORE_URL)/$*
-
-core: $(COREPATH)
-	# download from core
-	@$(eval YAMLS := $(shell curl -s -L $(CORE_API) | jq -r '[.[] | select(.tag_name == "$(CORE_VERSION)").assets[] | select(.name | contains("yaml")) | .name] | join(" ")'))
-	@if [ -n "$(YAMLS)" ]; then $(MAKE) $(addprefix $(COREPATH)/,$(YAMLS)); fi
+cluster-test:
+	RELEASE_TYPE=test RELEASE_VERSION=$(RELEASE_VERSION) ./scripts/generate-cluster.sh

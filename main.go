@@ -29,7 +29,7 @@ import (
 
 	metalgo "github.com/metal-stack/metal-go"
 
-	clusterapi "sigs.k8s.io/cluster-api/api/v1alpha3"
+	clusterapi "sigs.k8s.io/cluster-api/api/v1alpha4"
 
 	infra "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha4"
 	"github.com/metal-stack/cluster-api-provider-metalstack/controllers"

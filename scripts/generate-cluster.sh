@@ -20,7 +20,7 @@ CLUSTERCTL=${CLUSTERCTL:-clusterctl}
 
 # might want to use a specific config URL
 CONFIG_URL=${CONFIG_URL:-""}
-CONFIG_OPT=${CONFIG_OPT:-"--config=out/managerless/infrastructure-metalstack/clusterctl-${RELEASE_VERSION}.yaml"}
+CONFIG_OPT=${CONFIG_OPT:-"--config=out/${RELEASE_TYPE}/infrastructure-metalstack/clusterctl-${RELEASE_VERSION}.yaml"}
 if [ -n "$CONFIG_URL" ]; then
 	CONFIG_OPT="--config ${CONFIG_URL}"
 fi
@@ -78,7 +78,7 @@ FACILITY=PARTITION
 # and now export them all so envsubst can use them
 export PROJECT_ID PARTITION NETWORK_ID NODE_IMAGE CONTROL_PLANE_IP WORKER_NODE_TYPE MASTER_NODE_TYPE POD_CIDR SERVICE_CIDR SSH_KEY KUBERNETES_VERSION NODE_OS FACILITY
 echo "${CLUSTERCTL} -v3 ${CONFIG_OPT} --infrastructure=metalstack config cluster ${CLUSTER_NAME} > $TEMPLATE_OUT"
-${CLUSTERCTL} -v3 ${CONFIG_OPT} --infrastructure=metalstack config cluster ${CLUSTER_NAME} > $TEMPLATE_OUT
+${CLUSTERCTL} -v3 ${CONFIG_OPT} --infrastructure=metalstack generate cluster ${CLUSTER_NAME} > $TEMPLATE_OUT
 
 echo "Done! See output file at ${TEMPLATE_OUT}. Run:"
 echo "   kubectl apply -f ${TEMPLATE_OUT}"

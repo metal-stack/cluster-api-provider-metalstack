@@ -3,6 +3,7 @@
 # - cluster-api
 # - bootstrap kubeadm
 # - control-plane kubeadm
+# - metalstack
 
 providers:
 - name: cluster-api
@@ -11,6 +12,8 @@ providers:
   - name: v0.4.0
     value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v0.4.0/core-components.yaml"
     type: "url"
+    files:
+      - sourcePath: "../../../metadata.yaml"
     replacements:
     - old: "imagePullPolicy: Always"
       new: "imagePullPolicy: IfNotPresent"
@@ -23,6 +26,8 @@ providers:
   - name: v0.4.0
     value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v0.4.0/bootstrap-components.yaml"
     type: "url"
+    files:
+      - sourcePath: "../../../metadata.yaml"
     replacements:
     - old: "imagePullPolicy: Always"
       new: "imagePullPolicy: IfNotPresent"
@@ -35,6 +40,8 @@ providers:
   - name: v0.4.0
     value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v0.4.0/control-plane-components.yaml"
     type: "url"
+    files:
+      - sourcePath: "../../../metadata.yaml"
     replacements:
     - old: "imagePullPolicy: Always"
       new: "imagePullPolicy: IfNotPresent"
@@ -46,6 +53,8 @@ providers:
   versions:
   - name: v0.4.0
     value: "../../../config/test"
+    files:
+      - sourcePath: "../../../metadata.yaml"
   files:
   - sourcePath: "../../../metadata.yaml"
     targetName: "metadata.yaml"

@@ -4,13 +4,14 @@ metadata:
   name: "${CLUSTER_NAME}-controlplane"
   namespace: default
 spec:
-  nodeDrainTimeout: "0s"
   replicas: 1
   version: ${KUBERNETES_VERSION}
-  infrastructureTemplate:
-    kind: MetalStackMachineTemplate
-    apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
-    name: "${CLUSTER_NAME}-controlplane"
+  machineTemplate:
+    nodeDrainTimeout: "0s"
+    infrastructureRef:
+      kind: MetalStackMachineTemplate
+      apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
+      name: "${CLUSTER_NAME}-controlplane"
   kubeadmConfigSpec:
     preKubeadmCommands:
     - echo "waiting for the network"
@@ -24,8 +25,6 @@ spec:
     - sudo apt-get update
     - sudo apt-get install -y kubelet=${KUBERNETES_VERSION}-00 kubeadm=${KUBERNETES_VERSION}-00 kubectl=${KUBERNETES_VERSION}-00
     - sudo apt-mark hold kubelet kubeadm kubectl
-    - kubeadm config migrate --old-config /tmp/kubeadm.yaml --new-config /tmp/new_kubeadm.yaml
-    - sudo rm /tmp/kubeadm.yaml && sudo mv /tmp/new_kubeadm.yaml /tmp/kubeadm.yaml
     - echo "preKubeadmCommands finished"
     postKubeadmCommands:
     - sudo kubeadm init --config=/tmp/kubeadm.yaml --ignore-preflight-errors=NumCPU,Mem
@@ -125,7 +124,6 @@ spec:
     spec:
       image: "${NODE_IMAGE}"
       machineType: "${WORKER_NODE_TYPE}"
-      partition: "${PARTITION}"
 ---
 kind: KubeadmConfigTemplate
 apiVersion: bootstrap.cluster.x-k8s.io/v1alpha4
@@ -147,6 +145,4 @@ spec:
       - sudo apt-get update
       - sudo apt-get install -y kubelet=${KUBERNETES_VERSION}-00 kubeadm=${KUBERNETES_VERSION}-00 kubectl=${KUBERNETES_VERSION}-00
       - sudo apt-mark hold kubelet kubeadm kubectl
-      - kubeadm config migrate --old-config /tmp/kubeadm-join-config.yaml --new-config /tmp/new_kubeadm.yaml
-      - sudo mv /tmp/new_kubeadm.yaml /tmp/kubeadm-join-config.yaml
       - echo "preKubeadmCommands finished"
