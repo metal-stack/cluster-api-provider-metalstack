@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha3
+package v1alpha4
 
 import (
 	"errors"
@@ -141,6 +141,7 @@ func (st *MetalStackMachineStatus) SetFailure(msg string, err clustererr.Machine
 // +kubebuilder:subresource:status
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=metalstackmachines,scope=Namespaced,categories=cluster-api
+// +kubebuilder:storageversion
 // +kubebuilder:printcolumn:name="Cluster",type="string",JSONPath=".metadata.labels.cluster\\.x-k8s\\.io/cluster-name",description="Cluster to which this MetalStackMachine belongs"
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.instanceState",description="MetalStack instance state"
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.ready",description="Machine ready status"
@@ -156,6 +157,8 @@ type MetalStackMachine struct {
 	Status MetalStackMachineStatus `json:"status,omitempty"`
 }
 
+func (*MetalStackMachine) Hub() {}
+
 // +kubebuilder:object:root=true
 
 // MetalStackMachineList contains a list of MetalStackMachine
@@ -164,6 +167,8 @@ type MetalStackMachineList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []MetalStackMachine `json:"items"`
 }
+
+func (*MetalStackMachineList) Hub() {}
 
 func init() {
 	SchemeBuilder.Register(&MetalStackMachine{}, &MetalStackMachineList{})

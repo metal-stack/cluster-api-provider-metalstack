@@ -26,10 +26,11 @@ import (
 	"github.com/go-logr/logr"
 	metalgo "github.com/metal-stack/metal-go"
 	corev1 "k8s.io/api/core/v1"
-	capiv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
+	capiv1 "sigs.k8s.io/cluster-api/api/v1alpha4"
 	capiremote "sigs.k8s.io/cluster-api/controllers/remote"
 	capierr "sigs.k8s.io/cluster-api/errors"
 	"sigs.k8s.io/cluster-api/util"
+	"sigs.k8s.io/cluster-api/util/annotations"
 	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -38,7 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	api "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
+	api "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha4"
 )
 
 // MetalStackMachineReconciler reconciles a MetalStackMachine object
@@ -52,8 +53,10 @@ type MetalStackMachineReconciler struct {
 // todo: Remove the dependency on manager in this package.
 func NewMetalStackMachineReconciler(metalClient MetalStackClient, mgr manager.Manager) (reconciler *MetalStackMachineReconciler, err error) {
 	clusterTracker, err := capiremote.NewClusterCacheTracker(
-		ctrl.Log.WithName("remote").WithName("ClusterCacheTracker"),
 		mgr,
+		capiremote.ClusterCacheTrackerOptions{
+			Log: ctrl.Log.WithName("remote").WithName("ClusterCacheTracker"),
+		},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to init ClusterTracker: %w", err)
@@ -77,23 +80,22 @@ func (r *MetalStackMachineReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&api.MetalStackMachine{}).
 		Watches(
 			&source.Kind{Type: &capiv1.Machine{}},
-			&handler.EnqueueRequestsFromMapFunc{
-				ToRequests: util.MachineToInfrastructureMapFunc(api.GroupVersion.WithKind("MetalStackMachine")),
-			},
+			handler.EnqueueRequestsFromMapFunc(
+				util.MachineToInfrastructureMapFunc(api.GroupVersion.WithKind("MetalStackMachine")),
+			),
 		).
 		Complete(r)
 }
 
 // Reconcile reconciles MetalStackMachine resource
-func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, err error) {
-	ctx := context.Background()
+func (r *MetalStackMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, err error) {
 	logger := r.Log.WithValues("MetalStackMachine", req.NamespacedName)
 
 	logger.Info("Starting MetalStackMachine reconcilation")
 
 	resources, err := newMetalStackMachineResources(ctx, logger, r.Client, req.NamespacedName)
 	if err != nil {
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+		return ctrl.Result{}, err
 	}
 	if resources == nil {
 		logger.Info("Resources is nil")
@@ -105,7 +107,7 @@ func (r *MetalStackMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		return ctrl.Result{}, nil
 	}
 
-	if util.IsPaused(resources.cluster, resources.metalMachine) {
+	if annotations.IsPaused(resources.cluster, resources.metalMachine) {
 		resources.logger.Info("Cluster or MetalStackMachine is paused")
 		return ctrl.Result{Requeue: true}, nil
 	}

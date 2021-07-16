@@ -21,13 +21,14 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	api "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
 	"github.com/metal-stack/metal-go/api/models"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	capiv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
+	capiv1 "sigs.k8s.io/cluster-api/api/v1alpha4"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	api "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha4"
 )
 
 type metalStackMachineResources struct {
@@ -48,7 +49,7 @@ func newMetalStackMachineResources(
 ) (*metalStackMachineResources, error) {
 	metalMachine := &api.MetalStackMachine{}
 	if err := k8sClient.Get(ctx, namespacedName, metalMachine); err != nil {
-		return nil, err
+		return nil, client.IgnoreNotFound(err)
 	}
 
 	machine, err := util.GetOwnerMachine(ctx, k8sClient, metalMachine.ObjectMeta)
@@ -60,8 +61,6 @@ func newMetalStackMachineResources(
 		return nil, nil
 	}
 
-	// todo: Check if the failure still holds after some time.
-	// todo: Check the logic of failure. It should be Idempotent.
 	if metalMachine.Status.Failed() {
 		logger.Info("MetalStackMachine is failing")
 		return nil, nil

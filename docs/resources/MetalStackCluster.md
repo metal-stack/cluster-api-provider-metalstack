@@ -5,7 +5,7 @@ Resource that provides Metal Stack specific Cluster configuration.
 ## Usage example
 
 ```yaml
-apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
 kind: MetalStackCluster
 metadata:
   name: metal-stack-cluster
@@ -24,7 +24,7 @@ spec:
 
 After reconcilation:
 ```yaml
-apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
 kind: MetalStackCluster
 metadata:
   name: metal-stack-cluster

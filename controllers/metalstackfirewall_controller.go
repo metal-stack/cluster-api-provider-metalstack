@@ -21,11 +21,11 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	api "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
+	api "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha4"
 	metalgo "github.com/metal-stack/metal-go"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	capi "sigs.k8s.io/cluster-api/api/v1alpha3"
+	capi "sigs.k8s.io/cluster-api/api/v1alpha4"
 	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -59,8 +59,7 @@ func (r *MetalStackFirewallReconciler) SetupWithManager(mgr ctrl.Manager) error 
 		Complete(r)
 }
 
-func (r *MetalStackFirewallReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	ctx := context.Background()
+func (r *MetalStackFirewallReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := r.Log.WithValues("MetalStackFirewall", req.NamespacedName)
 
 	// Fetch the MetalStackFirewall in the Request.
@@ -93,14 +92,13 @@ func (r *MetalStackFirewallReconciler) Reconcile(req ctrl.Request) (ctrl.Result,
 	}()
 
 	if !firewall.ObjectMeta.DeletionTimestamp.IsZero() {
-		return r.reconcileDelete(ctx, logger, firewall, metalCluster)
+		return r.reconcileDelete(logger, firewall, metalCluster)
 	}
 
 	return r.reconcile(ctx, logger, firewall, metalCluster)
 }
 
 func (r *MetalStackFirewallReconciler) reconcileDelete(
-	ctx context.Context,
 	logger logr.Logger,
 	firewall *api.MetalStackFirewall,
 	metalCluster *api.MetalStackCluster,

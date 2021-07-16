@@ -20,7 +20,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	api "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
+	api "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha4"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -30,10 +30,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog"
-	"k8s.io/klog/klogr"
+	"k8s.io/klog/v2"
+	"k8s.io/klog/v2/klogr"
 	"k8s.io/utils/pointer"
-	capi "sigs.k8s.io/cluster-api/api/v1alpha3"
+	capi "sigs.k8s.io/cluster-api/api/v1alpha4"
 	capiremote "sigs.k8s.io/cluster-api/controllers/remote"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -78,7 +78,7 @@ func TestAPIs(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(done Done) {
-	logf.SetLogger(zap.LoggerTo(GinkgoWriter, true))
+	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
@@ -134,6 +134,7 @@ func newTestMetalMachineReconciler(metalClient MetalStackClient, objects []runti
 		Client: client,
 		Log:    log,
 		ClusterTracker: capiremote.NewTestClusterCacheTracker(
+			zap.New(zap.UseDevMode(true)),
 			client,
 			scheme,
 			types.NamespacedName{

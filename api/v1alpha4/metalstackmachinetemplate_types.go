@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha3
+package v1alpha4
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,6 +27,7 @@ type MetalStackMachineTemplateSpec struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=metalstackmachinetemplates,scope=Namespaced,categories=cluster-api
+// +kubebuilder:storageversion
 
 // MetalStackMachineTemplate is the Schema for the metalstackmachinetemplates API
 type MetalStackMachineTemplate struct {
@@ -36,6 +37,8 @@ type MetalStackMachineTemplate struct {
 	Spec MetalStackMachineTemplateSpec `json:"spec,omitempty"`
 }
 
+func (*MetalStackMachineTemplate) Hub() {}
+
 // +kubebuilder:object:root=true
 
 // MetalStackMachineTemplateList contains a list of metalstackMachineTemplate
@@ -44,6 +47,8 @@ type MetalStackMachineTemplateList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []MetalStackMachineTemplate `json:"items"`
 }
+
+func (*MetalStackMachineTemplateList) Hub() {}
 
 func init() {
 	SchemeBuilder.Register(&MetalStackMachineTemplate{}, &MetalStackMachineTemplateList{})

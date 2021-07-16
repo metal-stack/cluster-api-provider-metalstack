@@ -17,12 +17,13 @@ limitations under the License.
 package controllers
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/golang/mock/gomock"
-	"github.com/metal-stack/cluster-api-provider-metalstack/controllers/mocks"
 	metalgo "github.com/metal-stack/metal-go"
 	metalmodels "github.com/metal-stack/metal-go/api/models"
+
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -30,6 +31,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/metal-stack/cluster-api-provider-metalstack/controllers/mocks"
 )
 
 var _ = Describe("Reconcile MetalStackMachine", func() {
@@ -56,7 +59,7 @@ var _ = Describe("Reconcile MetalStackMachine", func() {
 			tc.MockFunc()
 		}
 
-		res, err := r.Reconcile(req)
+		res, err := r.Reconcile(context.TODO(), req)
 		if tc.Error {
 			Expect(err).To(HaveOccurred())
 		} else {

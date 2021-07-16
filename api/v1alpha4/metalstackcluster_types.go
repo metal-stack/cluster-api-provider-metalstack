@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha3
+package v1alpha4
 
 import (
 	"fmt"
@@ -22,7 +22,7 @@ import (
 	"github.com/metal-stack/metal-lib/pkg/tag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/cluster-api/api/v1alpha3"
+	"sigs.k8s.io/cluster-api/api/v1alpha4"
 	capierrors "sigs.k8s.io/cluster-api/errors"
 )
 
@@ -39,7 +39,7 @@ type MetalStackClusterSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// ControlPlaneEndpoint represents the endpoint used to communicate with the control plane.
-	ControlPlaneEndpoint v1alpha3.APIEndpoint `json:"controlPlaneEndpoint,omitempty"`
+	ControlPlaneEndpoint v1alpha4.APIEndpoint `json:"controlPlaneEndpoint,omitempty"`
 
 	// ProjectID is the projectID of the project in which K8s cluster should be deployed
 	ProjectID string `json:"projectID,omitempty"`
@@ -83,6 +83,7 @@ type MetalStackClusterStatus struct {
 
 // +kubebuilder:subresource:status
 // +kubebuilder:object:root=true
+// +kubebuilder:storageversion
 
 // MetalStackCluster is the Schema for the MetalStackclusters API
 type MetalStackCluster struct {
@@ -92,6 +93,8 @@ type MetalStackCluster struct {
 	Spec   MetalStackClusterSpec   `json:"spec,omitempty"`
 	Status MetalStackClusterStatus `json:"status,omitempty"`
 }
+
+func (*MetalStackCluster) Hub() {}
 
 func (cluster *MetalStackCluster) GetFirewallNamespacedName() types.NamespacedName {
 	return types.NamespacedName{
@@ -112,6 +115,8 @@ type MetalStackClusterList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []MetalStackCluster `json:"items"`
 }
+
+func (*MetalStackClusterList) Hub() {}
 
 func init() {
 	SchemeBuilder.Register(&MetalStackCluster{}, &MetalStackClusterList{})

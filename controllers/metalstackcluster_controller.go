@@ -21,15 +21,16 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	api "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha3"
+	api "github.com/metal-stack/cluster-api-provider-metalstack/api/v1alpha4"
 	metalgo "github.com/metal-stack/metal-go"
 	"github.com/metal-stack/metal-lib/pkg/tag"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/pointer"
-	capi "sigs.k8s.io/cluster-api/api/v1alpha3"
+	capi "sigs.k8s.io/cluster-api/api/v1alpha4"
 	capierrors "sigs.k8s.io/cluster-api/errors"
 	"sigs.k8s.io/cluster-api/util"
+	"sigs.k8s.io/cluster-api/util/annotations"
 	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -65,15 +66,15 @@ func (r *MetalStackClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&api.MetalStackCluster{}).
 		Watches(
 			&source.Kind{Type: &capi.Cluster{}},
-			&handler.EnqueueRequestsFromMapFunc{
-				ToRequests: util.ClusterToInfrastructureMapFunc(api.GroupVersion.WithKind("MetalStackCluster")),
-			}).
+			handler.EnqueueRequestsFromMapFunc(
+				util.ClusterToInfrastructureMapFunc(api.GroupVersion.WithKind("MetalStackCluster")),
+			),
+		).
 		Complete(r)
 }
 
 // Reconcile reconciles MetalStackCluster resource
-func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, err error) {
-	ctx := context.Background()
+func (r *MetalStackClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, err error) {
 	logger := r.Log.WithValues("MetalStackCluster", req.NamespacedName)
 
 	logger.Info("Starting MetalStackCluster reconcilation")
@@ -111,7 +112,7 @@ func (r *MetalStackClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	if util.IsPaused(cluster, metalCluster) {
+	if annotations.IsPaused(cluster, metalCluster) {
 		logger.Info("reconcilation is paused for this object")
 		return ctrl.Result{Requeue: true}, nil
 	}

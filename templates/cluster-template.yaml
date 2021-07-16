@@ -1,16 +1,17 @@
 kind: KubeadmControlPlane
-apiVersion: controlplane.cluster.x-k8s.io/v1alpha3
+apiVersion: controlplane.cluster.x-k8s.io/v1alpha4
 metadata:
   name: "${CLUSTER_NAME}-controlplane"
   namespace: default
 spec:
-  nodeDrainTimeout: "0s"
   replicas: 1
   version: ${KUBERNETES_VERSION}
-  infrastructureTemplate:
-    kind: MetalStackMachineTemplate
-    apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
-    name: "${CLUSTER_NAME}-controlplane"
+  machineTemplate:
+    nodeDrainTimeout: "0s"
+    infrastructureRef:
+      kind: MetalStackMachineTemplate
+      apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
+      name: "${CLUSTER_NAME}-controlplane"
   kubeadmConfigSpec:
     preKubeadmCommands:
     - echo "waiting for the network"
@@ -24,11 +25,9 @@ spec:
     - sudo apt-get update
     - sudo apt-get install -y kubelet=${KUBERNETES_VERSION}-00 kubeadm=${KUBERNETES_VERSION}-00 kubectl=${KUBERNETES_VERSION}-00
     - sudo apt-mark hold kubelet kubeadm kubectl
-    - kubeadm config migrate --old-config /tmp/kubeadm.yaml --new-config /tmp/new_kubeadm.yaml
-    - sudo rm /tmp/kubeadm.yaml && sudo mv /tmp/new_kubeadm.yaml /tmp/kubeadm.yaml
     - echo "preKubeadmCommands finished"
     postKubeadmCommands:
-    - sudo kubeadm init --config=/tmp/kubeadm.yaml --ignore-preflight-errors=NumCPU,Mem
+    - sudo kubeadm init --config /run/kubeadm/kubeadm.yaml --ignore-preflight-errors=NumCPU,Mem
     - sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
     initConfiguration:
       localAPIEndpoint:
@@ -39,7 +38,7 @@ spec:
         extraArgs:
           enable-hostpath-provisioner: "true"
 ---
-apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
 kind: MetalStackMachineTemplate
 metadata:
   name: "${CLUSTER_NAME}-controlplane"
@@ -51,7 +50,7 @@ spec:
       machineType: v1-small-x86
       providerID: metalstack://2294c949-88f6-5390-8154-fa53d93a3314
 ---
-apiVersion: cluster.x-k8s.io/v1alpha3
+apiVersion: cluster.x-k8s.io/v1alpha4
 kind: Cluster
 metadata:
   name: "${CLUSTER_NAME}"
@@ -60,15 +59,15 @@ spec:
     pods:
       cidrBlocks: ["${POD_CIDR}"]
   infrastructureRef:
-    apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
+    apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
     kind: MetalStackCluster
     name: "${CLUSTER_NAME}"
   controlPlaneRef:
     kind: KubeadmControlPlane
-    apiVersion: controlplane.cluster.x-k8s.io/v1alpha3
+    apiVersion: controlplane.cluster.x-k8s.io/v1alpha4
     name: "${CLUSTER_NAME}-controlplane"
 ---
-apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
 kind: MetalStackCluster
 metadata:
   name: "${CLUSTER_NAME}"
@@ -84,7 +83,7 @@ spec:
   projectID: 00000000-0000-0000-0000-000000000000
   publicNetworkID: internet-vagrant-lab
 ---
-apiVersion: cluster.x-k8s.io/v1alpha3
+apiVersion: cluster.x-k8s.io/v1alpha4
 kind: MachineDeployment
 metadata:
   name: ${CLUSTER_NAME}-worker-a
@@ -109,14 +108,14 @@ spec:
       bootstrap:
         configRef:
           name: ${CLUSTER_NAME}-worker-a
-          apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
+          apiVersion: bootstrap.cluster.x-k8s.io/v1alpha4
           kind: KubeadmConfigTemplate
       infrastructureRef:
         name: ${CLUSTER_NAME}-worker-a
-        apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
+        apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
         kind: MetalStackMachineTemplate
 ---
-apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
 kind: MetalStackMachineTemplate
 metadata:
   name: ${CLUSTER_NAME}-worker-a
@@ -125,10 +124,9 @@ spec:
     spec:
       image: "${NODE_IMAGE}"
       machineType: "${WORKER_NODE_TYPE}"
-      partition: "${PARTITION}"
 ---
 kind: KubeadmConfigTemplate
-apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
+apiVersion: bootstrap.cluster.x-k8s.io/v1alpha4
 metadata:
   name: "${CLUSTER_NAME}-worker-a"
 spec:
@@ -147,6 +145,4 @@ spec:
       - sudo apt-get update
       - sudo apt-get install -y kubelet=${KUBERNETES_VERSION}-00 kubeadm=${KUBERNETES_VERSION}-00 kubectl=${KUBERNETES_VERSION}-00
       - sudo apt-mark hold kubelet kubeadm kubectl
-      - kubeadm config migrate --old-config /tmp/kubeadm-join-config.yaml --new-config /tmp/new_kubeadm.yaml
-      - sudo mv /tmp/new_kubeadm.yaml /tmp/kubeadm-join-config.yaml
       - echo "preKubeadmCommands finished"

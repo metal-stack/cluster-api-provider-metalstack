@@ -23,7 +23,7 @@ resources:
 #- ../prometheus
 images:
 - name: metalstack-controller # images with this name
-  newTag: v0.3.0-dirty # {"type":"string","x-kustomize":{"setter":{"name":"image-tag","value":"v0.3.0-dirty"}}}
+  newTag: v0.4.0-dirty
   newName: metalstack/cluster-api-provider-metalstack # and this name
 patchesStrategicMerge:
 # Protect the /metrics endpoint by putting it behind auth.

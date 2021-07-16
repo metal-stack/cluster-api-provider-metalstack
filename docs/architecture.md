@@ -128,7 +128,7 @@ Watches new/updated/deleted `MetalStackFirewall` resources. Responsible for:
 #### Reconciliation example
 Initial state of new `MetalStackFirewall` resource:
 ```yaml
-apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
 kind: MetalStackFirewall
 metadata:
   name: test1-v8vmn
@@ -145,7 +145,7 @@ status:
 
 State of resource after reconciliation:
 ```yaml
-apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
 kind: MetalStackFirewall
 metadata:
   name: test1-v8vmn
