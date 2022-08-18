@@ -254,7 +254,7 @@ e2e-run:
 		-f Dockerfile-e2e \
 		-t e2e-test .
 	docker run --rm --network host \
-		-e METALCTL_URL \
+		-e METALCTL_API_URL \
 		-e METALCTL_HMAC \
 		-e IMAGE_TAG \
 		--name e2e-test e2e-test
@@ -294,7 +294,7 @@ crds: controller-gen
 		output:crd:artifacts:config=config/resources/crd/bases \
 		output:rbac:dir=config/resources/rbac \
 		rbac:roleName=manager-role \
-		webhook   
+		webhook
 
 # Run go fmt against code
 fmt:
